@@ -51,6 +51,17 @@ internal class GatewayHttpException(
     message: String
 ) : IllegalStateException(message)
 
+internal data class ModelContentRange(val first: Long, val last: Long, val total: Long)
+
+internal fun parseModelContentRange(value: String?): ModelContentRange? {
+    val match = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$", RegexOption.IGNORE_CASE)
+        .matchEntire(value?.trim().orEmpty()) ?: return null
+    val first = match.groupValues[1].toLongOrNull() ?: return null
+    val last = match.groupValues[2].toLongOrNull() ?: return null
+    val total = match.groupValues[3].toLongOrNull() ?: return null
+    return ModelContentRange(first, last, total)
+}
+
 internal fun shouldFallbackToLocal(error: Exception): Boolean {
     if (error is java.io.IOException) return true
     if (error is IllegalArgumentException) {
@@ -387,7 +398,7 @@ class MainActivity : ComponentActivity() {
                     val range = parseModelContentRange(response.header("Content-Range"))
                         ?: throw IllegalStateException("The model host returned an invalid resume range.")
                     require(range.first == offset && range.last >= range.first && range.total in 1..maxBytes) {
-                        "The model host returned a mismatched resume range. Partial download was kept for a safe retry."
+                        "The model host returned a mismatched resume range. The partial file must be checked before retrying."
                     }
                     totalLength = range.total
                 } else {
@@ -403,7 +414,7 @@ class MainActivity : ComponentActivity() {
                     "Not enough free storage. Keep at least 1 GB free after installation."
                 }
                 var written = if (append) offset else 0L
-                onProgress(written, totalLength)
+                withContext(Dispatchers.Main) { withContext(Dispatchers.Main) { withContext(Dispatchers.Main) { onProgress(written, totalLength) } } }
                 body.byteStream().use { input ->
                     java.io.RandomAccessFile(temporary, "rw").use { output ->
                         output.seek(written)
@@ -462,21 +473,11 @@ class MainActivity : ComponentActivity() {
             }
         } catch (error: Exception) {
             // Keep a bounded .part file on transient IO failures so the next tap can resume.
-            if (error is IllegalArgumentException) temporary.delete()
+            if (error.message?.contains("checksum verification failed", ignoreCase = true) == true) temporary.delete()
             throw error
         }
     }
 
-    internal data class ModelContentRange(val first: Long, val last: Long, val total: Long)
-
-    internal fun parseModelContentRange(value: String?): ModelContentRange? {
-        val match = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$", RegexOption.IGNORE_CASE)
-            .matchEntire(value?.trim().orEmpty()) ?: return null
-        val first = match.groupValues[1].toLongOrNull() ?: return null
-        val last = match.groupValues[2].toLongOrNull() ?: return null
-        val total = match.groupValues[3].toLongOrNull() ?: return null
-        return ModelContentRange(first, last, total)
-    }
     private fun installedModels(): List<String> =
         File(filesDir, "models").listFiles()
             ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) && it.length() > 1024L * 1024L }
