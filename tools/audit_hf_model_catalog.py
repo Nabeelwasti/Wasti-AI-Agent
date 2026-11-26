@@ -35,11 +35,11 @@ def clean_hash(value: str | None) -> str | None:
     return value.lower() if SHA256_RE.fullmatch(value) else None
 
 
-def request_headers(url: str, method: str = "GET"):
+def request_headers(url: str, method: str = "HEAD"):
     request = Request(url, method=method, headers={"User-Agent": USER_AGENT})
     try:
-        with urlopen(request, timeout=35) as response:
-            return response.status, response.headers, response.geturl()
+        with build_opener(NoRedirect).open(request, timeout=35) as response:
+            return response.status, response.headers, None
     except HTTPError as error:
         return error.code, error.headers, error.headers.get("Location")
     except (URLError, TimeoutError, OSError) as error:
@@ -54,10 +54,6 @@ def inspect_model(model: dict) -> dict:
 
     repo_id = "/".join(parts[:2])
     info_url = f"https://huggingface.co/api/models/{quote(repo_id, safe='/')}"
-    status, headers, _ = request_headers(info_url)
-    if status != 200:
-        return {"id": model.get("id"), "repo_id": repo_id, "error": f"model metadata HTTP {status}"}
-
     try:
         with urlopen(Request(info_url, headers={"User-Agent": USER_AGENT}), timeout=35) as response:
             metadata = json.loads(response.read().decode("utf-8"))
@@ -97,6 +93,7 @@ def inspect_model(model: dict) -> dict:
     card = metadata.get("cardData") or {}
     licence = card.get("license")
     tags = metadata.get("tags") or []
+    licence_ok = str(licence or "").lower() in {"apache-2.0", "mit"}
     return {
         "id": model.get("id"),
         "repo_id": repo_id,
@@ -107,6 +104,7 @@ def inspect_model(model: dict) -> dict:
         "sha256": sha,
         "license": licence,
         "license_tags": [tag for tag in tags if str(tag).startswith("license:")],
+        "permissive_license_tag": licence_ok,
         "gated": bool(metadata.get("gated")),
         "file_exists": file_status in (200, 206, 302, 303, 307, 308),
         "sha256_header_available": sha is not None,
