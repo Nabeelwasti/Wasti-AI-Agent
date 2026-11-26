@@ -55,7 +55,10 @@
         "license_review": "initial model-card check; pin exact GGUF repo revision and preserve base-model notices before use",
         "download_status": "not-downloaded",
         "sha256": null,
-        "intended_device_profile": "first local trial for devices with approximately 3 GB available RAM; start with 1K-2K context and benchmark"
+        "intended_device_profile": "first local trial for devices with approximately 3 GB available RAM; start with 1K-2K context and benchmark",
+        "minimum_available_ram_gb": 2.5,
+        "commercial_allowed": true,
+        "redistribution_allowed": false
       }
     },
     {
