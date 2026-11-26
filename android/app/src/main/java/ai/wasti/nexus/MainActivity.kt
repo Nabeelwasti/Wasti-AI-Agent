@@ -807,7 +807,7 @@ private fun NexusScreen(
                         Text(
                             when {
                                 offlineMode -> "OFFLINE · PRIVATE ON-DEVICE"
-                                autoMode -> "AUTO · ONLINE WITH LOCAL FALLBACK"
+                                autoMode -> "AUTO · LOCAL FIRST WITH ONLINE FALLBACK"
                                 else -> "ONLINE · HOSTED AI"
                             },
                             style = MaterialTheme.typography.labelSmall,
