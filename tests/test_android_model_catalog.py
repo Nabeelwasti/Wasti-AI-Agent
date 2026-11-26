@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 
@@ -35,10 +36,11 @@ def test_all_twelve_models_have_pinned_download_manifests():
     assert len(models) == 12
     for model in models:
         assert model["status"] == "ready", model["id"]
-        assert model["source_revision"]
+        assert re.fullmatch(r"[0-9a-f]{40}", model["source_revision"])
         assert isinstance(model["size_bytes"], int) and model["size_bytes"] > 0
-        assert len(model["sha256"]) == 64
+        assert re.fullmatch(r"[0-9a-f]{64}", model["sha256"])
         assert model["runtime_validation"] == "pending_device_test"
+    assert sum(model["size_bytes"] for model in models) == 9586646112
 
 
 def test_model_ids_and_integrity_fields_are_unique_and_complete():
