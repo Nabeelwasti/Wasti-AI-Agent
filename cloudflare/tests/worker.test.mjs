@@ -50,61 +50,29 @@ test("health route is public and does not expose provider secrets", async () => 
   assert.equal(data.service, "wasti-nexus-gateway");
   assert.equal(data.configured_models, 0);
   assert.deepEqual(data.model_ids, []);
+  assert.equal(data.cloudflare_ai_enabled, false);
+  assert.equal(data.inference_backend, "self-hosted-provider-relay-only");
+  assert.equal(data.storage_backend, "google-drive-only-client-managed");
   assert.equal(JSON.stringify(data).includes(token), false);
 });
 
-test("Workers AI binding provides first-party brains without third-party provider API keys", async () => {
-  const calls = [];
-  const configured = {
-    ...env,
-    AI: {
-      async run(model, input) {
-        calls.push({ model, input });
-        return { response: "A local test answer from Workers AI." };
-      },
-    },
-  };
+test("Cloudflare AI bindings are ignored and no first-party hosted inference models are exposed", async () => {
+  let calls = 0;
+  const configured = { ...env, AI: { async run() { calls += 1; return { response: "must not run" }; } } };
   const health = await worker.fetch(new Request("https://nexus.example/healthz"), configured);
-  const healthData = await health.json();
-  assert.equal(healthData.configured_models, 2);
-  assert.deepEqual(healthData.model_ids, ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"]);
+  const data = await health.json();
+  assert.equal(data.cloudflare_ai_enabled, false);
+  assert.equal(data.configured_models, 0);
   const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
-  assert.equal(catalogue.status, 200);
-  const catalogueData = await catalogue.json();
-  const ids = catalogueData.data.map(item => item.id);
-  assert.deepEqual(ids, ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"]);
-  const firstParty = catalogueData.data[0];
-  assert.equal(firstParty.license, "Apache-2.0");
-  assert.equal(firstParty.context_window, 256000);
-  assert.deepEqual(firstParty.pricing_usd_per_million_tokens, { input: 0.10, output: 0.30 });
-  const secondParty = catalogueData.data[1];
-  assert.equal(secondParty.license, "Apache-2.0");
-  assert.equal(secondParty.context_window, 262144);
-  assert.deepEqual(secondParty.pricing_usd_per_million_tokens, { input: 0.45, output: 3.20 });
-  assert.equal(ids.some(id => id.includes("llama-3.2")), false);
-
-  for (const [id, upstream] of [
-    ["nexus-gemma-4-26b-a4b", "@cf/google/gemma-4-26b-a4b-it"],
-    ["nexus-qwen-3.8-27b", "@cf/qwen/qwen3.8-27b"],
-  ]) {
-    const response = await worker.fetch(
-      authedRequest("/v1/chat/completions", "POST", {
-        model: id,
-        messages: [{ role: "user", content: "Hello" }],
-        stream: false,
-      }),
-      configured,
-    );
-    assert.equal(response.status, 200);
-    const data = await response.json();
-    assert.equal(data.choices[0].message.content, "A local test answer from Workers AI.");
-    assert.equal(data.nexus.participating_agents[0], id);
-    assert.equal(calls.at(-1).model, upstream);
-    assert.equal(calls.at(-1).input.messages[0].content, "Hello");
-  }
-  assert.equal(calls.length, 2);
+  assert.deepEqual((await catalogue.json()).data, []);
+  const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "nexus-gemma-4-26b-a4b",
+    messages: [{ role: "user", content: "Hello" }],
+    stream: false,
+  }), configured);
+  assert.equal(response.status, 404);
+  assert.equal(calls, 0);
 });
-
 test("hybrid refuses to present one model as a multi-agent result", async () => {
   const configured = {
     ...env,
@@ -129,38 +97,77 @@ test("hybrid refuses to present one model as a multi-agent result", async () => 
   assert.deepEqual(data.error.details.available_models.map(model => model.id), ["only-model"]);
 });
 
-test("hybrid uses two distinct first-party model IDs and reports actual participants", async () => {
+test("self-hosted providers expose verified capabilities and are the only inference route", async () => {
+  const originalFetch = globalThis.fetch;
   const calls = [];
-  const configured = {
-    ...env,
-    AI: {
-      async run(model, input) {
-        calls.push({ model, input });
-        return { response: "Answer from " + model };
-      },
-    },
+  globalThis.fetch = async (input, init = {}) => {
+    calls.push({ url: String(input), init });
+    return Response.json({ choices: [{ message: { content: "Self-hosted inference answer." } }] });
   };
-  const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
-    model: "nexus-hybrid",
-    messages: [{ role: "user", content: "Compare the two model perspectives." }],
-    stream: false,
-    nexus: { mode: "hybrid", review_rounds: 0 },
-  }), configured);
-  assert.equal(response.status, 200);
-  const data = await response.json();
-  assert.equal(data.model, "nexus-hybrid");
-  assert.equal(data.nexus.mode, "hybrid");
-  assert.deepEqual(
-    data.nexus.participants.map(item => item.id).sort(),
-    ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"].sort(),
-  );
-  assert.equal(calls.length, 3);
-  assert.deepEqual(
-    new Set(calls.map(call => call.model)),
-    new Set(["@cf/google/gemma-4-26b-a4b-it", "@cf/qwen/qwen3.8-27b"]),
-  );
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host", base_url: "https://inference.example/v1", api_key_env: "PRIVATE_HOST_KEY",
+        models: [{ id: "private-qwen", upstream_model: "qwen3-4b-q4", enabled: true, commercial_allowed: true, license: "Apache-2.0", license_status: "verified", capabilities: ["chat", "coding", "reasoning"] }],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const health = await worker.fetch(new Request("https://nexus.example/healthz"), configured);
+    const healthData = await health.json();
+    assert.equal(healthData.configured_models, 1);
+    assert.equal(healthData.cloudflare_ai_enabled, false);
+    const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
+    const models = (await catalogue.json()).data;
+    assert.equal(models[0].id, "private-qwen");
+    assert.deepEqual(models[0].capabilities, ["chat", "coding", "reasoning"]);
+    assert.equal(models[0].license, "Apache-2.0");
+    assert.equal(models.at(-1).id, "nexus-auto");
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "private-qwen", messages: [{ role: "user", content: "Hello" }], stream: false,
+    }), configured);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).choices[0].message.content, "Self-hosted inference answer.");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://inference.example/v1/chat/completions");
+    assert.equal(calls[0].init.redirect, "manual");
+    assert.equal(calls[0].init.headers.Authorization, "Bearer private-host-secret");
+  } finally { globalThis.fetch = originalFetch; }
 });
 
+test("hybrid uses two distinct self-hosted model IDs and reports actual participants", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url: String(input), model: body.model });
+    return Response.json({ choices: [{ message: { content: "Answer from " + body.model } }] });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host", base_url: "https://inference.example/v1", api_key_env: "PRIVATE_HOST_KEY",
+        models: [
+          { id: "model-a", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "reasoning"] },
+          { id: "model-b", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "reasoning"] },
+        ],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "nexus-hybrid", messages: [{ role: "user", content: "Compare the two model perspectives." }],
+      stream: false, nexus: { mode: "hybrid", review_rounds: 0 },
+    }), configured);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.model, "nexus-hybrid");
+    assert.equal(data.nexus.mode, "hybrid");
+    assert.deepEqual(data.nexus.participants.map(item => item.id).sort(), ["model-a", "model-b"]);
+    assert.equal(calls.length, 3);
+    assert.equal(calls.every(item => item.url === "https://inference.example/v1/chat/completions"), true);
+  } finally { globalThis.fetch = originalFetch; }
+});
 test("scoped per-application keys can use chat but cannot access personal memory", async () => {
   const clientKey = "nexus-client-key-for-mobile-app-0123456789";
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientKey));
