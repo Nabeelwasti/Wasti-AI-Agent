@@ -659,7 +659,7 @@ class MainActivity : ComponentActivity() {
         agentId: String
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
-        val local = isLoopbackHttp(root)
+        val local = NexusRuntimePolicy.isLoopbackHttp(root)
         require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
         require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
 
