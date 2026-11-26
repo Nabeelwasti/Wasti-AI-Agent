@@ -10,21 +10,21 @@ One repository, one app identity and one reusable brain API. Runtime components 
 - Local inference through Arm AI Chat (`com.arm:ai-chat:0.1.0`), backed by llama.cpp, for compatible GGUF checkpoints.
 - Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. A full model catalogue, in-app downloader, checksum verification and uninstall manager remain planned.
 - Encrypted local memory and conversation history.
-- Network-aware routing: local model first when offline or when the user selects local-only; remote provider routing when online and permitted.
+- Default Auto routing: try the online gateway first, then fall back to the installed local GGUF model for network errors, missing online credentials and transient 408/429/5xx responses. Authentication/permission errors remain visible. Local-fallback turns are excluded from subsequent cloud conversation history. Explicit Offline mode never sends inference prompts to the gateway.
 - The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
 
 ### Universal brain API
 
 One OpenAI-compatible endpoint exposes `GET /v1/models` and `POST /v1/chat/completions`. Apps choose:
 - a specific configured remote model ID;
-- `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step;
+- `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step only when at least two distinct configured model IDs exist;
 - a local model through the Android SDK/runtime, without sending the prompt to the server.
 
 The API never reports an unconfigured model as available or fabricates model participation. Native Workers AI model IDs are exposed only when the AI binding is present. It exposes capability, availability, provider and licence metadata separately. Customer-mode API requests require a configured per-key Rate Limiting binding; its counters are approximate and local to each Cloudflare location, not a strict global quota.
 
 ### Online hosting
 
-Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes Cloudflare-hosted Workers AI through the `AI` binding and can route to optional configured HTTPS providers. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
+Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes the currently configured Gemma 4 26B A4B model through the `AI` binding and can route to optional configured HTTPS providers. The live online catalogue currently has one configured first-party model, so genuine multi-model Hybrid remains disabled until a second distinct model is configured and tested. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
 
 ## Request routing
 
@@ -78,7 +78,7 @@ All 12 families stay in the registry. Each exact checkpoint needs:
 - tested device/RAM profile;
 - download, install, validation and rollback status.
 
-The app downloads only the user's selected model. Storage availability is necessary but not sufficient: the peak resident memory includes weights, runtime buffers, KV cache, tokenizer and Android process overhead. On a phone with 3 GB free RAM, begin conservatively with a small 0.5B–1B quantized model and low context, then benchmark on the actual device before enabling larger choices.
+The app imports only the user's selected model. A resumable in-app model downloader and automatic registry SHA-256 verification on import are not implemented yet. Storage availability is necessary but not sufficient: the peak resident memory includes weights, runtime buffers, KV cache, tokenizer and Android process overhead. On a phone with 3 GB free RAM, begin conservatively with a small 0.5B–1B quantized model and low context, then benchmark on the actual device before enabling larger choices.
 
 ## Security boundaries
 
@@ -89,6 +89,6 @@ The app downloads only the user's selected model. Storage availability is necess
 - Android permissions and operating-system restrictions remain authoritative.
 - Local-only mode must guarantee no prompt/network egress for inference and memory retrieval.
 
-## Termux integration\n\nThe repository includes a Termux CLI for the same online gateway (health, model listing, single chat and hybrid chat) and an Android text-share intent that opens the app with a prompt prefilled. This is a one-way handoff, not full bidirectional local inference control. A separately authenticated localhost bridge/foreground service is still required before Termux can directly invoke the app's private on-device inference engine or receive its response.\n\n## Current implementation status
+## Termux integration\n\nAn optional Termux CLI exists for developer testing of the same online gateway. Termux is not part of the production Android inference architecture and is not required to download, load or run local GGUF models. The native inference engine runs in the Android app process.\n\n## Current implementation status
 
-The Android source now includes Arm AI Chat/llama.cpp integration, manual GGUF import and a local chat path, alongside remote single/Hybrid routing. The APK has not yet built successfully in verified CI and no real-device offline inference test has passed. GitHub-backed memory client encryption/sync, full model catalogue/downloader and production tenant controls remain incomplete. Do not claim offline operation verified or production readiness until the build and device tests pass.
+The Android app now builds in GitHub Actions, has JVM tests for automatic offline-fallback policy, supports manual GGUF import and native local chat, and defaults to Auto mode with the live NEXUS gateway preconfigured. The app still needs target-device install and offline generation evidence. The Cloudflare Worker is deployed with one first-party Gemma 4 model; public health/catalogue checks pass, but the authenticated live chat route smoke test is skipped until the GitHub Actions `NEXUS_API_KEY` secret is configured. Hybrid is guarded and disabled until two distinct model IDs are available. Model catalogue downloads, registry SHA-256 verification for imported files, tenant-isolated customer memory and owner-controlled signed production APKs remain incomplete. Do not claim full production readiness until those gates pass.
