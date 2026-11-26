@@ -9,11 +9,11 @@ WASTI NEXUS is an offline-first Android assistant and a multi-model orchestratio
 ## Fixed architecture
 
 - **One repository:** Android, API, model registry, dataset/memory schemas, SDKs, deployment and tests.
-- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, validation, multi-model listing/selection, load/unload and removal. Automatic in-app downloads and a recovery/restore manager remain future work.
+- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, validation, multi-model listing/selection, load/unload and removal. Automatic in-app model downloads and cross-device memory recovery remain future work. Local and same-device GitHub snapshot restore are implemented in source.
 - **Online:** all configured and legally usable remote brains can be called through one universal endpoint.
 - **Hybrid:** independent model responses, bounded peer review and a synthesis model; actual participants and failures are reported.
 - **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository. Android can save snapshots locally and send ciphertext to the gateway; remote sync is blocked until the GitHub Worker token is configured.
-- **Cloudflare:** web app static assets and API gateway only. No Cloudflare storage for memory, datasets or weights.
+- **Cloudflare:** Worker-hosted web console and API gateway only. No Cloudflare storage for memory, datasets or weights.
 - **Model flexibility:** all 12 families remain catalogued; install only compatible models on the phone and leave the rest available online.
 
 ## Device constraints
@@ -25,7 +25,7 @@ The currently reported free resources are approximately 58 GB storage and 3 GB R
 ```
 android/       Native Android client and local inference integration
 orchestrator/  OpenAI-compatible multi-model API
-cloudflare/    Web asset hosting and API gateway
+cloudflare/    Worker-hosted web console and API gateway
 models/        Model registry, licence evidence and acquisition tools
 memory/        GitHub-backed memory schemas and retrieval contracts
 datasets/      Versioned evaluation/training data and manifests
