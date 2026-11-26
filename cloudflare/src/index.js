@@ -370,7 +370,7 @@ function encodeBase64Utf8(value) {
 }
 
 function decodeBase64Utf8(value) {
-  const binary = atob(String(value).replace(/\\s/g, ""));
+  const binary = atob(String(value).replace(/\s/g, ""));
   const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
@@ -485,7 +485,7 @@ async function memorySnapshots(request, env, headers, url) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: `memory: add encrypted snapshot ${record.record_id}`,
-        content: encodeBase64Utf8(JSON.stringify(record) + "\\n"),
+        content: encodeBase64Utf8(JSON.stringify(record)),
         branch: config.branch,
       }),
     });
