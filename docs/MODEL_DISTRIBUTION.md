@@ -37,11 +37,11 @@ Do not make the model folder public. The user-selected folder grant keeps access
 
 ## Manifest contract
 
-Keep the catalogue manifest in the monorepo so it can be reviewed and versioned. It contains metadata and Drive file IDs, never access tokens or private credentials. Each downloadable entry must include:
+Keep the model catalogue in the Android app assets and review it in the monorepo. It contains model metadata and exact workspace filenames, never Drive file IDs, access tokens or private credentials. Each downloadable entry must include:
 
 - stable model ID and family;
 - exact GGUF filename and quantization;
-- Google Drive file ID;
+- exact filename expected inside the selected Drive workspace;
 - exact byte length and SHA-256;
 - upstream repository and immutable revision;
 - model-card and licence URLs plus archived licence notice;
@@ -49,7 +49,7 @@ Keep the catalogue manifest in the monorepo so it can be reviewed and versioned.
 - GGUF architecture, runtime compatibility, context recommendation and minimum-memory estimate;
 - manifest schema version and catalogue revision.
 
-A model is not downloadable in the app until its Drive file ID, byte length, SHA-256, immutable source revision, licence review and runtime compatibility are all verified. Null or missing fields mean **not ready**. Do not manufacture file IDs, checksums or licence approvals.
+A model is not downloadable in the app until its exact workspace filename, byte length, SHA-256, immutable source revision, licence review and runtime compatibility are all verified. Null or missing fields mean **not ready**. Do not manufacture file IDs, checksums or licence approvals.
 
 ## Android download requirements
 
@@ -75,13 +75,13 @@ The current SAF stream path restarts an interrupted transfer from zero. Do not c
 
 - One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
 - One Qwen2.5-0.5B-Instruct Q4_K_M source revision and SHA-256 are pinned in the registry.
-- No model weights have been uploaded to the owner's Google Drive through this repository connection.
-- No Google Drive OAuth client has been configured for the Android package.
-- The Android app does not yet have the private Drive sign-in, manifest browser or generic Drive downloader.
-- The current in-app Qwen installer still downloads from its pinned upstream source; it is not yet backed by the Google Drive workspace.
-- No other eleven candidate files are approved for in-app download.
+- The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-family catalogue UI and a verified Qwen Drive copy/install path.
+- The exact Qwen file is 491,400,032 bytes with the pinned SHA-256 in the catalogue; it must be uploaded by the owner into the selected Drive workspace.
+- No model binaries have been uploaded to the owner's Google Drive through this repository connection.
+- The other eleven candidate files remain unavailable until their exact revisions, byte lengths, SHA-256 values, licences and runtime compatibility are verified.
+- A real Google Drive provider transfer, permission-revocation recovery and airplane-mode install test on the target Redmi are still outstanding.
 
-These are explicit implementation gates, not completed features. Do not describe Google Drive model browsing or downloads as live until the Android integration and real Drive transfer tests pass.
+The app implementation is in review and must pass CI and target-device testing before being called production-certified.
 
 ## Operational note
 
