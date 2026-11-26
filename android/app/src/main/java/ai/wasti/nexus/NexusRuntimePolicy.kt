@@ -61,7 +61,45 @@ internal object NexusRuntimePolicy {
         return (modelBytes.toDouble() * 2.5).toLong() + LOCAL_RESERVE_BYTES
     }
 
-    fun localCanHandle(task: NexusTask): Boolean = task in setOf(NexusTask.GENERAL, NexusTask.REASONING, NexusTask.CODING)
+    fun localCanHandle(task: NexusTask, modelPath: String): Boolean {
+        val name = modelPath.substringAfterLast('/').lowercase()
+        return when (task) {
+            NexusTask.GENERAL -> true
+            NexusTask.REASONING -> true
+            NexusTask.CODING -> name.contains("coder") || name.contains("qwen3") || name.contains("deepseek-r1")
+            else -> false
+        }
+    }
+
+    fun localServerCanHandle(task: NexusTask, modelId: String): Boolean {
+        val name = modelId.lowercase()
+        return when (task) {
+            NexusTask.GENERAL -> true
+            NexusTask.REASONING -> name.contains("deepseek-r1") || name.contains("qwen3") || name.contains("qwen")
+            NexusTask.CODING -> name.contains("coder") || name.contains("qwen3") || name.contains("deepseek-r1")
+            else -> false
+        }
+    }
+
+    fun chooseLocalModelPath(task: NexusTask, installedPaths: List<String>, availableRamBytes: Long, selectedPath: String): String {
+        if (task !in setOf(NexusTask.GENERAL, NexusTask.REASONING, NexusTask.CODING)) return ""
+        val existing = installedPaths.filter { path ->
+            runCatching { File(path).isFile && File(path).extension.equals("gguf", ignoreCase = true) }.getOrDefault(false)
+        }
+        val ranked = when (task) {
+            NexusTask.CODING -> listOf("coder", "qwen3", "deepseek-r1", "qwen2.5-1.5b", "granite")
+            NexusTask.REASONING -> listOf("deepseek-r1", "qwen3-1.7b", "qwen2.5-1.5b", "granite", "qwen")
+            else -> listOf("qwen3-1.7b", "qwen2.5-1.5b", "qwen3-0.6b", "qwen2.5-0.5b", "smollm2-1.7b", "granite", "tinyllama")
+        }
+        val fitting = existing.filter { estimatedLocalWorkingSet(it) <= availableRamBytes }
+        val chosen = fitting.minByOrNull { path ->
+            val name = path.substringAfterLast('/').lowercase()
+            val index = ranked.indexOfFirst { name.contains(it) }
+            if (index < 0) ranked.size else index
+        }
+        if (chosen != null) return chosen
+        return selectedPath.takeIf { it in existing && estimatedLocalWorkingSet(it) <= availableRamBytes }.orEmpty()
+    }
 
     fun decide(mode: NexusMode, snapshot: NexusRuntimeSnapshot, remoteConfigured: Boolean, localServerAvailable: Boolean = false, prompt: String): NexusRouteDecision {
         val task = classify(prompt)
@@ -74,19 +112,19 @@ internal object NexusRuntimePolicy {
         if (mode == NexusMode.OFFLINE) {
             return when {
                 localSafe -> NexusRouteDecision(NexusRoute.LOCAL, task, "Offline mode: use the installed local text model; internet is never used.")
-                localServerAvailable && localCanHandle(task) -> NexusRouteDecision(NexusRoute.TERMUX, task, "Offline mode: use the paired loopback Termux inference server.")
+                localServerAvailable -> NexusRouteDecision(NexusRoute.TERMUX, task, "Offline mode: use the paired loopback Termux inference server.")
                 else -> NexusRouteDecision(NexusRoute.BLOCKED, task, "Offline mode cannot complete this task: no compatible local runtime or sufficient device headroom.")
             }
         }
         if (mode == NexusMode.ONLINE) {
             return when {
                 online && remoteConfigured -> NexusRouteDecision(NexusRoute.REMOTE, task, "Online mode: use the configured self-hosted remote endpoint.")
-                localServerAvailable && localCanHandle(task) -> NexusRouteDecision(NexusRoute.TERMUX, task, "Use the local Termux inference server; no internet route is required.")
+                localServerAvailable -> NexusRouteDecision(NexusRoute.TERMUX, task, "Use the local Termux inference server; no internet route is required.")
                 else -> NexusRouteDecision(NexusRoute.BLOCKED, task, if (!online) "No validated internet connection or reachable local inference server is available." else "No self-hosted remote model is configured.")
             }
         }
         if (localSafe) return NexusRouteDecision(NexusRoute.LOCAL, task, "Auto mode: local inference is compatible and device RAM, thermal and battery headroom are sufficient.")
-        if (localServerAvailable && localCanHandle(task)) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
+        if (localServerAvailable) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
         if (online && remoteConfigured) {
         val reason = when {
             !localCanHandle(task) -> "This task needs a dedicated vision, image, speech or training runtime not installed in the local chat engine."
