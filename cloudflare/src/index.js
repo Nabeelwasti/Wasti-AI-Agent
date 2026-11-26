@@ -685,10 +685,12 @@ export default {
       });
     }
     if (request.method === "GET" && url.pathname === "/healthz") {
+      const models = modelCatalog(env);
       return json({
         status: "ok",
         service: "wasti-nexus-gateway",
-        configured_models: modelCatalog(env).length,
+        configured_models: models.length,
+        model_ids: models.map(model => model.id),
       }, 200, headers);
     }
 
