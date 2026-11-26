@@ -73,7 +73,7 @@ All twelve families now have a candidate GGUF repository and an exact Q4_K_M fil
 
 With approximately **3 GB currently available RAM**, begin with Qwen 0.5B only. Llama 1B and Gemma 3 1B may be later experiments, but test actual free RAM and thermal behaviour first. Larger candidates remain online-first until a higher-memory device is available. Freeing storage does not create RAM; the app will refuse model loads when its RAM preflight fails.
 
-All candidates are manually installable from their upstream GGUF repositories. The Android model manager supports multiple installed GGUF files, one active model at a time, and removal to reclaim app storage. It does not yet auto-download the catalogue inside the app.
+Candidate GGUF files are not yet approved for one-click installation. A file may be imported manually only after its source, exact revision, licence, SHA-256, GGUF metadata and device fit are checked. The intended Android experience is a Google Drive-backed catalogue with one-click verified downloads; that catalogue integration is not yet implemented.
 
 ## Android storage policy
 
@@ -81,7 +81,7 @@ The Android app must never download all 12 models automatically. It will expose 
 
 With approximately 3 GB free RAM, start with one small quantized model in the 0.5B–1B class and a conservative 1K–2K context. This is a cautious starting point, not a guarantee: Android system pressure, chipset, thermal state and model architecture change the real limit. The app must benchmark before recommending larger models and must unload the active model before switching.
 
-All other configured models remain candidates for online routing only when a currently available lawful provider is configured. The deployed NEXUS gateway currently exposes Gemma 4 26B A4B and Qwen 3.8 27B through Workers AI; the twelve-family local registry is not the same as twelve live cloud endpoints. Free availability, quotas and provider terms vary; do not promise unlimited free inference.
+All twelve families are intended to be part of the owner's local model library, subject to exact checkpoint verification, licence approval, runtime support and device-fit checks. The current twelve-family registry is not twelve ready-to-install models. The two Workers AI models are optional remote fallbacks and are not substitutes for the local archive.
 
 ## Where files belong
 
