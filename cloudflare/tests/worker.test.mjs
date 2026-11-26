@@ -62,9 +62,10 @@ test("Workers AI binding provides first-party brains without third-party provide
   };
   const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
   assert.equal(catalogue.status, 200);
-  const ids = (await catalogue.json()).data.map(item => item.id);
+  const catalogueData = await catalogue.json();
+  const ids = catalogueData.data.map(item => item.id);
   assert.deepEqual(ids, ["nexus-gemma-4-26b-a4b"]);
-  const firstParty = (await catalogue.clone().json()).data[0];
+  const firstParty = catalogueData.data[0];
   assert.equal(firstParty.license, "Apache-2.0");
   assert.equal(firstParty.context_window, 256000);
   assert.deepEqual(firstParty.pricing_usd_per_million_tokens, { input: 0.10, output: 0.30 });
