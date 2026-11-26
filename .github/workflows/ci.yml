@@ -45,7 +45,7 @@ jobs:
           python -m json.tool models/registry.json > /dev/null
           python -m json.tool memory/schemas/memory-record.schema.json > /dev/null
           python -m json.tool datasets/manifests/dataset-manifest.schema.json > /dev/null
-          python -m json.tool cloudflare/wrangler.toml > /dev/null 2>&1 || true
+          python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('cloudflare/wrangler.toml').read_text())"
 
   edge:
     name: Cloudflare Worker syntax
