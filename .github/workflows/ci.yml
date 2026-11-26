@@ -102,3 +102,34 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  deployment-smoke:
+    name: Deployed gateway smoke test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [edge]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public gateway and first-party model binding
+        env:
+          NEXUS_HEALTH_URL: https://wasti-nexus-gateway.wastinabeel99.workers.dev/healthz
+        run: |
+          for attempt in {1..8}; do
+            if curl --fail --silent --show-error "$NEXUS_HEALTH_URL" -o /tmp/nexus-health.json; then
+              break
+            fi
+            if [ "$attempt" -eq 8 ]; then
+              echo "Gateway health check failed after retries."
+              exit 1
+            fi
+            sleep 5
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("/tmp/nexus-health.json").read_text())
+          assert data.get("status") == "ok", data
+          assert data.get("service") == "wasti-nexus-gateway", data
+          assert data.get("configured_models", 0) >= 1, data
+          print("Gateway is reachable; configured first-party model count:", data["configured_models"])
+          PY
