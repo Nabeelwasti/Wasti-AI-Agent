@@ -41,3 +41,13 @@ def test_structured_audio_content_requires_speech_capability():
     task, ranked = rank_agents(messages, config, lambda _: True)
     assert task == "speech_to_text"
     assert ranked == ["speech"]
+
+def test_task_specific_priority_overrides_global_priority():
+    messages = [{"role": "user", "content": "Please write code for this"}]
+    config = {
+        "general": {"capabilities": ["chat"], "priority": 1, "task_priority": {"coding": 50}},
+        "coder": {"capabilities": ["coding", "chat"], "priority": 20, "task_priority": {"coding": 0}},
+    }
+    task, ranked = rank_agents(messages, config, lambda _: True)
+    assert task == "coding"
+    assert ranked == ["coder", "general"]
