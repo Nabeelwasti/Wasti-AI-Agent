@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     onSendLocal = { prompt -> sendLocal(prompt) },
                     onSaveMemory = { turns -> saveMemorySnapshot(turns) },
                     onRestoreMemory = { restoreLatestLocalMemorySnapshot() },
+                    onRestoreRemoteMemory = { url, key -> restoreLatestRemoteMemorySnapshot(url, key) },
                     onSyncMemory = { url, key, turns -> syncMemorySnapshot(url, key, turns) },
                     onSendRemote = { url, key, prompt, hybrid, agentId ->
                         sendRemote(url, key, prompt, hybrid, agentId)
@@ -196,6 +197,45 @@ class MainActivity : ComponentActivity() {
         }
 
 
+    private fun decryptMemoryEnvelope(record: JSONObject): List<Pair<String, String>> {
+        val nonce = Base64.decode(record.getString("nonce"), Base64.URL_SAFE or Base64.NO_WRAP)
+        val ciphertext = Base64.decode(record.getString("ciphertext"), Base64.URL_SAFE or Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, memoryEncryptionKey(), GCMParameterSpec(128, nonce))
+        val payload = JSONObject(String(cipher.doFinal(ciphertext), Charsets.UTF_8))
+        val messages = payload.getJSONArray("messages")
+        val restored = mutableListOf<Pair<String, String>>()
+        var pendingUser: String? = null
+        for (index in 0 until messages.length()) {
+            val message = messages.getJSONObject(index)
+            when (message.optString("role")) {
+                "user" -> pendingUser = message.optString("content")
+                "assistant" -> {
+                    val user = pendingUser
+                    if (user != null) {
+                        restored += user to message.optString("content")
+                        pendingUser = null
+                    }
+                }
+            }
+        }
+        require(restored.isNotEmpty()) { "The encrypted snapshot contains no complete conversation turns." }
+        return restored
+    }
+
+    private fun persistMemoryEnvelope(record: JSONObject) {
+        val directory = File(filesDir, "memory/snapshots").apply { mkdirs() }
+        val target = File(directory, record.getString("snapshot_id") + ".json")
+        val temporary = File(directory, target.name + ".tmp")
+        try {
+            temporary.writeText(record.toString(), Charsets.UTF_8)
+            require(temporary.renameTo(target)) { "Could not atomically save the encrypted memory snapshot." }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        }
+    }
+
     private suspend fun restoreLatestLocalMemorySnapshot(): List<Pair<String, String>> =
         withContext(Dispatchers.IO) {
             val directory = File(filesDir, "memory/snapshots")
@@ -203,32 +243,51 @@ class MainActivity : ComponentActivity() {
                 ?.filter { it.isFile && it.name.endsWith(".json") }
                 ?.maxByOrNull { it.lastModified() }
                 ?: throw IllegalStateException("No local encrypted memory snapshots were found.")
-
-            val record = JSONObject(latest.readText(Charsets.UTF_8))
-            val nonce = Base64.decode(record.getString("nonce"), Base64.URL_SAFE or Base64.NO_WRAP)
-            val ciphertext = Base64.decode(record.getString("ciphertext"), Base64.URL_SAFE or Base64.NO_WRAP)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, memoryEncryptionKey(), GCMParameterSpec(128, nonce))
-            val payload = JSONObject(String(cipher.doFinal(ciphertext), Charsets.UTF_8))
-            val messages = payload.getJSONArray("messages")
-            val restored = mutableListOf<Pair<String, String>>()
-            var pendingUser: String? = null
-            for (index in 0 until messages.length()) {
-                val message = messages.getJSONObject(index)
-                when (message.optString("role")) {
-                    "user" -> pendingUser = message.optString("content")
-                    "assistant" -> {
-                        val user = pendingUser
-                        if (user != null) {
-                            restored += user to message.optString("content")
-                            pendingUser = null
-                        }
-                    }
-                }
-            }
-            require(restored.isNotEmpty()) { "The encrypted snapshot contains no complete conversation turns." }
-            restored
+            decryptMemoryEnvelope(JSONObject(latest.readText(Charsets.UTF_8)))
         }
+
+    private suspend fun restoreLatestRemoteMemorySnapshot(
+        url: String,
+        key: String
+    ): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        val root = url.trim().trimEnd('/')
+        require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
+        require(key.length >= 32) { "API key must be at least 32 characters." }
+        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val listRequest = Request.Builder()
+            .url("$apiRoot/memory/snapshots?limit=1")
+            .header("Authorization", "Bearer $key")
+            .get()
+            .build()
+        val snapshotId = http.newCall(listRequest).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IllegalStateException("GitHub memory list returned HTTP ${response.code}: $body")
+            val items = JSONObject(body).optJSONArray("data")
+            require(items != null && items.length() > 0) { "No encrypted snapshots are available in GitHub yet." }
+            items.getJSONObject(0).getString("snapshot_id")
+        }
+        val readRequest = Request.Builder()
+            .url("$apiRoot/memory/snapshots/$snapshotId")
+            .header("Authorization", "Bearer $key")
+            .get()
+            .build()
+        val envelope = http.newCall(readRequest).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IllegalStateException("GitHub memory read returned HTTP ${response.code}: $body")
+            val stored = JSONObject(body).getJSONObject("data")
+            val cipher = stored.getJSONObject("cipher")
+            JSONObject()
+                .put("snapshot_id", stored.getString("record_id"))
+                .put("created_at", stored.getString("created_at"))
+                .put("key_id", cipher.getString("key_id"))
+                .put("nonce", cipher.getString("nonce"))
+                .put("ciphertext", cipher.getString("ciphertext"))
+                .put("content_type", stored.optString("content_type", "conversation-summary"))
+                .put("tags", stored.optJSONArray("tags") ?: JSONArray())
+        }
+        persistMemoryEnvelope(envelope)
+        decryptMemoryEnvelope(envelope)
+    }
 
     private suspend fun syncMemorySnapshot(
         url: String,
@@ -441,6 +500,7 @@ private fun NexusScreen(
     onSendLocal: suspend (String) -> String,
     onSaveMemory: suspend (List<Pair<String, String>>) -> String,
     onRestoreMemory: suspend () -> List<Pair<String, String>>,
+    onRestoreRemoteMemory: suspend (String, String) -> List<Pair<String, String>>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>) -> String,
     onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
@@ -692,6 +752,23 @@ private fun NexusScreen(
                         }
                     }
                 ) { Text("Restore latest local memory") }
+                OutlinedButton(
+                    enabled = !busy && !offlineMode,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            answer = try {
+                                val restored = onRestoreRemoteMemory(url, key)
+                                conversation = restored
+                                "Restored ${restored.size} encrypted conversation turn(s) from GitHub."
+                            } catch (error: Exception) {
+                                "Could not restore GitHub memory: ${error.message}"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Restore from GitHub") }
                 OutlinedButton(
                     enabled = !busy && conversation.isNotEmpty(),
                     onClick = {
