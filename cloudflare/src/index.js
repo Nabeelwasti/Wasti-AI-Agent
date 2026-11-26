@@ -235,7 +235,13 @@ async function invoke(env, modelId, messages, options = {}) {
   const baseUrl = String(provider.base_url || "").replace(/\/$/, "");
   const apiKeyName = provider.api_key_env;
   const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
-  if (!baseUrl.startsWith("https://") || !apiKey) {
+  let parsedBaseUrl;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    throw new GatewayError(`Provider for model '${modelId}' has an invalid base URL`, 503);
+  }
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password || !apiKey) {
     throw new GatewayError(`Provider for model '${modelId}' is not configured correctly`, 503);
   }
 
@@ -245,6 +251,7 @@ async function invoke(env, modelId, messages, options = {}) {
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
+      redirect: "manual",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
