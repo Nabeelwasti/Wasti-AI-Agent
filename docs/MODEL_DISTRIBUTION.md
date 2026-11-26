@@ -49,7 +49,7 @@ Keep the model catalogue in the Android app assets and review it in the monorepo
 - GGUF architecture, runtime compatibility, context recommendation and minimum-memory estimate;
 - manifest schema version and catalogue revision.
 
-A model is not downloadable in the app until its exact workspace filename, byte length, SHA-256, immutable source revision, licence review and runtime compatibility are all verified. Null or missing fields mean **not ready**. Do not manufacture file IDs, checksums or licence approvals.
+A model is not downloadable in the app until its exact workspace filename, byte length, SHA-256, immutable source revision, licence review and runtime compatibility are all verified. Null or missing fields mean **not ready**. Do not manufacture filenames, checksums or licence approvals.
 
 ## Android download requirements
 
