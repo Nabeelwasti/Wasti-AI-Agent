@@ -18,7 +18,7 @@ This repository is public. The only permitted personal-memory payload is **clien
 5. Keep local encrypted snapshots so Offline mode continues to work without internet.
 6. Public paths, timestamps, tags, record counts and commit history are metadata; keep them non-sensitive.
 7. The current vault is single-user. Do not use it for customer records or multi-tenant data.
-8. Before enabling cross-device restore, implement a user-controlled recovery-key/passphrase flow. The passphrase is portable across devices but must be retained securely by the user; if forgotten, snapshots cannot be decrypted.
+8. Cross-device restore uses the same user-controlled recovery passphrase. The passphrase must be retained securely by the user; if forgotten, snapshots cannot be decrypted.
 
 ## API
 
@@ -26,6 +26,6 @@ This repository is public. The only permitted personal-memory payload is **clien
 - `POST /v1/memory/snapshots`
 - `GET /v1/memory/snapshots/{uuid}`
 
-The API lists newest snapshots first and supports same-device restore. Android Keystore keys are device-bound; cross-device restore remains disabled until a user-controlled recovery-key flow is implemented.
+The API lists newest snapshots first and supports cross-device restore when the user enters the same recovery passphrase on each device.
 
 The Cloudflare Worker forwards directly to GitHub's Contents API. It does not use KV, D1, R2, Durable Objects or Vectorize.
