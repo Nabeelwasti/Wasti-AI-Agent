@@ -540,7 +540,13 @@ async function memorySnapshots(request, env, headers, url) {
     } catch {
       throw new GatewayError("Stored memory snapshot is corrupt", 502);
     }
-    if (record?.record_id !== snapshotId || record?.cipher?.algorithm !== "AES-256-GCM") {
+    if (
+      record?.record_id !== snapshotId ||
+      record?.cipher?.algorithm !== "AES-256-GCM" ||
+      record?.cipher?.kdf !== "PBKDF2-HMAC-SHA256" ||
+      record?.cipher?.iterations !== 600000 ||
+      decodeBase64Url(record?.cipher?.salt).length !== 16
+    ) {
       throw new GatewayError("Stored memory snapshot identity or encryption metadata is invalid", 502);
     }
     return json({ object: "memory.snapshot", data: record }, 200, headers);
