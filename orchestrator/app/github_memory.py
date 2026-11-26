@@ -42,9 +42,10 @@ class GitHubMemoryStore:
             if timestamp.tzinfo is None:
                 raise ValueError("timestamp must include a timezone")
             epoch_ms = int(timestamp.timestamp() * 1000)
+            newest_first_key = 9999999999999 - epoch_ms
         except (TypeError, ValueError, OverflowError) as exc:
             raise GitHubMemoryError("created_at must be a timezone-aware timestamp") from exc
-        return f"{self.prefix}/{epoch_ms}-{snapshot_id.lower()}.json"
+        return f"{self.prefix}/{newest_first_key}-{snapshot_id.lower()}.json"
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
@@ -142,9 +143,9 @@ class GitHubMemoryStore:
                 items.append({
                     "snapshot_id": match.group(2).lower(),
                     "sha": item.get("sha"),
-                    "created_at": datetime.fromtimestamp(int(match.group(1)) / 1000, tz=timezone.utc).isoformat(),
+                    "created_at": datetime.fromtimestamp((9999999999999 - int(match.group(1))) / 1000, tz=timezone.utc).isoformat(),
                     "path": f"{self.prefix}/{name}",
                     "timestamp": int(match.group(1)),
                 })
-        items.sort(key=lambda entry: entry["timestamp"], reverse=True)
+        items.sort(key=lambda entry: entry["timestamp"])
         return [{key: value for key, value in item.items() if key != "timestamp"} for item in items[:safe_limit]]
