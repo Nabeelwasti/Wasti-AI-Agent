@@ -37,6 +37,8 @@ local.properties
 *.model
 *.bin
 nexus-model-archive/
+nexus-local-models/
+local-models/
 private-model-archive/
 model-cache/
 hf-cache/
