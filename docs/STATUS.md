@@ -13,7 +13,7 @@ Last updated: 2026-11-26.
 ## Android and local models
 
 - Android source uses Arm AI Chat `com.arm:ai-chat:0.1.0`, backed by llama.cpp and GGUF.
-- The client has source for online single/Hybrid requests and offline local inference.
+- The client has source for online single/Hybrid requests, refreshable online model discovery/selection and offline local inference.
 - GGUF import validates metadata and copies files into app-private storage.
 - Multiple installed GGUF files can be listed, selected, loaded, unloaded and removed. Only one local model is loaded at a time.
 - Conversation snapshots can be encrypted locally using Android Keystore AES-256-GCM.
