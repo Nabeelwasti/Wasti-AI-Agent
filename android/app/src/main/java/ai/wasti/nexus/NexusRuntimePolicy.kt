@@ -59,6 +59,12 @@ internal object NexusRuntimePolicy {
     fun configuredRemoteBrainCount(modelIds: List<String>): Int =
         modelIds.count { it != "nexus-auto" && it != "nexus-hybrid" }
 
+    fun normalizeApiRoot(root: String): String {
+        val normalized = root.trim().trimEnd('/')
+        require(normalized.isNotBlank()) { "Server URL is required." }
+        return if (normalized.endsWith("/v1", ignoreCase = true)) normalized else "$normalized/v1"
+    }
+
     fun estimatedLocalWorkingSet(modelPath: String): Long {
         val modelBytes = runCatching { File(modelPath).takeIf { it.isFile }?.length() ?: 0L }.getOrDefault(0L)
         if (modelBytes <= 0L) return Long.MAX_VALUE
