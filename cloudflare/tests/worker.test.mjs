@@ -131,6 +131,61 @@ test("scoped per-application keys can use chat but cannot access personal memory
   assert.equal(memory.status, 403);
 });
 
+test("external providers reject HTTP and credential-bearing base URLs", async () => {
+  for (const base_url of ["http://provider.example/v1", "https://user:password@provider.example/v1"]) {
+    const configured = {
+      ...env,
+      UPSTREAM_KEY: "upstream-test-key",
+      NEXUS_PROVIDERS_JSON: JSON.stringify({
+        providers: [{
+          id: "unsafe-provider",
+          base_url,
+          api_key_env: "UPSTREAM_KEY",
+          models: [{ id: "unsafe-model", enabled: true, commercial_allowed: true }],
+        }],
+      }),
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "unsafe-model",
+      messages: [{ role: "user", content: "hello" }],
+      stream: false,
+    }), configured);
+    assert.equal(response.status, 503);
+  }
+});
+
+test("external provider redirects are not followed", async () => {
+  const originalFetch = globalThis.fetch;
+  let redirectMode = null;
+  globalThis.fetch = async (_url, init = {}) => {
+    redirectMode = init.redirect;
+    return new Response("redirect", { status: 302, headers: { Location: "https://attacker.example/collect" } });
+  };
+  try {
+    const configured = {
+      ...env,
+      UPSTREAM_KEY: "upstream-test-key",
+      NEXUS_PROVIDERS_JSON: JSON.stringify({
+        providers: [{
+          id: "redirect-provider",
+          base_url: "https://provider.example/v1",
+          api_key_env: "UPSTREAM_KEY",
+          models: [{ id: "redirect-model", enabled: true, commercial_allowed: true }],
+        }],
+      }),
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "redirect-model",
+      messages: [{ role: "user", content: "hello" }],
+      stream: false,
+    }), configured);
+    assert.equal(redirectMode, "manual");
+    assert.equal(response.status, 502);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("protected API rejects missing or invalid bearer tokens", async () => {
   const response = await worker.fetch(new Request("https://nexus.example/v1/models"), env);
   assert.equal(response.status, 401);
