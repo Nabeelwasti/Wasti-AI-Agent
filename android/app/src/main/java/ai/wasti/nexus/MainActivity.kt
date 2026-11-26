@@ -846,7 +846,7 @@ private fun NexusScreen(
                                                         onLoadLocal(localModelPath)
                                                         localReady = true
                                                     }
-                                                    val fallbackNotice = "Offline fallback used because the online brain was unavailable.\\n\\n"
+                                                    val fallbackNotice = "Offline fallback used because the online brain was unavailable.\n\n"
                                                     streamingResponse = fallbackNotice
                                                     fallbackNotice + onSendLocal(submittedPrompt) { token ->
                                                         streamingResponse += token
