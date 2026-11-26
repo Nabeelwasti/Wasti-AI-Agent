@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
                     onDownloadModel = { onProgress -> downloadFirstLocalModel(onProgress) },
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
-                    onSendLocal = { prompt -> sendLocal(prompt) },
+                    onSendLocal = { prompt, onToken -> sendLocal(prompt, onToken) },
                     onSaveMemory = { turns, passphrase -> saveMemorySnapshot(turns, passphrase) },
                     onRestoreMemory = { passphrase -> restoreLatestLocalMemorySnapshot(passphrase) },
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
@@ -584,8 +584,11 @@ class MainActivity : ComponentActivity() {
             }
             localEngine.loadModel(model.absolutePath)
             localEngine.setSystemPrompt(
-                "You are WASTI NEXUS, a helpful, accurate and practical AI assistant. " +
-                    "Be clear about uncertainty and never invent sources or capabilities."
+                "You are WASTI NEXUS, a capable, friendly and practical assistant. " +
+                    "Answer the user directly in their language, including Urdu or Roman Urdu. " +
+                    "Use natural, human wording and useful examples. Do not refuse ordinary requests; " +
+                    "if something is uncertain, say so and still give the safest useful help. " +
+                    "Never invent facts, sources, or actions."
             )
         } catch (error: OutOfMemoryError) {
             localEngine.cleanUp()
@@ -600,11 +603,15 @@ class MainActivity : ComponentActivity() {
         localEngine.cleanUp()
     }
 
-    private suspend fun sendLocal(prompt: String): String = withContext(Dispatchers.Default) {
-        val output = StringBuilder()
-        localEngine.sendUserPrompt(prompt).collect { token -> output.append(token) }
-        output.toString().ifBlank { "The local model returned an empty response." }
-    }
+    private suspend fun sendLocal(prompt: String, onToken: (String) -> Unit): String =
+        withContext(Dispatchers.Default) {
+            val output = StringBuilder()
+            localEngine.sendUserPrompt(prompt).collect { token ->
+                output.append(token)
+                withContext(Dispatchers.Main.immediate) { onToken(token) }
+            }
+            output.toString().ifBlank { "The local model returned an empty response." }
+        }
 
 
     private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
@@ -703,7 +710,7 @@ private fun NexusScreen(
     onDownloadModel: suspend (suspend (Long, Long) -> Unit) -> String,
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: suspend () -> Unit,
-    onSendLocal: suspend (String) -> String,
+    onSendLocal: suspend (String, (String) -> Unit) -> String,
     onSaveMemory: suspend (List<Pair<String, String>>, String) -> String,
     onRestoreMemory: suspend (String) -> List<Pair<String, String>>,
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
@@ -719,8 +726,9 @@ private fun NexusScreen(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(initialPrompt) }
-    var answer by remember { mutableStateOf("Welcome to WASTI AI. Install a local model to begin private offline chat.") }
+    var answer by remember { mutableStateOf("Welcome to WASTI NEXUS. Install a local model to begin private offline chat.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var streamingResponse by remember { mutableStateOf("") }
     var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -781,6 +789,7 @@ private fun NexusScreen(
                 actions = {
                     TextButton(enabled = !busy, onClick = {
                         conversation = emptyList()
+                        streamingResponse = ""
                         remoteConversation = emptyList()
                         answer = "New conversation started."
                     }) { Text("New chat") }
@@ -816,7 +825,8 @@ private fun NexusScreen(
                                     var usedRemote = false
                                     try {
                                         val result = if (offlineMode) {
-                                            onSendLocal(submittedPrompt)
+                                            streamingResponse = ""
+                                            onSendLocal(submittedPrompt) { token -> streamingResponse += token }
                                         } else {
                                             onSave(url, key)
                                             try {
@@ -836,8 +846,11 @@ private fun NexusScreen(
                                                         onLoadLocal(localModelPath)
                                                         localReady = true
                                                     }
-                                                    "Offline fallback used because the online brain was unavailable.\n\n" +
-                                                        onSendLocal(submittedPrompt)
+                                                    val fallbackNotice = "Offline fallback used because the online brain was unavailable.\\n\\n"
+                                                    streamingResponse = fallbackNotice
+                                                    fallbackNotice + onSendLocal(submittedPrompt) { token ->
+                                                        streamingResponse += token
+                                                    }
                                                 } catch (localError: Exception) {
                                                     localReady = false
                                                     throw IllegalStateException(
@@ -848,12 +861,14 @@ private fun NexusScreen(
                                             }
                                         }
                                         conversation = conversation + (submittedPrompt to result)
+                                        streamingResponse = ""
                                         if (usedRemote) {
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
                                         answer = "Ready"
                                     } catch (error: Exception) {
+                                        streamingResponse = ""
                                         answer = "Request failed: ${error.message}"
                                     } finally {
                                         busy = false
@@ -1256,6 +1271,16 @@ private fun NexusScreen(
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
+                    }
+                }
+                if (streamingResponse.isNotBlank()) {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(streamingResponse, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
                     }
                 }
                 if (answer.startsWith("Request failed:")) {
