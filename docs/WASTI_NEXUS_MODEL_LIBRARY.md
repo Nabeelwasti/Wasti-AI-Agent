@@ -13,17 +13,17 @@ Candidates use Q4_K_M where available and Q3_K_M for selected smaller repositori
 | # | WASTI NEXUS collection name | Upstream model | Licence | Approx. GGUF size | Current state |
 |---:|---|---|---|---:|---|
 | 1 | Qwen2.5 0.5B Instruct | Qwen/Qwen2.5-0.5B-Instruct | Apache-2.0 | 491 MB | Ready; exact manifest pinned |
-| 2 | Qwen2.5 1.5B Instruct | Qwen/Qwen2.5-1.5B-Instruct | Apache-2.0 | 924 MB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
-| 3 | Qwen2.5 Coder 1.5B | Qwen/Qwen2.5-Coder-1.5B-Instruct | Apache-2.0 | 986 MB | Pending immutable revision and SHA-256 |
-| 4 | Qwen3 0.6B | Qwen/Qwen3-0.6B | Apache-2.0 | 414 MB (Q3_K_M) | Pending immutable revision and SHA-256 |
-| 5 | Qwen3 1.7B | Qwen/Qwen3-1.7B | Apache-2.0 | 1.07 GB (Q3_K_M) | Pending immutable revision and SHA-256 |
-| 6 | SmolLM2 135M | HuggingFaceTB/SmolLM2-135M-Instruct | Apache-2.0 | 94 MB (Q3_K_M) | Pending immutable revision and SHA-256 |
-| 7 | SmolLM2 360M | HuggingFaceTB/SmolLM2-360M-Instruct | Apache-2.0 | 271 MB | Pending immutable revision and SHA-256 |
-| 8 | SmolLM2 1.7B | HuggingFaceTB/SmolLM2-1.7B-Instruct | Apache-2.0 | 1.06 GB | Pending immutable revision and SHA-256 |
-| 9 | TinyLlama 1.1B Chat | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | Apache-2.0 | 548 MB (Q3_K_M) | Pending immutable revision and SHA-256 |
-| 10 | Granite 3.1 2B Instruct | ibm-granite/granite-3.1-2b-instruct | Apache-2.0 | 1.6 GB | Pending immutable revision and SHA-256 |
-| 11 | DeepSeek R1 Distill 1.5B | deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | MIT + Qwen base Apache-2.0 | 924 MB (Q3_K_M) | Pending immutable revision and SHA-256 |
-| 12 | OLMo 2 1B Instruct | allenai/OLMo-2-0425-1B-Instruct | Apache-2.0 | 936 MB | Pending immutable revision and SHA-256 |
+| 2 | Qwen2.5 1.5B Instruct | Qwen/Qwen2.5-1.5B-Instruct | Apache-2.0 | 1.12 GB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 3 | Qwen2.5 Coder 1.5B | Qwen/Qwen2.5-Coder-1.5B-Instruct | Apache-2.0 | 1.12 GB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 4 | Qwen3 0.6B | Qwen/Qwen3-0.6B | Apache-2.0 | 414 MB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 5 | Qwen3 1.7B | Qwen/Qwen3-1.7B | Apache-2.0 | 1.07 GB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 6 | SmolLM2 135M | HuggingFaceTB/SmolLM2-135M-Instruct | Apache-2.0 | 94 MB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 7 | SmolLM2 360M | HuggingFaceTB/SmolLM2-360M-Instruct | Apache-2.0 | 271 MB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 8 | SmolLM2 1.7B | HuggingFaceTB/SmolLM2-1.7B-Instruct | Apache-2.0 | 1.06 GB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 9 | TinyLlama 1.1B Chat | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | Apache-2.0 | 548 MB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 10 | Granite 3.1 2B Instruct | ibm-granite/granite-3.1-2b-instruct | Apache-2.0 | 1.55 GB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 11 | DeepSeek R1 Distill 1.5B | deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | MIT + Qwen base Apache-2.0 | 924 MB (Q3_K_M) | Ready; exact manifest pinned; runtime test pending |
+| 12 | OLMo 2 1B Instruct | allenai/OLMo-2-0425-1B-Instruct | Apache-2.0 | 936 MB (Q4_K_M) | Ready; exact manifest pinned; runtime test pending |
 
 The displayed sizes are rounded for readability; the app uses the exact byte counts and SHA-256 values pinned in `nexus-model-catalog.json`, never these rounded table values.
 
@@ -66,4 +66,4 @@ All twelve source artifacts now have immutable revisions, exact sizes, SHA-256 v
 8. A test transfer from the owner's private Drive folder passes size/hash checks.
 9. A local inference smoke test passes on a supported Android device.
 
-Until then the catalogue status remains `pending_verification` and the app disables its Download button. Do not rename or remove upstream notices. Do not put model binaries in GitHub or Cloudflare storage; Google Drive remains the private model archive.
+All twelve catalogue entries are now marked `ready` for verified Drive-to-device download. This does not mean the weights are already in the owner's Drive or that every model has passed inference on the Redmi. The owner must place the exact files in the private workspace, and physical-device runtime/RAM/thermal testing remains the final validation gate. Do not rename or remove upstream notices. Do not put model binaries in GitHub or Cloudflare storage; Google Drive remains the private model archive.
