@@ -89,7 +89,7 @@ class GitHubMemoryStore:
         path = self._path(snapshot_id)
         url = f"/repos/{self.repository}/contents/{quote(path, safe='/')}"
         async with self._client() as client:
-            await self._ensure_private(client)
+            await self._ensure_public(client)
             response = await client.get(url, params={"ref": self.branch})
         if response.status_code == 404:
             raise GitHubMemoryError("Memory snapshot not found")
@@ -111,7 +111,7 @@ class GitHubMemoryStore:
         safe_limit = max(1, min(int(limit), 100))
         url = f"/repos/{self.repository}/contents/{quote(self.prefix, safe='/')}"
         async with self._client() as client:
-            await self._ensure_private(client)
+            await self._ensure_public(client)
             response = await client.get(url, params={"ref": self.branch})
         if response.status_code == 404:
             return []
