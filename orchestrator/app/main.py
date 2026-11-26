@@ -16,9 +16,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .github_memory import GitHubMemoryError, GitHubMemoryStore
+from .circuit_breaker import ProviderCircuitBreaker
 from .task_router import rank_agents
 
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
+provider_circuits = ProviderCircuitBreaker(failure_threshold=2, cooldown_seconds=30.0)
 app = FastAPI(title="WASTI NEXUS Orchestrator", version=APP_VERSION)
 
 
@@ -294,16 +296,23 @@ async def chat_completions(req: ChatRequest):
     started = time.perf_counter()
 
     if req.nexus.mode == "auto" or req.model == "nexus-auto":
-        task, ranked_agents = rank_agents(user_messages, cfg, model_allowed)
+        eligible_cfg = {
+            agent_id: agent for agent_id, agent in cfg.items()
+            if model_allowed(agent) and provider_circuits.available(agent_id)
+        }
+        task, ranked_agents = rank_agents(user_messages, eligible_cfg, model_allowed)
         if not ranked_agents:
+            configured = [agent_id for agent_id, agent in cfg.items() if model_allowed(agent)]
+            detail = "All approved providers are temporarily in circuit-breaker cooldown." if configured else "No enabled provider has an approved licence and matching configuration."
             raise HTTPException(
                 status_code=503,
-                detail={"message": "No eligible provider supports this task", "task": task, "trace_id": trace_id},
+                detail={"message": detail, "task": task, "trace_id": trace_id, "provider_health": provider_circuits.snapshot()},
             )
         failures = []
         for agent_id in ranked_agents:
             try:
                 result = await call_agent(agent_id, cfg[agent_id], user_messages, req.temperature, req.max_tokens)
+                provider_circuits.record_success(agent_id)
                 return {
                     "id": f"nexus-{trace_id}",
                     "object": "chat.completion",
@@ -317,14 +326,16 @@ async def chat_completions(req: ChatRequest):
                         "selected_agent": agent_id,
                         "fallback_order": ranked_agents,
                         "failed_agents": failures,
+                        "provider_health": provider_circuits.snapshot(),
                         "latency_ms": int((time.perf_counter() - started) * 1000),
                     },
                 }
             except Exception as exc:
+                provider_circuits.record_failure(agent_id, exc)
                 failures.append({"agent": agent_id, "error": str(exc)[:240]})
         raise HTTPException(
             status_code=502,
-            detail={"message": "All eligible providers failed", "task": task, "failed_agents": failures, "trace_id": trace_id},
+            detail={"message": "All eligible providers failed", "task": task, "failed_agents": failures, "provider_health": provider_circuits.snapshot(), "trace_id": trace_id},
         )
 
     if req.nexus.mode == "single" and req.model != "nexus-hybrid":
