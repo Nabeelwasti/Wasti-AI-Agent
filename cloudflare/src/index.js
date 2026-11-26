@@ -47,6 +47,16 @@ const BUILTIN_WORKERS_AI_MODELS = [
     context_window: 256000,
     pricing_usd_per_million_tokens: { input: 0.10, output: 0.30 },
   },
+  {
+    id: "nexus-qwen-3.8-27b",
+    upstream_model: "@cf/qwen/qwen3.8-27b",
+    agent: "reasoning-multimodal",
+    license: "Apache-2.0",
+    commercial_allowed: true,
+    license_url: "https://huggingface.co/Qwen/Qwen3.8-27B",
+    context_window: 262144,
+    pricing_usd_per_million_tokens: { input: 0.45, output: 3.20 },
+  },
 ];
 
 function workersAiModels(env) {
