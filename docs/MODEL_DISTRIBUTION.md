@@ -69,7 +69,7 @@ The current SAF stream path restarts an interrupted transfer from zero. Do not c
 
 ## Model licensing and the twelve-model collection
 
-The curated shortlist is twelve open-weight candidates selected for permissive upstream licences: Apache-2.0 or MIT (DeepSeek R1 Distill also inherits Qwen base-model terms). This is not a claim that every training pipeline satisfies every formal Open Source AI definition. The list, original model names, upstream authors, exact GGUF repositories and approximate sizes are documented in [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md). WASTI NEXUS is the app and collection identity, not the original model author. Preserve each upstream licence and base-model notice. Do not redistribute or expose a checkpoint to customers until the exact source revision, licence text and rights for the intended use have been verified.
+The curated shortlist is twelve open-weight candidates selected for permissive upstream licences: Apache-2.0 or MIT (DeepSeek R1 Distill also inherits Qwen base-model terms). This is not a claim that every training pipeline satisfies every formal Open Source AI definition. The list, original model names, upstream authors, exact GGUF repositories and sizes are documented in [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md) and [third-party model notices](THIRD_PARTY_MODEL_NOTICES.md). WASTI NEXUS is the app and collection identity, not the original model author. Preserve each upstream licence and base-model notice. Do not redistribute or expose a checkpoint to customers until the exact source revision, licence text and rights for the intended use have been verified.
 
 ## Current verified state
 
@@ -77,7 +77,6 @@ The curated shortlist is twelve open-weight candidates selected for permissive u
 - All twelve selected GGUF artifacts have immutable source revisions, exact byte lengths and SHA-256 values pinned in the registry and Android catalogue.
 - The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-model catalogue UI and an exact length/SHA-256 verified Drive copy/install path.
 - The twelve exact model files total 9,586,646,112 bytes. They must be uploaded by the owner into the selected private Drive workspace; no model binaries have been uploaded through this repository connection.
-- No model binaries have been uploaded to the owner's Google Drive through this repository connection.
 - All twelve models have immutable source revisions, exact byte lengths, SHA-256 values and permissive base-model licence evidence pinned; all twelve are marked ready for verified Drive-to-device download. Physical-device runtime, memory, thermal and latency validation remains pending.
 - A real Google Drive provider transfer, permission-revocation recovery and airplane-mode install test on the target Redmi are still outstanding.
 
