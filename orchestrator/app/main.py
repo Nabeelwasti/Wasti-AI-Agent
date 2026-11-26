@@ -107,7 +107,14 @@ def agents_config() -> dict[str, dict[str, Any]]:
 
 def model_allowed(config: dict[str, Any]) -> bool:
     deployment_mode = os.getenv("NEXUS_DEPLOYMENT_MODE", "customer").strip().lower()
-    return deployment_mode != "customer" or config.get("commercial_allowed") is True
+    if config.get("enabled") is False:
+        return False
+    license_status = str(config.get("license_status", "approved")).strip().lower()
+    if license_status in {"restricted", "revoked", "pending", "review_required", "unknown"}:
+        return False
+    if deployment_mode == "customer":
+        return config.get("commercial_allowed") is True and license_status in {"approved", "verified"}
+    return True
 
 
 def authenticate(authorization: str | None = Header(default=None)) -> None:
@@ -203,7 +210,16 @@ async def list_agents():
     cfg = agents_config()
     return {
         "data": [
-            {"id": key, "model": value.get("model"), "configured": bool(value.get("base_url"))}
+            {
+                "id": key,
+                "model": value.get("model"),
+                "configured": bool(value.get("base_url")),
+                "capabilities": value.get("capabilities", ["chat"]),
+                "license": value.get("license", "review-required"),
+                "license_status": value.get("license_status", "approved"),
+                "commercial_allowed": value.get("commercial_allowed") is True,
+                "inference": "self-hosted",
+            }
             for key, value in cfg.items() if model_allowed(value)
         ]
     }
@@ -212,13 +228,25 @@ async def list_agents():
 @app.get("/v1/models", dependencies=[Depends(authenticate)])
 async def list_models():
     cfg = agents_config()
+    eligible = [(key, value) for key, value in cfg.items() if model_allowed(value)]
     data = [
-        {"id": key, "object": "model", "owned_by": "configured-provider", "name": value.get("model")}
-        for key, value in cfg.items() if model_allowed(value)
+        {
+            "id": key,
+            "object": "model",
+            "owned_by": "self-hosted-provider",
+            "name": value.get("model"),
+            "capabilities": value.get("capabilities", ["chat"]),
+            "license": value.get("license", "review-required"),
+            "license_status": value.get("license_status", "approved"),
+            "commercial_allowed": value.get("commercial_allowed") is True,
+            "inference": "self-hosted",
+        }
+        for key, value in eligible
     ]
-    data.append(
-        {"id": "nexus-hybrid", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS Hybrid collective"}
-    )
+    if eligible:
+        data.append({"id": "nexus-auto", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS automatic task router"})
+    if len(eligible) >= 2:
+        data.append({"id": "nexus-hybrid", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS Hybrid collective"})
     return {"object": "list", "data": data}
 
 
