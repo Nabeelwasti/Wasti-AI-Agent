@@ -2,7 +2,7 @@
 
 **One project. One repository. Many AI brains. One reusable brain API.**
 
-WASTI NEXUS is an offline-first Android assistant and a multi-model orchestration platform for future apps. The Android app can run selected compatible models locally; the same app can route to remote models when online. Other products can connect to one OpenAI-compatible API.
+WASTI NEXUS is an offline-first Android assistant and a multi-model orchestration platform for future apps. The Android app defaults to local/offline inference and can optionally route to hosted models when online. Local model downloads and offline inference do not require a provider API key. Other products can connect to one OpenAI-compatible API.
 
 > Status: active release candidate; not yet certified production-ready. CI builds the Android debug APK. A disposable CI-only keystore is used to test release assembly/signature verification; it is not the owner's permanent signing key. The deployed Cloudflare gateway's public health/model catalogue checks pass, and Gemma 4 and Qwen 3.8 27B were tested directly through the Cloudflare account API. An authenticated chat request through the Worker itself has **not** been verified because the GitHub Actions `NEXUS_API_KEY` secret is absent. Physical-device offline inference, permanent release signing, customer tenant isolation and operational readiness remain release gates.
 

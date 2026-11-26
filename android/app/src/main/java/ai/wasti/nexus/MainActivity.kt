@@ -38,6 +38,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.KeyStore
+import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -91,6 +92,7 @@ class MainActivity : ComponentActivity() {
                         encryptSecret(key)
                     },
                     onImportModel = { uri -> importModel(uri) },
+                    onDownloadModel = { downloadFirstLocalModel() },
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt -> sendLocal(prompt) },
@@ -355,6 +357,68 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Downloads the pinned public Qwen 0.5B GGUF candidate without a provider/API key. */
+    private suspend fun downloadFirstLocalModel(): String = withContext(Dispatchers.IO) {
+        val revision = "12145bd1d629190a4d44254073650877954d02c9"
+        val fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        val expectedSha256 = "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
+        val url = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/$revision/$fileName?download=true"
+        val request = Request.Builder().url(url).get().build()
+        val downloadClient = http.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build()
+        val modelDirectory = File(filesDir, "models").apply { mkdirs() }
+        val target = File(modelDirectory, fileName)
+        val temporary = File(modelDirectory, "$fileName.part")
+        try {
+            downloadClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IllegalStateException("Model download failed with HTTP ${response.code}.")
+                val body = response.body ?: throw IllegalStateException("The model host returned an empty response.")
+                val expectedLength = body.contentLength()
+                require(expectedLength in 1..800_000_000L) { "Unexpected model size. Download stopped for safety." }
+                val freeBytes = StatFs(filesDir.absolutePath).availableBytes
+                require(freeBytes >= expectedLength + 1024L * 1024L * 1024L) { "Not enough free storage. Keep at least 1 GB free after installation." }
+                val digest = MessageDigest.getInstance("SHA-256")
+                var total = 0L
+                body.byteStream().use { input ->
+                    temporary.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(1024 * 1024)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            require(total <= expectedLength && total <= 800_000_000L) { "Downloaded file exceeded its advertised size." }
+                            digest.update(buffer, 0, count)
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                require(total == expectedLength) { "Model download was incomplete. Please retry." }
+                val actualSha256 = digest.digest().joinToString("") { "%02x".format(it) }
+                require(actualSha256 == expectedSha256) { "Model checksum verification failed. File rejected." }
+            }
+            temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            // Preserve an existing installation until the verified replacement is finalized.
+            val backup = File(modelDirectory, "$fileName.previous-${UUID.randomUUID()}")
+            var previousMoved = false
+            try {
+                if (target.exists()) {
+                    require(target.renameTo(backup)) { "Could not safely preserve the previous model installation." }
+                    previousMoved = true
+                }
+                require(temporary.renameTo(target)) { "Could not finalize the verified model download." }
+                prefs.edit().putString("local_model_path", target.absolutePath).apply()
+                if (previousMoved) backup.delete()
+                target.absolutePath
+            } catch (installError: Exception) {
+                if (previousMoved && !target.exists()) {
+                    backup.renameTo(target)
+                }
+                throw installError
+            }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        }
+    }
     private fun installedModels(): List<String> =
         File(filesDir, "models").listFiles()
             ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) && it.length() > 1024L * 1024L }
@@ -570,6 +634,7 @@ private fun NexusScreen(
     onFreeStorage: () -> Long,
     onSave: (String, String) -> Unit,
     onImportModel: suspend (Uri) -> String,
+    onDownloadModel: suspend () -> String,
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: suspend () -> Unit,
     onSendLocal: suspend (String) -> String,
@@ -588,14 +653,14 @@ private fun NexusScreen(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(initialPrompt) }
-    var answer by remember { mutableStateOf("Auto mode is ready. Connect online, or load a local GGUF model for offline fallback.") }
+    var answer by remember { mutableStateOf("Welcome to WASTI AI. Install a local model to begin private offline chat.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(false) }
-    var autoMode by remember { mutableStateOf(true) }
-    var offlineMode by remember { mutableStateOf(false) }
+    var autoMode by remember { mutableStateOf(false) }
+    var offlineMode by remember { mutableStateOf(true) }
     var localReady by remember { mutableStateOf(false) }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
@@ -686,11 +751,39 @@ private fun NexusScreen(
                     "Installed: ${installedModels.size} model(s) · Free storage: ${"%.1f".format(freeStorageBytes / (1024.0 * 1024.0 * 1024.0))} GB",
                     style = MaterialTheme.typography.bodySmall
                 )
+                Text(
+                    "The Qwen download uses a pinned public upstream revision. NEXUS verifies SHA-256 and GGUF metadata before installation. No AI API key is used for downloading or offline inference.",
+                    style = MaterialTheme.typography.bodySmall
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         enabled = !busy,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    val downloadedPath = onDownloadModel()
+                                    installedModels = onListModels()
+                                    localModelPath = downloadedPath
+                                    onSelectModel(downloadedPath)
+                                    onLoadLocal(downloadedPath)
+                                    localReady = true
+                                    freeStorageBytes = onFreeStorage()
+                                    answer = "Qwen 0.5B downloaded, SHA-256 verified, installed and loaded. Offline chat is ready."
+                                } catch (error: Exception) {
+                                    localReady = false
+                                    answer = "Could not install the model: ${error.message}"
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        }
+                    ) { Text("Download & install Qwen 0.5B · ~491 MB") }
+                    OutlinedButton(
+                        enabled = !busy,
                         onClick = { modelPicker.launch(arrayOf("*/*")) }
                     ) { Text("Import GGUF") }
+                }
                     Button(
                         enabled = !busy && localModelPath.isNotBlank() && !localReady,
                         onClick = {
@@ -709,7 +802,6 @@ private fun NexusScreen(
                             }
                         }
                     ) { Text("Load model") }
-                }
                 if (localModelPath.isNotBlank()) {
                     OutlinedButton(
                         enabled = !busy,
