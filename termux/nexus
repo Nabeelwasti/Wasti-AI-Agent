@@ -63,6 +63,9 @@ server_start() {
   local model="${1:-$MODEL_PATH}"
   [[ -n "$model" && -f "$model" ]] || { echo "Provide a valid GGUF path or set NEXUS_MODEL_PATH."; exit 2; }
   [[ "${model,,}" == *.gguf ]] || { echo "Only GGUF models are supported by this llama.cpp server."; exit 2; }
+  if [[ -z "${NEXUS_MODEL_ID:-}" ]]; then
+    MODEL_ID="$(basename "$model" .gguf | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9._-')"
+  fi
   command -v llama-server >/dev/null || { echo "Run: nexus server install"; exit 2; }
   if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     echo "NEXUS local server is already running (PID $(cat "$PID_FILE"))."
