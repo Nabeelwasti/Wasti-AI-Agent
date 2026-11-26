@@ -354,6 +354,13 @@ async function hybridBody(body, env, headers) {
       unavailable_agents: unavailable,
     });
   }
+  if (selected.length < 2) {
+    throw new GatewayError(
+      "Hybrid mode requires at least two distinct configured model IDs. Use single-brain mode or configure another licensed model.",
+      503,
+      { available_models: available, unavailable_agents: unavailable },
+    );
+  }
 
   const started = Date.now();
   const firstPass = await Promise.all(selected.map(async id => {
