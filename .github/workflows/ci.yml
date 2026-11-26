@@ -118,7 +118,7 @@ jobs:
             -alias "$NEXUS_RELEASE_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=WASTI NEXUS CI TEST"
           gradle -p android --no-daemon assembleRelease
-          apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm -f "$NEXUS_RELEASE_STORE_FILE"
       - name: Upload debug APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
