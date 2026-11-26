@@ -86,6 +86,46 @@ test("Workers AI binding provides first-party brains without third-party provide
   assert.equal(calls[0].input.messages[0].content, "Hello");
 });
 
+test("scoped per-application keys can use chat but cannot access personal memory", async () => {
+  const clientKey = "nexus-client-key-for-mobile-app-0123456789";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientKey));
+  const sha256 = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  const configured = {
+    ...env,
+    NEXUS_CLIENT_KEYS_JSON: JSON.stringify({
+      keys: [{ id: "mobile-app", sha256, scopes: ["models", "chat"] }],
+    }),
+    AI: {
+      async run() {
+        return { response: "Scoped client inference works." };
+      },
+    },
+  };
+  const clientRequest = (path, method = "GET", body = undefined) => new Request("https://nexus.example" + path, {
+    method,
+    headers: {
+      Authorization: "Bearer " + clientKey,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+  const models = await worker.fetch(clientRequest("/v1/models"), configured);
+  assert.equal(models.status, 200);
+  assert.equal((await models.json()).data[0].id, "nexus-gemma-4-26b-a4b");
+
+  const chat = await worker.fetch(clientRequest("/v1/chat/completions", "POST", {
+    model: "nexus-gemma-4-26b-a4b",
+    messages: [{ role: "user", content: "hello" }],
+    stream: false,
+  }), configured);
+  assert.equal(chat.status, 200);
+  assert.equal((await chat.json()).choices[0].message.content, "Scoped client inference works.");
+
+  const memory = await worker.fetch(clientRequest("/v1/memory/snapshots"), configured);
+  assert.equal(memory.status, 403);
+});
+
 test("protected API rejects missing or invalid bearer tokens", async () => {
   const response = await worker.fetch(new Request("https://nexus.example/v1/models"), env);
   assert.equal(response.status, 401);
