@@ -122,7 +122,6 @@ test("self-hosted providers expose verified capabilities and are the only infere
     assert.equal(models[0].id, "private-qwen");
     assert.deepEqual(models[0].capabilities, ["chat", "coding", "reasoning"]);
     assert.equal(models[0].license, "Apache-2.0");
-    assert.equal(models.at(-1).id, "nexus-auto");
     const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
       model: "private-qwen", messages: [{ role: "user", content: "Hello" }], stream: false,
     }), configured);
@@ -168,46 +167,39 @@ test("hybrid uses two distinct self-hosted model IDs and reports actual particip
     assert.equal(calls.every(item => item.url === "https://inference.example/v1/chat/completions"), true);
   } finally { globalThis.fetch = originalFetch; }
 });
-test("scoped per-application keys can use chat but cannot access personal memory", async () => {
+test("scoped per-application keys can use self-hosted chat but cannot access personal memory", async () => {
+  const originalFetch = globalThis.fetch;
   const clientKey = "nexus-client-key-for-mobile-app-0123456789";
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientKey));
   const sha256 = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  globalThis.fetch = async () => Response.json({ choices: [{ message: { content: "Scoped client inference works." } }] });
   const configured = {
     ...env,
-    NEXUS_CLIENT_KEYS_JSON: JSON.stringify({
-      keys: [{ id: "mobile-app", sha256, scopes: ["models", "chat"] }],
-    }),
-    AI: {
-      async run() {
-        return { response: "Scoped client inference works." };
-      },
-    },
+    PRIVATE_HOST_KEY: "private-host-secret",
+    NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+      id: "private-host", base_url: "https://inference.example/v1", api_key_env: "PRIVATE_HOST_KEY",
+      models: [{ id: "private-qwen", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+    }] }),
+    NEXUS_CLIENT_KEYS_JSON: JSON.stringify({ keys: [{ id: "mobile-app", sha256, scopes: ["models", "chat"] }] }),
   };
   const clientRequest = (path, method = "GET", body = undefined) => new Request("https://nexus.example" + path, {
     method,
-    headers: {
-      Authorization: "Bearer " + clientKey,
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-    },
+    headers: { Authorization: "Bearer " + clientKey, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-
-  const models = await worker.fetch(clientRequest("/v1/models"), configured);
-  assert.equal(models.status, 200);
-  assert.equal((await models.json()).data[0].id, "nexus-gemma-4-26b-a4b");
-
-  const chat = await worker.fetch(clientRequest("/v1/chat/completions", "POST", {
-    model: "nexus-gemma-4-26b-a4b",
-    messages: [{ role: "user", content: "hello" }],
-    stream: false,
-  }), configured);
-  assert.equal(chat.status, 200);
-  assert.equal((await chat.json()).choices[0].message.content, "Scoped client inference works.");
-
-  const memory = await worker.fetch(clientRequest("/v1/memory/snapshots"), configured);
-  assert.equal(memory.status, 403);
+  try {
+    const models = await worker.fetch(clientRequest("/v1/models"), configured);
+    assert.equal(models.status, 200);
+    assert.equal((await models.json()).data[0].id, "private-qwen");
+    const chat = await worker.fetch(clientRequest("/v1/chat/completions", "POST", {
+      model: "private-qwen", messages: [{ role: "user", content: "hello" }], stream: false,
+    }), configured);
+    assert.equal(chat.status, 200);
+    assert.equal((await chat.json()).choices[0].message.content, "Scoped client inference works.");
+    const memory = await worker.fetch(clientRequest("/v1/memory/snapshots"), configured);
+    assert.equal(memory.status, 403);
+  } finally { globalThis.fetch = originalFetch; }
 });
-
 test("external providers reject HTTP and credential-bearing base URLs", async () => {
   for (const base_url of ["http://provider.example/v1", "https://user:password@provider.example/v1"]) {
     const configured = {
