@@ -2,41 +2,47 @@
 
 **One project. One repository. Many AI brains. One reusable brain API.**
 
-WASTI NEXUS is an offline-first Android assistant and a multi-model orchestration platform for future apps. The Android app defaults to local/offline inference and can optionally route to hosted models when online. Local model downloads and offline inference do not require a provider API key. Other products can connect to one OpenAI-compatible API.
+WASTI NEXUS is an offline-first Android assistant and a reusable multi-model orchestration platform for future products. Local model downloads and offline inference do not require provider API keys. Hosted inference is optional and uses a separately authenticated NEXUS gateway.
 
-> Status: active release candidate; not yet certified production-ready. CI builds the Android debug APK. A disposable CI-only keystore is used to test release assembly/signature verification; it is not the owner's permanent signing key. The deployed Cloudflare gateway's public health/model catalogue checks pass, and Gemma 4 and Qwen 3.8 27B were tested directly through the Cloudflare account API. An authenticated chat request through the Worker itself has **not** been verified because the GitHub Actions `NEXUS_API_KEY` secret is absent. Physical-device offline inference, permanent release signing, customer tenant isolation and operational readiness remain release gates.
+> **Status: active release candidate — not yet production-certified.** PR #16 (resumable verified Qwen downloads) and PR #17 (Gemini-style Android chat interface) are merged into `main`. PR #17 pre-merge CI passed Android compilation/JVM tests, Python validation and Worker tests. The post-merge main CI run is tracked [here](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45847651425). Physical-device certification, authenticated deployed chat-generation, permanent owner release signing and customer-grade tenant controls remain open gates. See [docs/STATUS.md](docs/STATUS.md).
 
-## Fixed architecture
+## What is implemented
 
-- **One repository:** Android, API, model registry, dataset/memory schemas, SDKs, deployment and tests.
-- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, metadata validation, multi-model listing/selection, load/unload and removal. Auto mode tries the online gateway first and falls back to a loaded/installed local GGUF model on network, quota and transient server failures; auth/permission errors remain visible. Local-fallback turns are excluded from subsequent cloud history. In-app model-catalogue downloads with resumable progress are not implemented yet; use the guarded acquisition tools and import the verified file. Local and cross-device encrypted snapshot restore are implemented in source, but the live recovery drill remains unverified.
-- **Online:** the deployed gateway calls Cloudflare-hosted open-weight models through its native Workers AI binding without a third-party model API key. The current configured model is `@cf/google/gemma-4-26b-a4b-it`. A separate NEXUS bearer key protects the gateway; do not expose a master key in a public app. Cloudflare Workers AI Free includes 10,000 Neurons/day, not unlimited inference; some models may require Paid.
-- **Hybrid:** requires at least two distinct configured online model IDs. Gemma 4 and Qwen 3.8 27B now satisfy that requirement; the Worker and console reject/hide Hybrid whenever fewer than two distinct models are configured.
-- **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository. The Worker GitHub token is configured and the app can send ciphertext; live memory round-trip and cross-device recovery have not yet been verified. Never store plaintext personal/customer data in this public repository.
-- **Cloudflare:** Worker-hosted web console and API gateway. Model weights are not uploaded to Workers AI. If model distribution is later enabled, use a separate R2 bucket or authorised GitHub Release assets; keep customer data and personal memory out of public object storage.
-- **Model flexibility:** 12 model families are catalogued as research candidates, not 12 verified, downloadable or online-ready brains. Only the Qwen2.5-0.5B Q4_K_M local candidate is pinned with an expected SHA-256; Gemma 4 26B A4B and Qwen 3.8 27B are currently configured in the Cloudflare gateway. Other candidates still need immutable revisions, checksums, licence review and provider configuration.
+- **Android app:** native Kotlin + Jetpack Compose chat experience, settings area, Auto/Online/Offline modes, model manager, GGUF import and native inference through Arm AI Chat/llama.cpp. Termux is not required for app runtime.
+- **Offline model install:** one-tap Qwen2.5-0.5B-Instruct Q4_K_M installer from a pinned upstream revision, with resumable HTTP Range download, progress, SHA-256 verification, GGUF metadata validation and safe finalization. Downloads and offline chat do not require an AI/provider API key.
+- **Online gateway:** Cloudflare Worker with protected model catalogue/chat routes and two configured Workers AI model IDs: `nexus-gemma-4-26b-a4b` and `nexus-qwen-3.8-27b`. Cloudflare usage is metered and subject to plan limits.
+- **Hybrid routing:** two distinct configured model IDs can participate; Worker logic rejects Hybrid if fewer than two distinct models are configured.
+- **Orchestration/API:** Python service, OpenAI-compatible API foundations, TypeScript/Python SDKs, schemas and tests are included in this monorepo.
+- **Encrypted memory:** Android snapshot encryption uses PBKDF2-HMAC-SHA256 and AES-256-GCM. Worker-backed sync stores ciphertext in a public GitHub repository; only ciphertext and non-sensitive metadata may be stored there.
 
-## Device constraints
+## Important boundaries
 
-The currently reported free resources are approximately 58 GB storage and 3 GB RAM. Storage does not determine whether a model can run: model weights, runtime buffers, KV cache and Android overhead all consume memory. The initial on-device profile should be conservative (roughly 0.5B–1B quantized, low context), then benchmarked on the exact chipset and Android build. Larger models remain online until the user frees resources and the device passes fit checks.
+- Twelve model families are research candidates, **not twelve ready-to-install models**. Only the first Qwen local candidate currently has a pinned revision and expected SHA-256. Each additional model needs immutable provenance, checksum, runtime/device compatibility and exact licence review.
+- The app supports resumable retry when the user reopens it and starts the download again; this is not a background WorkManager download.
+- Arbitrary manually imported GGUF files receive metadata validation, not proof of publisher provenance or registry hash.
+- Authenticated live chat generation through the deployed Worker has not yet been verified. CI currently skips that smoke test because the repository secret `NEXUS_API_KEY` is not configured. Never use the Worker master key in a public APK or browser bundle.
+- Encrypted memory remote round-trip and cross-device recovery need a live drill. The public GitHub repository exposes paths and metadata; it is a personal vault, not customer-isolated storage.
+- A CI ephemeral keystore validates signing configuration only. A permanent owner-controlled release keystore and real-device signed install/upgrade test are still required.
+- A successful CI build does not certify real-device UI, offline model performance, RAM, heat, battery or customer security.
 
 ## Repository layout
 
 ```
 android/       Native Android client and local inference integration
-orchestrator/  OpenAI-compatible multi-model API
 cloudflare/    Worker-hosted web console and API gateway
-models/        Model registry, licence evidence and acquisition tools
-memory/        GitHub-backed memory schemas and retrieval contracts
-datasets/      Versioned evaluation/training data and manifests
-sdks/          TypeScript and Python client libraries
-docs/          Architecture, API, security and status
+orchestrator/  Python orchestration API
+models/        Model registry, licensing notes and acquisition tools
+memory/        Encrypted-memory schemas and contracts
+datasets/      Evaluation/training data manifests
+sdks/          TypeScript and Python clients
+docs/          Architecture, API, deployment, security and status
 tests/         Cross-component tests
+termux/        Optional developer companion
 ```
 
 ## Universal brain API
 
-Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (deployed universal brain API; public health/model catalogue smoke test passes).
+Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
 
 - `GET /v1/models`
 - `POST /v1/chat/completions`
@@ -44,20 +50,21 @@ Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (deployed univ
 - `POST /v1/memory/snapshots`
 - `GET /v1/memory/snapshots/{snapshot_id}`
 
-Use `nexus-gemma-4-26b-a4b` or `nexus-qwen-3.8-27b` for the two configured first-party Cloudflare Workers AI models. `nexus-hybrid` now orchestrates both distinct models and the Worker rejects one-model Hybrid requests rather than pretending repeated calls are multiple agents. Both models use Cloudflare's account binding and require no third-party model-provider key, but Cloudflare usage is metered and the gateway still requires a NEXUS bearer key. Per-application scoped keys are supported in source, but `NEXUS_CLIENT_KEYS_JSON` has not yet been populated. Future public apps must call this API from a trusted backend and must not expose a master or long-lived bearer key in public JavaScript or APK resources. See [docs/API.md](docs/API.md) and the [Termux companion](termux/README.md).
+Configured model IDs: `nexus-gemma-4-26b-a4b` and `nexus-qwen-3.8-27b`. Hybrid uses both distinct IDs. Hosted calls require a NEXUS bearer credential with appropriate scope. Future public apps should call the API from a trusted backend and use per-app scoped keys or short-lived tokens; never embed a master or long-lived secret in public JavaScript or an APK.
 
-## GitHub memory and training data
-
-GitHub is a versioned file repository, not a live vector database or training engine. Personal/customer records must be encrypted on-device before upload; this repository is public, so only ciphertext and non-sensitive metadata may be committed. Never commit plaintext or encryption keys. Batch snapshots and scope tenant records. Curated knowledge and training/evaluation datasets need provenance, licence, consent and PII review. Embeddings are derived indexes and can be rebuilt. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/API.md](docs/API.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [cloudflare/README.md](cloudflare/README.md).
 
 ## Models and licensing
 
-The registry contains candidate families Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM. They do not all have permissive commercial licences: Command R and StableLM candidates are non-commercial, while several others require terms review. Do not use or distribute a candidate in customer products until its exact checkpoint, provenance and licence are approved. Only the Qwen local checkpoint currently has a pinned revision and expected file hash. Full weights are not committed to ordinary Git history. See [models/README.md](models/README.md) and [models/LICENSE_REVIEW.md](models/LICENSE_REVIEW.md).
+The registry includes candidate families Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM. Their licences are not interchangeable; some candidates are non-commercial or require additional terms review. Do not download, redistribute or expose a candidate to customers until its exact checkpoint, provenance and licence are approved.
 
-## Development
+See [models/README.md](models/README.md) and [models/LICENSE_REVIEW.md](models/LICENSE_REVIEW.md).
 
-Python orchestrator: see [orchestrator/README.md](orchestrator/README.md). Android: open `android/` in Android Studio. Run CI checks from the repository root as defined in `.github/workflows/ci.yml`.
+## Build and release
 
-## Security
+- Android: open `android/` in Android Studio or follow [android/README.md](android/README.md).
+- Release signing: follow [docs/RELEASE.md](docs/RELEASE.md). Never commit keystores, passwords, API keys or tokens.
+- Deployment: follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- Verified implementation and outstanding gates: [docs/STATUS.md](docs/STATUS.md).
 
-Android OS permissions and model/provider licences remain authoritative. Keep personal, project and customer data isolated. Treat retrieved memory and peer model outputs as untrusted input. Never commit API keys, GitHub tokens, private credentials or raw sensitive memory.
+WASTI NEXUS should only be described as production-ready after authenticated gateway tests, physical-device certification, permanent signing, memory recovery verification, model licence/provenance checks and customer-grade security/operations have passed.
