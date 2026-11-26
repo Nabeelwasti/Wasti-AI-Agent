@@ -109,7 +109,7 @@ def model_allowed(config: dict[str, Any]) -> bool:
     deployment_mode = os.getenv("NEXUS_DEPLOYMENT_MODE", "customer").strip().lower()
     if config.get("enabled") is False:
         return False
-    license_status = str(config.get("license_status", "approved")).strip().lower()
+    license_status = str(config.get("license_status", "unknown")).strip().lower()
     if license_status in {"restricted", "revoked", "pending", "review_required", "unknown"}:
         return False
     if deployment_mode == "customer":
@@ -216,7 +216,7 @@ async def list_agents():
                 "configured": bool(value.get("base_url")),
                 "capabilities": value.get("capabilities", ["chat"]),
                 "license": value.get("license", "review-required"),
-                "license_status": value.get("license_status", "approved"),
+                "license_status": value.get("license_status", "unknown"),
                 "commercial_allowed": value.get("commercial_allowed") is True,
                 "inference": "self-hosted",
             }
