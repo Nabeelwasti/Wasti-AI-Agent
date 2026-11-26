@@ -90,6 +90,9 @@ internal object NexusRuntimePolicy {
         }
     }
 
+    fun hasCompatibleRemoteModel(modelIds: List<String>, task: NexusTask): Boolean =
+        modelIds.any { it != "nexus-auto" && it != "nexus-hybrid" && localServerCanHandle(task, it) }
+
     fun localServerCanHandle(task: NexusTask, modelId: String): Boolean {
         val name = modelId.lowercase()
         return when (task) {
