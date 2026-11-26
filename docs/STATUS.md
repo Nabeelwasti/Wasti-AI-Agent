@@ -26,7 +26,7 @@ Last updated: 2026-11-26.
 - The repository remains public as requested.
 - The FastAPI memory adapter and Cloudflare Worker both support encrypted snapshot list/create/read routes.
 - The Worker verifies that the configured repository is public and accepts only AES-256-GCM ciphertext envelopes. It writes directly to the GitHub Contents API; it does not use Cloudflare storage.
-- The Android app can save and restore local encrypted snapshots, sync ciphertext to the Worker, and restore the newest GitHub snapshot on the same device. Cross-device recovery remains unimplemented.
+- The Android app can save/restore local encrypted snapshots, sync ciphertext to the Worker and restore the newest GitHub snapshot on another device when the same user-controlled recovery passphrase is supplied.
 - Memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations, random 16-byte salt) plus AES-256-GCM. The user-controlled passphrase is portable across devices and is never uploaded; losing it makes snapshots unrecoverable.
 - The Worker requires a fine-grained GitHub token in the Cloudflare secret `NEXUS_GITHUB_TOKEN`. That secret is **not configured yet**. Therefore remote memory sync returns HTTP 503 until the owner adds it. No memory snapshots have been written.
 - `memory/README.md` and `datasets/README.md` define the public ciphertext-only and dataset-admission policies. No personal data, training corpus or model weights have been committed.
