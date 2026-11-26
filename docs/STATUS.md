@@ -48,9 +48,9 @@ Last updated: 2026-11-26.
 - The consolidated `WASTI NEXUS CI` workflow runs Python tests/source validation, Cloudflare Worker syntax/unit tests and Android debug APK assembly.
 - The duplicate Android-only workflow was removed; the consolidated workflow is the single source of CI verification.
 - CI skips documentation-only, memory-only and dataset-only changes; it runs for code, tests, registry and workflow changes.
-- Latest full CI run passed on 2026-11-26 for commit `f41266fbe1a3689810174b6c042ccb2fd510463b`: Python tests, registry/schema checks, Python compilation, JSON/TOML validation, Worker syntax/unit tests and Android `assembleDebug`.
-- The APK was assembled successfully, but the push-triggered run did not upload an artifact. Manual/tagged runs upload it with one-day retention.
-- No real-device installation, offline inference, thermal, battery or memory benchmark has been performed.
+- Latest full CI run passed on 2026-11-26 for commit `d5dfa7fb5d8c88b44545c763033181e56914afab` (run [45819011014](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45819011014)): Python tests, registry/schema checks, Python compilation, JSON/TOML validation, Termux shell syntax, Worker syntax/unit tests, deployed public gateway smoke test (2 configured first-party models) and Android `assembleDebug`.
+- The APK was assembled and uploaded as `wasti-nexus-debug-apk` (about 20.4 MB; artifact ID `15116409189`; seven-day retention, expires 2026-12-03). This is a debug APK, not a release-signed production APK.
+- No real-device installation, offline inference, thermal, battery or memory benchmark has been performed. The live gateway health check verifies the Worker and binding/model catalogue count; it does not yet prove a real model generation request.
 
 ## Release blockers
 
