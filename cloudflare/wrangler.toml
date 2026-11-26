@@ -13,3 +13,11 @@ NEXUS_MEMORY_PREFIX = "memory/personal/encrypted"
 
 [ai]
 binding = "AI"
+
+[[ratelimits]]
+name = "NEXUS_RATE_LIMIT"
+namespace_id = "672845319"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60
