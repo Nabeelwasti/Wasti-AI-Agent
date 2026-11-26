@@ -32,8 +32,12 @@ function configuredProviders(env) {
 }
 
 function modelAllowed(model, env) {
+  if (model.enabled === false) return false;
   const deploymentMode = String(env.NEXUS_DEPLOYMENT_MODE || "customer").toLowerCase();
-  return deploymentMode !== "customer" || model.commercial_allowed === true;
+  const licenseStatus = String(model.license_status || "approved").toLowerCase();
+  if (["restricted", "revoked", "pending", "review_required", "unknown"].includes(licenseStatus)) return false;
+  return deploymentMode !== "customer" ||
+    (model.commercial_allowed === true && ["approved", "verified"].includes(licenseStatus));
 }
 
 function modelCatalog(env) {
