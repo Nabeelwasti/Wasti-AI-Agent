@@ -106,6 +106,20 @@ jobs:
           gradle-version: "8.13"
       - name: Assemble debug APK
         run: gradle -p android --no-daemon assembleDebug
+      - name: Validate release signing with an ephemeral CI-only keystore
+        env:
+          NEXUS_RELEASE_STORE_FILE: ${{ runner.temp }}/nexus-ci-test.jks
+          NEXUS_RELEASE_STORE_PASSWORD: ci-test-password
+          NEXUS_RELEASE_KEY_ALIAS: nexus-ci-test
+          NEXUS_RELEASE_KEY_PASSWORD: ci-test-password
+        run: |
+          keytool -genkeypair -noprompt -keystore "$NEXUS_RELEASE_STORE_FILE" -storetype JKS \
+            -storepass "$NEXUS_RELEASE_STORE_PASSWORD" -keypass "$NEXUS_RELEASE_KEY_PASSWORD" \
+            -alias "$NEXUS_RELEASE_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+            -dname "CN=WASTI NEXUS CI TEST"
+          gradle -p android --no-daemon assembleRelease
+          apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          rm -f "$NEXUS_RELEASE_STORE_FILE"
       - name: Upload debug APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
