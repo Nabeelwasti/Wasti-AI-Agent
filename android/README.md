@@ -14,6 +14,20 @@ Native Kotlin + Jetpack Compose app with online single/Hybrid routing and a loca
 
 The first phone-sized candidate is Qwen2.5-0.5B-Instruct Q4_K_M (approximately 491 MB). See [../models/README.md](../models/README.md) for the pinned download workflow. The model is not bundled in the APK.
 
+
+## Download the first model on Android (Termux)
+
+The Qwen GGUF file is public and does not require an HF token. After cloning this repository in Termux and granting shared-storage access:
+
+```bash
+termux-setup-storage
+pkg install python
+python -m pip install -r models/requirements.txt
+python models/download_local_candidate.py qwen --output ~/storage/downloads/WastiNexusModels
+```
+
+The downloader uses the pinned immutable revision, verifies the upstream SHA-256 and writes a manifest. In the app, choose **Offline → Import GGUF** and select the downloaded file in `Download/WastiNexusModels/qwen/`. The app copies it into its private model directory. Do not commit the downloaded GGUF or manifest into the public repository.
+
 ## Online inference
 
 Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online Hybrid mode requests the shared NEXUS gateway; the gateway currently has no inference providers configured. The app can save encrypted conversation snapshots locally, restore them on the same device, and sync/restore ciphertext through the Worker once `NEXUS_GITHUB_TOKEN` is configured. Cross-device recovery is not implemented.
