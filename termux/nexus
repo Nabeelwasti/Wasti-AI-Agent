@@ -73,7 +73,11 @@ server_start() {
   fi
   printf '%s' "$MODEL_ID" > "$STATE_DIR/model-id"
   if [[ ! -f "$STATE_DIR/local-token" ]]; then
-    python -c 'import secrets; print(secrets.token_urlsafe(48))' > "$STATE_DIR/local-token"
+    if [[ -n "$LOCAL_API_KEY" ]]; then
+      printf '%s' "$LOCAL_API_KEY" > "$STATE_DIR/local-token"
+    else
+      python -c 'import secrets; print(secrets.token_urlsafe(48))' > "$STATE_DIR/local-token"
+    fi
     chmod 600 "$STATE_DIR/local-token"
   fi
   LOCAL_API_KEY="$(cat "$STATE_DIR/local-token")"
@@ -174,7 +178,6 @@ case "${1:-}" in
     echo
     ;;
   models)
-    require_key
     require_key
     if is_loopback "$BASE"; then
       curl --fail-with-body --silent --show-error -H "Authorization: Bearer $LOCAL_API_KEY" "$BASE/v1/models"
