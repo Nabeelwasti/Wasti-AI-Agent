@@ -640,11 +640,9 @@ class MainActivity : ComponentActivity() {
             require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
             require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
             val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
-            val request = Request.Builder()
-                .url("$apiRoot/models")
-                .header("Authorization", "Bearer $key")
-                .get()
-                .build()
+            val requestBuilder = Request.Builder().url("$apiRoot/models").get()
+            if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
+            val request = requestBuilder.build()
             http.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) throw IllegalStateException("Model catalogue returned HTTP ${response.code}: $body")
@@ -880,10 +878,14 @@ private fun NexusScreen(
                                         val loopback = isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
                                             (loopback || (key.length >= 32 && url.startsWith("https://")))
+                                        val task = NexusRuntimePolicy.classify(submittedPrompt)
+                                        val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
+                                            NexusRuntimePolicy.localCanHandle(task)
                                         val decision = NexusRuntimePolicy.decide(
                                             mode = mode,
                                             snapshot = snapshot,
-                                            remoteConfigured = remoteConfigured,
+                                            remoteConfigured = remoteConfigured && !loopback,
+                                            localServerAvailable = localServerAvailable,
                                             prompt = submittedPrompt
                                         )
                                         val result = when (decision.route) {
@@ -897,13 +899,24 @@ private fun NexusScreen(
                                                     onSendLocal(submittedPrompt) { token -> streamingResponse += token }
                                                 } catch (localError: Exception) {
                                                     localReady = false
-                                                    if (mode != NexusMode.AUTO || !snapshot.internetValidated || !remoteConfigured) {
-                                                        throw localError
+                                                    if (mode != NexusMode.AUTO) throw localError
+                                                    when {
+                                                        localServerAvailable -> {
+                                                            usedRemote = true
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                                        }
+                                                        snapshot.internetValidated && remoteConfigured -> {
+                                                            onSave(url, key)
+                                                            usedRemote = true
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto")
+                                                        }
+                                                        else -> throw localError
                                                     }
-                                                    onSave(url, key)
-                                                    usedRemote = true
-                                                    onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto")
                                                 }
+                                            }
+                                            NexusRoute.TERMUX -> {
+                                                usedRemote = true
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
                                             }
                                             NexusRoute.REMOTE -> {
                                                 onSave(url, key)
