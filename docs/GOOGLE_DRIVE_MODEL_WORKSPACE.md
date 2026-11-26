@@ -4,7 +4,7 @@
 
 Google Drive is the owner's model-file archive. WASTI NEXUS Android uses the Android Storage Access Framework (SAF) to let the owner select one dedicated Drive folder. The app receives scoped permission to that folder, reads the approved model catalogue, copies a selected GGUF into app-private storage, verifies it, and runs it locally.
 
-The owner reports approximately 250 GB available in a 400 GB subscription. The curated twelve-model Q3_K_M/Q4_K_M collection has a preliminary combined size of roughly 10 GB using rounded public model-card figures; exact total bytes will be known only after each artifact is pinned. This is comfortably within the reported Drive capacity. Storage capacity does not make a model compatible with the phone or grant redistribution rights.
+The owner reports approximately 250 GB available in a 400 GB subscription. The twelve exact GGUF artifacts total 9,586,646,112 bytes (about 8.93 GiB), excluding licence notices and future revisions. This is comfortably within the reported Drive capacity. Storage capacity does not make a model compatible with the phone or grant redistribution rights.
 
 ## Folder layout
 
