@@ -71,7 +71,7 @@ Example write body:
 }
 ```
 
-The Android client derives an AES-256 key from a user-controlled recovery passphrase using PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte random salt), then encrypts with AES-256-GCM (12-byte random nonce). It retains an encrypted local copy for offline use and never sends plaintext or the passphrase to this endpoint. The same passphrase can decrypt snapshots on another device; losing it makes snapshots unrecoverable. The current API is a single personal vault, not a multi-tenant customer memory service. Keep the GitHub token in Worker secrets only. Batch many records into one encrypted snapshot because GitHub is a versioned sync/archive layer, not a transactional database; respect API rate limits and repository history growth. A device-bound Keystore key cannot be recovered on a new phone without a separately designed recovery mechanism.
+The Android client derives an AES-256 key from a user-controlled recovery passphrase using PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte random salt), then encrypts with AES-256-GCM (12-byte random nonce). It retains an encrypted local copy for offline use and never sends plaintext or the passphrase to this endpoint. The same passphrase can decrypt snapshots on another device; losing it makes snapshots unrecoverable. The current API is a single personal vault, not a multi-tenant customer memory service. Keep the GitHub token in Worker secrets only. Batch many records into one encrypted snapshot because GitHub is a versioned sync/archive layer, not a transactional database; respect API rate limits and repository history growth. The recovery passphrase is user-controlled and portable; NEXUS never uploads or stores it.
 
 ## Provider configuration
 
