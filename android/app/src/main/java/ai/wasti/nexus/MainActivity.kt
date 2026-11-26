@@ -863,10 +863,35 @@ private fun NexusScreen(
                 },
                 actions = {
                     TextButton(enabled = !busy, onClick = {
-                        conversation = emptyList()
-                        streamingResponse = ""
-                        remoteConversation = emptyList()
-                        answer = "New conversation started."
+                        val resetModelPath = localModelPath
+                        if (localReady && resetModelPath.isNotBlank()) {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    onUnloadLocal()
+                                    localReady = false
+                                    loadedModelPath = ""
+                                    onLoadLocal(resetModelPath)
+                                    localReady = true
+                                    loadedModelPath = resetModelPath
+                                    answer = "New local conversation started. Model context was reset."
+                                } catch (error: Exception) {
+                                    localReady = false
+                                    loadedModelPath = ""
+                                    answer = "New chat started, but the local model must be loaded again: ${error.message}"
+                                } finally {
+                                    conversation = emptyList()
+                                    streamingResponse = ""
+                                    remoteConversation = emptyList()
+                                    busy = false
+                                }
+                            }
+                        } else {
+                            conversation = emptyList()
+                            streamingResponse = ""
+                            remoteConversation = emptyList()
+                            answer = "New conversation started."
+                        }
                     }) { Text("New chat") }
                     TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
                         Text(if (settingsExpanded) "Done" else "Settings")
