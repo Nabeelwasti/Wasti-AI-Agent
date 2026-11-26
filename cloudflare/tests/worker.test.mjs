@@ -54,6 +54,7 @@ test("protected API rejects missing or invalid bearer tokens", async () => {
 test("memory write, list and read round-trip only encrypted payloads", async () => {
   const originalFetch = globalThis.fetch;
   let storedContent = null;
+  let storedFilename = null;
   let writes = 0;
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(input);
@@ -62,18 +63,19 @@ test("memory write, list and read round-trip only encrypted payloads", async () 
     }
     if (url.pathname.endsWith("/memory/personal/encrypted") && (init.method || "GET") === "GET") {
       return Response.json(storedContent ? [{
-        name: snapshotId + ".json",
+        name: storedFilename,
         type: "file",
         sha: "a".repeat(40),
       }] : []);
     }
-    if (url.pathname.endsWith(snapshotId + ".json") && init.method === "PUT") {
+    if (url.pathname.endsWith(".json") && init.method === "PUT") {
       writes += 1;
+      storedFilename = url.pathname.split("/").pop();
       const payload = JSON.parse(init.body);
       storedContent = payload.content;
       return Response.json({ commit: { sha: "b".repeat(40) } }, { status: 201 });
     }
-    if (url.pathname.endsWith(snapshotId + ".json") && (init.method || "GET") === "GET") {
+    if (storedFilename && url.pathname.endsWith(storedFilename) && (init.method || "GET") === "GET") {
       return Response.json({ encoding: "base64", content: storedContent });
     }
     throw new Error("Unexpected mocked GitHub request: " + url.pathname);
