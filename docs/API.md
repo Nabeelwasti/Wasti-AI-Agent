@@ -51,9 +51,9 @@ Configure these Worker settings:
 The repository must remain public in the current deployment mode. Every memory request checks its visibility. The Worker accepts only an AES-256-GCM envelope with a 12-byte nonce and authenticated ciphertext; it never receives plaintext memory. GitHub exposes the encrypted files and all metadata publicly. Never commit plaintext personal/customer data, encryption keys, API keys or GitHub tokens.
 
 Endpoints (all require the NEXUS bearer key):
-- `GET /v1/memory/snapshots?limit=100` — list encrypted snapshot IDs.
+- `GET /v1/memory/snapshots?limit=100` — list up to 100 newest encrypted snapshot IDs (newest first). Timestamp-reversed filenames keep the newest entries inside GitHub's first 1,000 directory items.
 - `POST /v1/memory/snapshots` — create an immutable encrypted snapshot.
-- `GET /v1/memory/snapshots/{snapshot_id}` — retrieve ciphertext for device-side decryption.
+- `GET /v1/memory/snapshots/{snapshot_id}` — retrieve ciphertext for device-side decryption. The Android app can restore the newest snapshot on the same device; Android Keystore keys are device-bound, so cross-device recovery needs a separate recovery-key feature.
 
 Example write body:
 ```json
