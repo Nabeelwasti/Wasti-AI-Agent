@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 NexusScreen(
-                    initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "https://wasti-nexus-gateway.wastinabeel99.workers.dev",
+                    initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "http://localhost:8088",
                     initialPrompt = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty().take(12000),
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
@@ -628,11 +628,17 @@ class MainActivity : ComponentActivity() {
         }
 
 
+    private fun isLoopbackHttp(root: String): Boolean = runCatching {
+        val uri = java.net.URI(root)
+        uri.scheme == "http" && uri.host?.lowercase() in setOf("localhost", "127.0.0.1", "::1")
+    }.getOrDefault(false)
+
     private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
         withContext(Dispatchers.IO) {
             val root = url.trim().trimEnd('/')
-            require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-            require(key.length >= 32) { "API key must be at least 32 characters." }
+            val local = isLoopbackHttp(root)
+            require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
+            require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
             val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
             val request = Request.Builder()
                 .url("$apiRoot/models")
@@ -659,8 +665,9 @@ class MainActivity : ComponentActivity() {
         agentId: String
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
-        require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-        require(key.length >= 32) { "API key must be at least 32 characters." }
+        val local = isLoopbackHttp(root)
+        require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
+        require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
 
         // Bound the remote context so a long chat cannot exceed gateway request limits.
         // Only the online conversation is supplied; local-only turns never leave the device.
@@ -678,18 +685,21 @@ class MainActivity : ComponentActivity() {
             messages.put(JSONObject().put("role", "assistant").put("content", assistant))
         }
         messages.put(JSONObject().put("role", "user").put("content", prompt))
+        val automatic = agentId == "nexus-auto"
         val payload = JSONObject()
-            .put("model", if (hybrid) "nexus-hybrid" else agentId)
+            .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
             .put("messages", messages)
             .put("stream", false)
+        if (automatic) payload.put("nexus", JSONObject().put("mode", "auto"))
         if (hybrid) {
             payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
         }
         val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url("$apiRoot/chat/completions")
-            .header("Authorization", "Bearer $key")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
+        if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
+        val request = requestBuilder.build()
             .build()
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
@@ -766,6 +776,7 @@ private fun NexusScreen(
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
@@ -861,36 +872,47 @@ private fun NexusScreen(
                                 scope.launch {
                                     var usedRemote = false
                                     try {
-                                        val localFirst = offlineMode || (
-                                            autoMode &&
-                                                localModelPath.isNotBlank() &&
-                                                localModelPath in installedModels
-                                            )
-                                        val result = if (localFirst) {
-                                            try {
-                                                if (!localReady) {
-                                                    onLoadLocal(localModelPath)
-                                                    localReady = true
+                                        val mode = when {
+                                            offlineMode -> NexusMode.OFFLINE
+                                            autoMode -> NexusMode.AUTO
+                                            else -> NexusMode.ONLINE
+                                        }
+                                        val snapshot = NexusRuntimeProbe.read(context, localModelPath, localReady)
+                                        val loopback = isLoopbackHttp(url.trim().trimEnd('/'))
+                                        val remoteConfigured = remoteModels.isNotEmpty() &&
+                                            (loopback || (key.length >= 32 && url.startsWith("https://")))
+                                        val decision = NexusRuntimePolicy.decide(
+                                            mode = mode,
+                                            snapshot = snapshot,
+                                            remoteConfigured = remoteConfigured,
+                                            prompt = submittedPrompt
+                                        )
+                                        val result = when (decision.route) {
+                                            NexusRoute.LOCAL -> {
+                                                try {
+                                                    if (!localReady) {
+                                                        onLoadLocal(localModelPath)
+                                                        localReady = true
+                                                    }
+                                                    streamingResponse = ""
+                                                    onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                                } catch (localError: Exception) {
+                                                    localReady = false
+                                                    if (mode != NexusMode.AUTO || !snapshot.internetValidated || !remoteConfigured) {
+                                                        throw localError
+                                                    }
+                                                    onSave(url, key)
+                                                    usedRemote = true
+                                                    onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto")
                                                 }
-                                                streamingResponse = ""
-                                                onSendLocal(submittedPrompt) { token -> streamingResponse += token }
-                                            } catch (localError: Exception) {
-                                                localReady = false
-                                                if (offlineMode || !autoMode) throw localError
-                                                onSave(url, key)
-                                                val remoteAnswer = onSendRemote(
-                                                    url, key, remoteConversation, submittedPrompt, hybrid, agentId
-                                                )
-                                                usedRemote = true
-                                                remoteAnswer
                                             }
-                                        } else {
-                                            onSave(url, key)
-                                            val remoteAnswer = onSendRemote(
-                                                url, key, remoteConversation, submittedPrompt, hybrid, agentId
-                                            )
-                                            usedRemote = true
-                                            remoteAnswer
+                                            NexusRoute.REMOTE -> {
+                                                onSave(url, key)
+                                                usedRemote = true
+                                                val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent)
+                                            }
+                                            NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
                                         conversation = conversation + (submittedPrompt to result)
                                         streamingResponse = ""
@@ -898,7 +920,7 @@ private fun NexusScreen(
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
-                                        answer = "Ready"
+                                        answer = "Completed via ${if (usedRemote) "self-hosted remote inference" else "on-device inference"}. ${decision.reason}"
                                     } catch (error: Exception) {
                                         streamingResponse = ""
                                         answer = "Request failed: ${error.message}"
@@ -1181,11 +1203,11 @@ private fun NexusScreen(
                 Text("ONLINE GATEWAY", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     url, { url = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Gateway HTTPS URL") }, singleLine = true
+                    label = { Text("Self-hosted endpoint (Termux / LAN / server)") }, singleLine = true
                 )
                 OutlinedTextField(
                     key, { key = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Gateway API key") },
+                    label = { Text("Remote server bearer key (not needed for localhost Termux)") },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )
