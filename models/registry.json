@@ -27,7 +27,20 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted subject to Apache-2.0 notices and any model-card terms",
-      "source_url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct"
+      "source_url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct",
+      "local_candidate": {
+        "repo_id": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+        "revision": null,
+        "file_name": "qwen2.5-0_5b-instruct-q4_k_m.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "0.5B",
+        "estimated_size_bytes": 398000000,
+        "license_id": "Apache-2.0",
+        "license_review": "initial model-card check; pin exact GGUF repo revision and preserve base-model notices before use",
+        "download_status": "not-downloaded",
+        "sha256": null,
+        "intended_device_profile": "first local trial for devices with approximately 3 GB available RAM; start with 1K-2K context and benchmark"
+      }
     },
     {
       "id": "gemma",
