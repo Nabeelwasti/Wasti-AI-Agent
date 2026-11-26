@@ -13,7 +13,7 @@ This folder is the versioned registry and acquisition tooling for all 12 target 
 1. Review the exact checkpoint and its terms.
 2. If access is gated, sign in to Hugging Face and accept the publisher's terms yourself.
 3. Set `HF_TOKEN` in your local shell or credential store (never commit it).
-4. Pin an immutable commit SHA in each registry entry's `revision`.
+4. Resolve current upstream commit SHAs with `python pin_revisions.py` (dry run), review the output, then run `python pin_revisions.py --write`.
 5. Run `python download_all.py --output /path/to/private-model-archive`.
 6. Verify generated SHA-256 manifests and test loading each checkpoint.
 7. Keep the complete archive on a PC/external drive; copy only device-compatible quantized builds to Android.
