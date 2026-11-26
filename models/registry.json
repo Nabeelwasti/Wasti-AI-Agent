@@ -32,16 +32,18 @@
     {
       "id": "gemma",
       "family": "Gemma",
-      "repo_id": "google/gemma-3-1b-it",
+      "repo_id": "google/gemma-4-E2B-it",
       "revision": null,
-      "license_id": "Gemma Terms of Use",
-      "license_review": "initial-research; final-terms-review-pending",
+      "license_id": "Apache-2.0",
+      "license_review": "model-card Apache-2.0 identified; archive licence file and verify exact revision before use",
       "redistribution": "not-approved",
       "download_status": "not-downloaded",
       "files": [],
-      "commercial_use": "conditional; accept and comply with Google Gemma terms and prohibited-use policy",
+      "commercial_use": "generally permitted under Apache-2.0; include required notices and preserve model provenance",
       "gated": true,
-      "source_url": "https://huggingface.co/google/gemma-3-1b-it"
+      "source_url": "https://huggingface.co/google/gemma-4-E2B-it",
+      "candidate": "google/gemma-4-E2B-it",
+      "runtime_note": "2.3B effective / 5.1B including embeddings; multimodal; intended for edge/mobile-class deployments"
     },
     {
       "id": "deepseek",
