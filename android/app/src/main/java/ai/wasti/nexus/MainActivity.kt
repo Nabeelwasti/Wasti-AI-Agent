@@ -800,6 +800,7 @@ private fun NexusScreen(
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val configuredRemoteModelCount = remoteModels.count { it != "nexus-auto" && it != "nexus-hybrid" }
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
@@ -1385,12 +1386,12 @@ private fun NexusScreen(
                     FilterChip(
                         selected = hybrid,
                         onClick = { hybrid = true },
-                        enabled = remoteModels.size >= 2,
+                        enabled = configuredRemoteModelCount >= 2,
                         label = { Text("Hybrid orchestration") }
                     )
                     FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
                 }
-                if (remoteModels.size < 2) {
+                if (configuredRemoteModelCount < 2) {
                     Text(
                         "Hybrid requires at least two distinct configured online models. Single-brain mode is active.",
                         style = MaterialTheme.typography.bodySmall
@@ -1405,11 +1406,11 @@ private fun NexusScreen(
                                 onSave(url, key)
                                 remoteModels = onFetchModels(url, key)
                                 if (agentId !in remoteModels) agentId = remoteModels.firstOrNull().orEmpty()
-                                if (remoteModels.size < 2) hybrid = false
-                                if (remoteModels.size < 2) {
-                                    "Loaded ${remoteModels.size} online brain(s). Hybrid stays disabled until two distinct models are configured."
+                                if (configuredRemoteModelCount < 2) hybrid = false
+                                if (configuredRemoteModelCount < 2) {
+                                    "Loaded ${configuredRemoteModelCount} configured online brain(s). Hybrid stays disabled until two distinct models are configured."
                                 } else {
-                                    "Loaded ${remoteModels.size} online brain(s). Hybrid orchestration is available."
+                                    "Loaded ${configuredRemoteModelCount} configured online brain(s). Hybrid orchestration is available."
                                 }
                             } catch (error: Exception) {
                                 "Could not load online brains: ${error.message}"
