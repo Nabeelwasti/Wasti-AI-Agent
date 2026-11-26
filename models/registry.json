@@ -113,10 +113,10 @@
         "parameters": "1.5B",
         "estimated_size_bytes": 1117000000,
         "minimum_available_ram_gb": 4,
-        "license_id": "MIT with Qwen base notices",
+        "license_id": "Apache-2.0 GGUF repository; preserve DeepSeek MIT and Qwen base notices",
         "commercial_allowed": false,
         "redistribution_allowed": false,
-        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "license_review": "The GGUF repository model card identifies Apache-2.0; the upstream DeepSeek distilled checkpoint identifies MIT and derives from Qwen. Preserve both upstream notices and complete legal review before customer use.",
         "intended_device_profile": "Preserve DeepSeek MIT and Qwen base-model notices; confirm exact derived-model rights before customer use. Requires more than current free RAM.",
         "download_status": "not-downloaded",
         "sha256": null
