@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "notice": "Candidate repository identifiers only. No checkpoint is approved for download or redistribution until the exact revision and license are reviewed.",
+  "families": [
+    {
+      "id": "llama",
+      "family": "Llama",
+      "repo_id": "meta-llama/Llama-3.2-1B-Instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "qwen",
+      "family": "Qwen",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "gemma",
+      "family": "Gemma",
+      "repo_id": "google/gemma-3-1b-it",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "deepseek",
+      "family": "DeepSeek",
+      "repo_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "mistral",
+      "family": "Mistral",
+      "repo_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "phi",
+      "family": "Phi",
+      "repo_id": "microsoft/Phi-3.5-mini-instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "granite",
+      "family": "Granite",
+      "repo_id": "ibm-granite/granite-3.1-2b-instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "glm",
+      "family": "GLM",
+      "repo_id": "THUDM/glm-4-9b-chat",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "command-r",
+      "family": "Command R",
+      "repo_id": "CohereForAI/c4ai-command-r7b-12-2024",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "falcon",
+      "family": "Falcon",
+      "repo_id": "tiiuae/falcon-1b-instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "smollm",
+      "family": "SmolLM",
+      "repo_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    },
+    {
+      "id": "stablelm",
+      "family": "StableLM",
+      "repo_id": "stabilityai/stablelm-2-1_6b-chat",
+      "revision": null,
+      "license_id": null,
+      "license_review": "pending",
+      "redistribution": "not-approved",
+      "download_status": "not-downloaded",
+      "files": []
+    }
+  ]
+}
