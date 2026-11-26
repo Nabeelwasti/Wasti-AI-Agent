@@ -1,12 +1,27 @@
-# WASTI NEXUS Cloudflare gateway
+# WASTI NEXUS Cloudflare edge and web app
 
-Deployed Worker: `wasti-nexus-gateway`
+Worker name: `wasti-nexus-gateway`
 
 Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
 
-The Worker is deployed and its workers.dev subdomain is enabled. Its API key is stored as a Cloudflare secret. No model provider is configured yet, so the current model list is empty.
+Cloudflare's role is limited to hosting the online web app's static files and forwarding the online API. NEXUS does not use Cloudflare KV, D1, R2, Durable Objects, Vectorize or other Cloudflare storage for memory, datasets or model weights.
 
-## Configure providers
+## Static web app
+
+- Static files live in `cloudflare/public/`.
+- Wrangler serves them through Workers Static Assets.
+- The online console asks the user for an API key in the browser and does not persist it.
+- The web UI must never contain a master key or GitHub write credential.
+- Same-origin requests use `/v1` on this Worker.
+
+## API endpoints
+
+- `GET /healthz` — public liveness.
+- `GET /v1/models` — authenticated model list.
+- `POST /v1/chat/completions` — single model or `model: nexus-hybrid`.
+- `POST /v1/hybrid/chat/completions` — explicit Hybrid endpoint.
+
+## Provider setup
 
 Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. Each provider includes:
 - `id`: provider identifier;
@@ -16,10 +31,4 @@ Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. 
 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
-## Endpoints
-- `GET /healthz` — public liveness.
-- `GET /v1/models` — authenticated model list.
-- `POST /v1/chat/completions` — single model or `model: nexus-hybrid`.
-- `POST /v1/hybrid/chat/completions` — explicit Hybrid endpoint.
-
-The Worker orchestrates configured inference services; it does not host large model weights or provide GPU inference itself. Offline Android operation must use the separate local runtime.
+The Worker orchestrates configured inference services; it does not host large model weights or provide GPU inference itself. Online requests will return no usable model until at least one lawful inference provider is configured. Offline Android operation uses the separate native local runtime.
