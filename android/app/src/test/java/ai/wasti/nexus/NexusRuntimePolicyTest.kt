@@ -117,6 +117,40 @@ class NexusRuntimePolicyTest {
         }
     }
 
+    @Test fun localReasoningAndCodingRoutesRequireAppropriateModelFamilies() {
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.REASONING, "DeepSeek-R1-Distill-Qwen-1.5B-Q3_K_M.gguf"))
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.REASONING, "Qwen3-1.7B-Q3_K_M.gguf"))
+        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.REASONING, "SmolLM2-135M-Instruct-Q3_K_M.gguf"))
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.CODING, "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"))
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.CODING, "qwen2.5-1.5b-instruct-q4_k_m.gguf"))
+        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.CODING, "SmolLM2-135M-Instruct-Q3_K_M.gguf"))
+    }
+
+    @Test fun generalAutoSelectionCanFallBackToTheSmallestInstalledModelThatFitsRam() {
+        val larger = File.createTempFile("qwen2.5-0.5b", ".gguf")
+        val smallest = File.createTempFile("SmolLM2-135M-Instruct", ".gguf")
+        try {
+            java.io.RandomAccessFile(larger, "rw").use { it.setLength(500L * 1024 * 1024) }
+            java.io.RandomAccessFile(smallest, "rw").use { it.setLength(90L * 1024 * 1024) }
+            val selected = NexusRuntimePolicy.chooseLocalModelPath(
+                NexusTask.GENERAL,
+                listOf(larger.absolutePath, smallest.absolutePath),
+                2L * 1024 * 1024 * 1024,
+                larger.absolutePath
+            )
+            assertEquals(smallest.absolutePath, selected)
+        } finally {
+            larger.delete()
+            smallest.delete()
+        }
+    }
+
+    @Test fun classifierRecognizesOrdinaryImageAndCodeRequests() {
+        assertEquals(NexusTask.VISION, NexusRuntimePolicy.classify("What is in this photo?"))
+        assertEquals(NexusTask.VISION, NexusRuntimePolicy.classify("Describe the image of a dog"))
+        assertEquals(NexusTask.CODING, NexusRuntimePolicy.classify("Show code to sort a list"))
+    }
+
     @Test fun termuxFallbackIsBlockedWhenDeviceIsHotOrCriticallyLowOnBattery() {
         val hot = NexusRuntimePolicy.decide(
             NexusMode.OFFLINE, snapshot(thermal = 3), false, localServerAvailable = true, prompt = "Hello"
