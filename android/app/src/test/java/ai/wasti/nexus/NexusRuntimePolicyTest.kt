@@ -81,9 +81,39 @@ class NexusRuntimePolicyTest {
     }
 
     @Test fun onlyTextTasksAreCurrentlyEligibleForLocalChatRuntime() {
-        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.GENERAL))
-        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.CODING))
-        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.VISION))
-        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.TRAINING))
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.GENERAL, "qwen3-1.7b.gguf"))
+        assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.CODING, "qwen2.5-coder-1.5b.gguf"))
+        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.VISION, "qwen3-1.7b.gguf"))
+        assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.TRAINING, "qwen3-1.7b.gguf"))
     }
 }
+
+    @Test fun autoSelectsTaskSpecialistFromInstalledModelsWithinRamBudget() {
+        val coder = File.createTempFile("qwen-coder", ".gguf")
+        val general = File.createTempFile("qwen3-1.7b", ".gguf")
+        try {
+            coder.writeBytes(ByteArray(20 * 1024 * 1024))
+            general.writeBytes(ByteArray(20 * 1024 * 1024))
+            val paths = listOf(general.absolutePath, coder.absolutePath)
+            val coding = NexusRuntimePolicy.chooseLocalModelPath(NexusTask.CODING, paths, 4L * 1024 * 1024 * 1024, general.absolutePath)
+            val chat = NexusRuntimePolicy.chooseLocalModelPath(NexusTask.GENERAL, paths, 4L * 1024 * 1024 * 1024, general.absolutePath)
+            assertEquals(coder.absolutePath, coding)
+            assertEquals(general.absolutePath, chat)
+        } finally {
+            coder.delete()
+            general.delete()
+        }
+    }
+
+    @Test fun autoDoesNotChooseLocalModelWhenNoCandidateFitsAvailableRam() {
+        val model = File.createTempFile("qwen3", ".gguf")
+        try {
+            model.writeBytes(ByteArray(1024 * 1024))
+            val chosen = NexusRuntimePolicy.chooseLocalModelPath(
+                NexusTask.GENERAL, listOf(model.absolutePath), 128L * 1024 * 1024, model.absolutePath
+            )
+            assertEquals("", chosen)
+        } finally {
+            model.delete()
+        }
+    }
