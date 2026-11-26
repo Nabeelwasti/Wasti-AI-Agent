@@ -47,6 +47,9 @@ class MemorySnapshotInput(BaseModel):
     snapshot_id: uuid.UUID
     created_at: datetime
     key_id: str = Field(min_length=8, max_length=128)
+    kdf: str = Field(pattern=r"^PBKDF2-HMAC-SHA256$")
+    iterations: int = Field(ge=600000, le=600000)
+    salt: str = Field(pattern=r"^[A-Za-z0-9_-]{22}$")
     nonce: str = Field(pattern=r"^[A-Za-z0-9_-]{16,64}$")
     ciphertext: str = Field(min_length=1, max_length=1_048_576)
     content_type: str = Field(default="conversation-summary", pattern="^(conversation-summary|fact|preference|project-note|knowledge-reference)$")
@@ -56,6 +59,10 @@ class MemorySnapshotInput(BaseModel):
         if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("created_at must include a timezone")
         try:
+            salt_bytes = base64.b64decode(
+                self.salt.encode("ascii") + b"=" * (-len(self.salt) % 4),
+                altchars=b"-_", validate=True,
+            )
             nonce_bytes = base64.b64decode(
                 self.nonce.encode("ascii") + b"=" * (-len(self.nonce) % 4),
                 altchars=b"-_", validate=True,
@@ -64,8 +71,8 @@ class MemorySnapshotInput(BaseModel):
                 self.ciphertext.encode("ascii") + b"=" * (-len(self.ciphertext) % 4),
                 altchars=b"-_", validate=True,
             )
-            if len(nonce_bytes) != 12 or len(cipher_bytes) < 16:
-                raise ValueError("AES-GCM requires a 12-byte nonce and an authentication tag")
+            if len(salt_bytes) != 16 or len(nonce_bytes) != 12 or len(cipher_bytes) < 16:
+                raise ValueError("PBKDF2 requires a 16-byte salt; AES-GCM requires a 12-byte nonce and authentication tag")
         except (UnicodeEncodeError, ValueError) as exc:
             raise ValueError("nonce/ciphertext must be valid base64url AES-256-GCM data") from exc
         return {
@@ -77,6 +84,9 @@ class MemorySnapshotInput(BaseModel):
             "tags": self.tags,
             "cipher": {
                 "algorithm": "AES-256-GCM",
+                "kdf": self.kdf,
+                "iterations": self.iterations,
+                "salt": self.salt,
                 "key_id": self.key_id,
                 "nonce": self.nonce,
                 "ciphertext": self.ciphertext,
