@@ -399,8 +399,8 @@ test("customer catalogue hides models without explicit commercial clearance", as
       providers: [{
         id: "test-provider",
         models: [
-          {id: "restricted-model", enabled: true, commercial_allowed: false},
-          {id: "approved-model", enabled: true, commercial_allowed: true},
+          {id: "restricted-model", enabled: true, commercial_allowed: false, license_status: "review_required"},
+          {id: "approved-model", enabled: true, commercial_allowed: true, license_status: "verified"},
         ],
       }],
     }),
