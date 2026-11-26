@@ -117,6 +117,12 @@ class NexusRuntimePolicyTest {
         }
     }
 
+    @Test fun apiRootNormalizationHandlesTrailingAndVersionSlashes() {
+        assertEquals("http://localhost:8088/v1", NexusRuntimePolicy.normalizeApiRoot("http://localhost:8088/"))
+        assertEquals("https://gateway.example/v1", NexusRuntimePolicy.normalizeApiRoot("https://gateway.example/v1/"))
+        assertEquals("https://gateway.example/v1", NexusRuntimePolicy.normalizeApiRoot("https://gateway.example/"))
+    }
+
     @Test fun routerAliasesDoNotCountAsIndependentRemoteBrains() {
         assertEquals(0, NexusRuntimePolicy.configuredRemoteBrainCount(emptyList()))
         assertEquals(1, NexusRuntimePolicy.configuredRemoteBrainCount(listOf("qwen", "nexus-auto")))
