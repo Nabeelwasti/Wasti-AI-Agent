@@ -85,3 +85,9 @@ def test_noncommercial_local_candidates_are_marked_blocked_for_customer_use():
     assert by_id["command-r"]["commercial_allowed"] is False
     assert by_id["stablelm"]["commercial_allowed"] is False
     assert by_id["glm"]["commercial_allowed"] is False
+
+def test_qwen_phone_candidate_is_pinned_and_checksum_verified():
+    qwen = next(item for item in load_registry() if item["id"] == "qwen")
+    candidate = qwen["local_candidate"]
+    assert candidate["revision"] == "12145bd1d629190a4d44254073650877954d02c9"
+    assert candidate["sha256"] == "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
