@@ -4,7 +4,30 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseStoreFile = System.getenv("NEXUS_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("NEXUS_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("NEXUS_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("NEXUS_RELEASE_KEY_PASSWORD")
+val releaseSigningReady = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storeType = "JKS"
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
     namespace = "ai.wasti.nexus"
     compileSdk = 36
     defaultConfig {
@@ -13,6 +36,14 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.2.0"
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
