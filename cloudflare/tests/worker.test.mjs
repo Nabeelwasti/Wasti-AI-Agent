@@ -1,0 +1,142 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import worker from "../src/index.js";
+
+const apiKey = "nexus-test-key-".padEnd(40, "x");
+const token = "github-test-token-".padEnd(32, "x");
+const snapshotId = "123e4567-e89b-42d3-a456-426614174000";
+const env = {
+  NEXUS_API_KEY: apiKey,
+  NEXUS_GITHUB_TOKEN: token,
+  NEXUS_MEMORY_REPOSITORY: "Nabeelwasti/Wasti-AI-Agent",
+  NEXUS_MEMORY_BRANCH: "main",
+  NEXUS_MEMORY_PREFIX: "memory/personal/encrypted",
+  NEXUS_DEPLOYMENT_MODE: "customer",
+};
+
+function encryptedInput(id = snapshotId) {
+  return {
+    snapshot_id: id,
+    created_at: "2026-11-26T12:00:00+05:00",
+    key_id: "android-key-2026",
+    nonce: "AAAAAAAAAAAAAAAA",
+    ciphertext: "AAAAAAAAAAAAAAAAAAAAAA",
+    content_type: "project-note",
+    tags: ["nexus", "project-memory"],
+  };
+}
+
+function authedRequest(path, method = "GET", body = undefined) {
+  return new Request("https://nexus.example" + path, {
+    method,
+    headers: {
+      Authorization: "Bearer " + apiKey,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+test("health route is public and does not expose provider secrets", async () => {
+  const response = await worker.fetch(new Request("https://nexus.example/healthz"), env);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.service, "wasti-nexus-gateway");
+  assert.equal(data.configured_models, 0);
+  assert.equal(JSON.stringify(data).includes(token), false);
+});
+
+test("protected API rejects missing or invalid bearer tokens", async () => {
+  const response = await worker.fetch(new Request("https://nexus.example/v1/models"), env);
+  assert.equal(response.status, 401);
+});
+
+test("memory write, list and read round-trip only encrypted payloads", async () => {
+  const originalFetch = globalThis.fetch;
+  let storedContent = null;
+  let writes = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input);
+    if (url.pathname === "/repos/Nabeelwasti/Wasti-AI-Agent") {
+      return Response.json({ private: false });
+    }
+    if (url.pathname.endsWith("/memory/personal/encrypted") && (init.method || "GET") === "GET") {
+      return Response.json(storedContent ? [{
+        name: snapshotId + ".json",
+        type: "file",
+        sha: "a".repeat(40),
+      }] : []);
+    }
+    if (url.pathname.endsWith(snapshotId + ".json") && init.method === "PUT") {
+      writes += 1;
+      const payload = JSON.parse(init.body);
+      storedContent = payload.content;
+      return Response.json({ commit: { sha: "b".repeat(40) } }, { status: 201 });
+    }
+    if (url.pathname.endsWith(snapshotId + ".json") && (init.method || "GET") === "GET") {
+      return Response.json({ encoding: "base64", content: storedContent });
+    }
+    throw new Error("Unexpected mocked GitHub request: " + url.pathname);
+  };
+
+  try {
+    const write = await worker.fetch(authedRequest("/v1/memory/snapshots", "POST", encryptedInput()), env);
+    assert.equal(write.status, 201);
+    const written = await write.json();
+    assert.equal(written.snapshot_id, snapshotId);
+    assert.equal(written.commit_sha, "b".repeat(40));
+    assert.equal(writes, 1);
+
+    const listed = await worker.fetch(authedRequest("/v1/memory/snapshots"), env);
+    assert.equal(listed.status, 200);
+    assert.equal((await listed.json()).data[0].snapshot_id, snapshotId);
+
+    const read = await worker.fetch(authedRequest("/v1/memory/snapshots/" + snapshotId), env);
+    assert.equal(read.status, 200);
+    const record = (await read.json()).data;
+    assert.equal(record.cipher.algorithm, "AES-256-GCM");
+    assert.equal(record.cipher.ciphertext, encryptedInput().ciphertext);
+    assert.equal(JSON.stringify(record).includes("plaintext"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("memory endpoint rejects malformed AES-GCM nonce before GitHub write", async () => {
+  const originalFetch = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input);
+    if (url.pathname === "/repos/Nabeelwasti/Wasti-AI-Agent") return Response.json({ private: false });
+    if (init.method === "PUT") writes += 1;
+    throw new Error("Unexpected request");
+  };
+  try {
+    const body = encryptedInput();
+    body.nonce = "short";
+    const response = await worker.fetch(authedRequest("/v1/memory/snapshots", "POST", body), env);
+    assert.equal(response.status, 400);
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("memory endpoint refuses a repository that is not public", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ private: true });
+  try {
+    const response = await worker.fetch(authedRequest("/v1/memory/snapshots"), env);
+    assert.equal(response.status, 503);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("memory endpoint fails closed when GitHub token is missing", async () => {
+  const response = await worker.fetch(
+    authedRequest("/v1/memory/snapshots"),
+    { ...env, NEXUS_GITHUB_TOKEN: "" },
+  );
+  assert.equal(response.status, 503);
+});
