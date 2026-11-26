@@ -474,11 +474,11 @@ async function memorySnapshots(request, env, headers, url) {
       .map(item => {
         const match = String(item?.name || "").match(/^(\d{13})-([0-9a-f-]{36})\.json$/i);
         return item?.type === "file" && match && SNAPSHOT_ID_PATTERN.test(match[2])
-          ? { snapshot_id: match[2].toLowerCase(), sha: item.sha, created_at: new Date(Number(match[1])).toISOString(), timestamp: Number(match[1]) }
+          ? { snapshot_id: match[2].toLowerCase(), sha: item.sha, created_at: new Date(9999999999999 - Number(match[1])).toISOString(), timestamp: Number(match[1]) }
           : null;
       })
       .filter(Boolean)
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .sort((a, b) => a.timestamp - b.timestamp)
       .slice(0, limit)
       .map(({timestamp, ...item}) => item);
     return json({ data }, 200, headers);
@@ -488,7 +488,8 @@ async function memorySnapshots(request, env, headers, url) {
     const input = await parseJson(request, 1500000);
     const record = validateMemorySnapshot(input);
     const timestamp = Date.parse(record.created_at);
-    const filename = `${timestamp}-${record.record_id}.json`;
+    const newestFirstKey = 9999999999999 - timestamp;
+    const filename = `${newestFirstKey}-${record.record_id}.json`;
     const path = `${contentsBase}/${encodeURIComponent(filename)}`;
     const result = await githubMemoryRequest(config, path, {
       method: "PUT",
