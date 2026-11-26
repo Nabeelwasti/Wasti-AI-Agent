@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
                     initialWorkspaceModels = DriveModelWorkspace.loadCatalog(this),
                     initialRegistryModels = NexusModelRegistry.load(this),
                     initialModelNotices = NexusModelRegistry.loadNotices(this),
+                    initialLicenseTexts = NexusModelRegistry.loadLicenseTexts(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
                     onListModels = { installedModels() },
@@ -721,6 +722,7 @@ private fun NexusScreen(
     initialWorkspaceModels: List<WorkspaceModel>,
     initialRegistryModels: List<NexusCapabilityModel>,
     initialModelNotices: String,
+    initialLicenseTexts: String,
     initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
     onListModels: () -> List<String>,
@@ -749,6 +751,7 @@ private fun NexusScreen(
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
     var registryDialog by remember { mutableStateOf(false) }
     var noticesDialog by remember { mutableStateOf(false) }
+    var licenseTextsDialog by remember { mutableStateOf(false) }
     var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
     var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
@@ -998,6 +1001,26 @@ private fun NexusScreen(
                     onClick = { noticesDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Open Source Licences & Upstream Notices") }
+                OutlinedButton(
+                    onClick = { licenseTextsDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Read full Apache 2.0 & MIT licence texts") }
+                if (licenseTextsDialog) {
+                    AlertDialog(
+                        onDismissRequest = { licenseTextsDialog = false },
+                        title = { Text("Apache 2.0 & MIT Licence Texts") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
+                            ) {
+                                Text(initialLicenseTexts, style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { licenseTextsDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
                 if (noticesDialog) {
                     AlertDialog(
                         onDismissRequest = { noticesDialog = false },
