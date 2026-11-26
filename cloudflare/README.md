@@ -20,6 +20,17 @@ Cloudflare's role is limited to hosting the online web app's static files and fo
 - `GET /v1/models` — authenticated model list.
 - `POST /v1/chat/completions` — single model or `model: nexus-hybrid`.
 - `POST /v1/hybrid/chat/completions` — explicit Hybrid endpoint.
+- `GET /v1/memory/snapshots` — list encrypted snapshot IDs.
+- `POST /v1/memory/snapshots` — append one immutable client-encrypted snapshot to GitHub.
+- `GET /v1/memory/snapshots/{uuid}` — retrieve a ciphertext snapshot for device-side decryption.
+
+## GitHub memory integration
+
+The Worker writes encrypted memory files directly through the GitHub Contents API. It does not use Cloudflare storage. The configured repository must remain public in this deployment mode; the Worker verifies visibility before every operation. Only AES-256-GCM ciphertext and non-sensitive metadata are accepted. GitHub exposes those ciphertext files and metadata publicly, so plaintext personal/customer information and encryption keys must never be committed.
+
+Configure the Worker variables in `wrangler.toml` (`NEXUS_MEMORY_REPOSITORY`, branch and prefix), then add a fine-grained GitHub token as a Worker secret named `NEXUS_GITHUB_TOKEN`. Give it Contents read/write access only to `Nabeelwasti/Wasti-AI-Agent`. Never put the token in the repository or client app. Without this secret, memory routes return HTTP 503 and do not write anything.
+
+GitHub is a versioned sync/archive layer, not a transactional database. Batch memory into snapshots, keep local encrypted copies for offline access, and account for GitHub API rate limits and public visibility. The initial endpoint is a single personal vault, not a multi-tenant customer memory service.
 
 ## Provider setup
 
