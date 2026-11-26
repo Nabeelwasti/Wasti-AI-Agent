@@ -961,7 +961,7 @@ private fun NexusScreen(
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
-                                        answer = "Completed via ${if (usedRemote) "self-hosted remote inference" else "on-device inference"}. ${decision.reason}"
+                                        answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (error: Exception) {
                                         streamingResponse = ""
                                         answer = "Request failed: ${error.message}"
