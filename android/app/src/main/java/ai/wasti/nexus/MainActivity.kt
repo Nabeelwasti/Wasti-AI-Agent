@@ -726,6 +726,7 @@ private fun NexusScreen(
     var busy by remember { mutableStateOf(false) }
     var settingsExpanded by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var downloadingModel by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
@@ -778,7 +779,7 @@ private fun NexusScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = {
+                    TextButton(enabled = !busy, onClick = {
                         conversation = emptyList()
                         remoteConversation = emptyList()
                         answer = "New conversation started."
@@ -938,6 +939,7 @@ private fun NexusScreen(
                         enabled = !busy,
                         onClick = {
                             downloadProgress = 0f
+                            downloadingModel = true
                             busy = true
                             scope.launch {
                                 try {
@@ -955,12 +957,13 @@ private fun NexusScreen(
                                     localReady = false
                                     answer = "Could not install the model: ${error.message}"
                                 } finally {
+                                    downloadingModel = false
                                     busy = false
                                 }
                             }
                         }
                     ) { Text("Download / resume Qwen 0.5B · ~491 MB") }
-                    if (busy && downloadProgress > 0f) {
+                    if (downloadingModel && downloadProgress > 0f) {
                         LinearProgressIndicator(progress = { downloadProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                         Text("Verified download: ${(downloadProgress * 100).toInt()}% · Network interruptions can be resumed by tapping again.", style = MaterialTheme.typography.bodySmall)
                     }
