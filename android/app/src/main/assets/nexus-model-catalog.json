@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalogue_revision": "2026-11-26.3",
+  "catalogue_revision": "2026-11-26.4",
   "storage": "google-drive-saf",
   "brand": "WASTI NEXUS",
   "branding_notice": "WASTI NEXUS is the product and collection identity. Each model remains an upstream third-party model; original names, creators, provenance and licence obligations must be preserved. These are open-weight models, not a claim that every training pipeline qualifies under an OSI open-source AI definition.",
@@ -19,7 +19,8 @@
       "source": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
       "source_revision": "12145bd1d629190a4d44254073650877954d02c9",
       "minimum_available_ram_gb": 2.5,
-      "note": "WASTI NEXUS local starter. Original model by Qwen; Apache-2.0 notices and upstream attribution are retained. Exact file, revision, byte length and SHA-256 pinned."
+      "note": "Upstream Qwen/Qwen2.5-0.5B-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "qwen-1.5b",
@@ -28,14 +29,15 @@
       "upstream_model": "Qwen/Qwen2.5-1.5B-Instruct",
       "file_name": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 1117320736,
+      "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
       "minimum_available_ram_gb": 4.2,
-      "note": "General-purpose second-tier model. Original model by Qwen. Pin immutable GGUF revision, exact byte length and SHA-256 before enabling download."
+      "note": "Upstream Qwen/Qwen2.5-1.5B-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "qwen-coder-1.5b",
@@ -44,14 +46,15 @@
       "upstream_model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
       "file_name": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 1117320768,
+      "sha256": "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "f86cb2c1fa58255f8052cc32aeede1b7482d4361",
       "minimum_available_ram_gb": 4,
-      "note": "Code-focused assistant. Original model by Qwen. Pin immutable GGUF revision, exact byte length and SHA-256 before enabling download."
+      "note": "Upstream Qwen/Qwen2.5-Coder-1.5B-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "qwen3-0.6b",
@@ -60,14 +63,15 @@
       "upstream_model": "Qwen/Qwen3-0.6B",
       "file_name": "Qwen3-0.6B-Q3_K_M.gguf",
       "quantization": "Q3_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 413978720,
+      "sha256": "a87626e7acd86ff57db4fb48f6cbbbfd130c33f1a8093301c3f8b331162487d9",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/tensorblock/Qwen_Qwen3-0.6B-GGUF",
-      "source_revision": null,
+      "source_revision": "40d7f049bd6a2736eccc84a3adc79cc321616da8",
       "minimum_available_ram_gb": 2.5,
-      "note": "Compact Qwen3 candidate. The pinned repository provides Q3_K_M; original model by Qwen, GGUF quantized by TensorBlock. Exact revision and SHA-256 pending."
+      "note": "Upstream Qwen/Qwen3-0.6B; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "qwen3-1.7b",
@@ -76,14 +80,15 @@
       "upstream_model": "Qwen/Qwen3-1.7B",
       "file_name": "Qwen3-1.7B-Q3_K_M.gguf",
       "quantization": "Q3_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 1073242208,
+      "sha256": "79af9a932c6659aabc06d6560b8404063c79f616b136953370f9c67853e162e0",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/tensorblock/Qwen_Qwen3-1.7B-GGUF",
-      "source_revision": null,
+      "source_revision": "77fee077ec2122a422479246f5cb81dcf6ab8c72",
       "minimum_available_ram_gb": 4.8,
-      "note": "Larger Qwen3 candidate. The pinned repository provides Q3_K_M; original model by Qwen, GGUF quantized by TensorBlock. Exact revision and SHA-256 pending."
+      "note": "Upstream Qwen/Qwen3-1.7B; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "smollm2-135m",
@@ -92,14 +97,15 @@
       "upstream_model": "HuggingFaceTB/SmolLM2-135M-Instruct",
       "file_name": "SmolLM2-135M-Instruct-Q3_K_M.gguf",
       "quantization": "Q3_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 93511232,
+      "sha256": "61c69fc5ce91982e26c625d43be5c3c7f0f774da22f4fa4e45c37a80a22ddad4",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/tensorblock/SmolLM2-135M-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "32db44d69cedb731dc0fc96f60e01a86c6f5919d",
       "minimum_available_ram_gb": 2.5,
-      "note": "Ultra-light quick-response candidate. Q3_K_M is available in the pinned public GGUF repository; original model by Hugging Face."
+      "note": "Upstream HuggingFaceTB/SmolLM2-135M-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "smollm2-360m",
@@ -108,14 +114,15 @@
       "upstream_model": "HuggingFaceTB/SmolLM2-360M-Instruct",
       "file_name": "SmolLM2-360M-Instruct-Q4_K_M.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 270590592,
+      "sha256": "e55c2a5df7f8f6eed1a843ff709fa8008dbce65d82e57c5c06dec5ee8d060415",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/lmstudio-community/SmolLM2-360M-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "b4c62446992d1feec0ef87d60af9b12ac8922919",
       "minimum_available_ram_gb": 2.5,
-      "note": "Lightweight everyday chat candidate. Q4_K_M from LM Studio Community quantization of the Hugging Face SmolLM2 model; preserve upstream Apache-2.0 notices."
+      "note": "Upstream HuggingFaceTB/SmolLM2-360M-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "smollm2-1.7b",
@@ -124,14 +131,15 @@
       "upstream_model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
       "file_name": "smollm2-1.7b-instruct-q4_k_m.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 1055609536,
+      "sha256": "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "2d4a76a30b4af41ecd395c35725ac11688d4cfe4",
       "minimum_available_ram_gb": 4.2,
-      "note": "Higher-capability compact chat candidate. Original model by Hugging Face. Pin exact artifact revision and checksum."
+      "note": "Upstream HuggingFaceTB/SmolLM2-1.7B-Instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "tinyllama-1.1b",
@@ -140,14 +148,15 @@
       "upstream_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
       "file_name": "TinyLlama-1.1B-Chat-v1.0-Q3_K_M.gguf",
       "quantization": "Q3_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 548404768,
+      "sha256": "a7f5d8894019a758fdd516d4847a4a1fec5b18321d367b593d6d996a115b7bd7",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF",
-      "source_revision": null,
+      "source_revision": "917a6091308fa80582a38686dea7c995c1932078",
       "minimum_available_ram_gb": 3.2,
-      "note": "Small chat model for low-memory devices. Q3_K_M is the verified available quantization candidate; preserve TinyLlama Apache-2.0 notices."
+      "note": "Upstream TinyLlama/TinyLlama-1.1B-Chat-v1.0; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "granite-2b",
@@ -156,14 +165,15 @@
       "upstream_model": "ibm-granite/granite-3.1-2b-instruct",
       "file_name": "granite-3.1-2b-instruct.Q4_K_M.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 1545295936,
+      "sha256": "2da9e0c3ca95b52b01474000891fbbf0c7f94fc8ab132dbf19028b6dd9fac579",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/mradermacher/granite-3.1-2b-instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "881ec3bfaa1187d6185ff9403f5f86b7d5ff4fde",
       "minimum_available_ram_gb": 5.5,
-      "note": "Structured and business-oriented instruction candidate. Original model by IBM; GGUF quantized by mradermacher. Pin exact artifact revision and checksum."
+      "note": "Upstream ibm-granite/granite-3.1-2b-instruct; source repository, immutable revision, exact byte length and SHA-256 pinned. Preserve upstream Apache-2.0 notices. Device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "deepseek-r1-1.5b",
@@ -172,14 +182,15 @@
       "upstream_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
       "file_name": "DeepSeek-R1-Distill-Qwen-1.5B-Q3_K_M.gguf",
       "quantization": "Q3_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 924456288,
+      "sha256": "1bc36f5fb4f3985286f910871a748e345382584c66e2abb4b170ec50e8fa5d00",
+      "status": "ready",
       "license": "MIT (DeepSeek) + Apache-2.0 (Qwen base)",
       "source": "https://huggingface.co/tensorblock/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
-      "source_revision": null,
+      "source_revision": "39e5becfd6cc844e0310bfed01a4aaf173e131bf",
       "minimum_available_ram_gb": 4.5,
-      "note": "Reasoning-focused distilled model. Q3_K_M is available in the pinned GGUF repository. Preserve DeepSeek MIT and Qwen base Apache-2.0 notices."
+      "note": "DeepSeek MIT distilled checkpoint over Qwen base; GGUF repository Apache-2.0. Preserve all three relevant notices. File integrity is pinned; device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     },
     {
       "id": "olmo2-1b",
@@ -188,14 +199,15 @@
       "upstream_model": "allenai/OLMo-2-0425-1B-Instruct",
       "file_name": "OLMo-2-0425-1B-Instruct-Q4_K_M.gguf",
       "quantization": "Q4_K_M",
-      "size_bytes": null,
-      "sha256": null,
-      "status": "pending_verification",
+      "size_bytes": 935515296,
+      "sha256": "abd8187934a438fbf7cfff0a1de5b9d2793ce913f158794df1951dcba6c93cc6",
+      "status": "ready",
       "license": "Apache-2.0",
       "source": "https://huggingface.co/allenai/OLMo-2-0425-1B-Instruct-GGUF",
-      "source_revision": null,
+      "source_revision": "62f8c199538474c3e33ed5d7e0580abd66686a27",
       "minimum_available_ram_gb": 4,
-      "note": "Open research and instruction-following candidate. Original model by Allen Institute for AI; preserve Apache-2.0 notices and pin exact artifact checksum."
+      "note": "GGUF repo has no separate licence tag; the upstream AllenAI OLMo 2 1B Instruct base model declares Apache-2.0. Preserve the base-model licence and attribution. File integrity is pinned; device runtime validation remains pending.",
+      "runtime_validation": "pending_device_test"
     }
   ]
 }
