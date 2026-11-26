@@ -23,8 +23,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
+import com.arm.aichat.gguf.GgufMetadataReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -167,11 +169,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
             require(target.length() > 1024L * 1024L) { "The selected file is too small to be a valid GGUF model." }
-            val magic = ByteArray(4)
             target.inputStream().use { stream ->
-                require(stream.read(magic) == 4 && String(magic, Charsets.US_ASCII) == "GGUF") {
-                    "The selected file does not have a valid GGUF header."
-                }
+                GgufMetadataReader.create().readStructuredMetadata(stream)
             }
             prefs.edit().putString("local_model_path", target.absolutePath).apply()
             target.absolutePath
@@ -193,10 +192,23 @@ class MainActivity : ComponentActivity() {
             "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
         }
         try {
+            when (val state = localEngine.state.first {
+                it is InferenceEngine.State.Initialized || it is InferenceEngine.State.Error
+            }) {
+                is InferenceEngine.State.Error -> throw state.exception
+                else -> Unit
+            }
             localEngine.loadModel(model.absolutePath)
+            localEngine.setSystemPrompt(
+                "You are WASTI NEXUS, a helpful, accurate and practical AI assistant. " +
+                    "Be clear about uncertainty and never invent sources or capabilities."
+            )
         } catch (error: OutOfMemoryError) {
             localEngine.cleanUp()
             throw IllegalStateException("Android ran out of memory while loading this model. Try a smaller GGUF quantization.", error)
+        } catch (error: Exception) {
+            localEngine.cleanUp()
+            throw error
         }
     }
 
