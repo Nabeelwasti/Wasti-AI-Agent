@@ -1,6 +1,6 @@
 # Verified implementation status
 
-Last updated: 2026-11-26 (main commit `348201f11383c6fe3a533881d1d96339a6670459`).
+Evidence snapshot: 2026-11-26. Latest fully tested application commit: `348201f11383c6fe3a533881d1d96339a6670459` (the documentation-only status refresh is merged separately).
 
 ## Executive status
 
