@@ -27,7 +27,9 @@ Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. 
 - `id`: provider identifier;
 - `base_url`: trusted HTTPS OpenAI-compatible inference endpoint ending in `/v1`;
 - `api_key_env`: name of another Worker secret;
-- `models`: array of `id`, `agent` and `enabled` values.
+- `models`: array of `id`, optional `upstream_model`, `agent`, `enabled` and `commercial_allowed` values.
+
+The Worker defaults to customer-safe mode: a model is hidden and blocked unless `commercial_allowed: true` is explicitly set after reviewing its exact licence. For private personal testing only, set `NEXUS_DEPLOYMENT_MODE=personal`; this does not grant redistribution or commercial rights.
 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
