@@ -20,6 +20,9 @@ internal data class NexusCapabilityModel(
 )
 
 internal object NexusModelRegistry {
+    fun loadNotices(context: Context): String =
+        context.assets.open("nexus-third-party-model-notices.md").bufferedReader(Charsets.UTF_8).use { it.readText() }
+
     fun load(context: Context): List<NexusCapabilityModel> {
         val raw = context.assets.open("nexus-model-registry.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
         val root = JSONObject(raw)
