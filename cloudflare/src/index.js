@@ -545,7 +545,7 @@ async function memorySnapshots(request, env, headers, url) {
       record?.cipher?.algorithm !== "AES-256-GCM" ||
       record?.cipher?.kdf !== "PBKDF2-HMAC-SHA256" ||
       record?.cipher?.iterations !== 600000 ||
-      decodeBase64Url(record?.cipher?.salt).length !== 16
+      !(/^[A-Za-z0-9_-]{22}$/.test(record?.cipher?.salt || ""))
     ) {
       throw new GatewayError("Stored memory snapshot identity or encryption metadata is invalid", 502);
     }
