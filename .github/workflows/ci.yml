@@ -133,5 +133,7 @@ jobs:
           assert data.get("status") == "ok", data
           assert data.get("service") == "wasti-nexus-gateway", data
           assert data.get("configured_models", 0) >= 1, data
-          print("Gateway is reachable; configured first-party model count:", data["configured_models"])
+          assert "nexus-gemma-4-26b-a4b" in data.get("model_ids", []), data
+          assert not any("llama-3.2" in model_id for model_id in data.get("model_ids", [])), data
+          print("Gateway is reachable; active model IDs:", data["model_ids"])
           PY
