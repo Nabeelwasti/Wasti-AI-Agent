@@ -100,6 +100,8 @@ def inspect_model(model: dict) -> dict:
             "repo_id": repo_id,
             "revision": revision,
             "expected_file_name": expected,
+            "sibling_count": len(filenames),
+            "gguf_files": [name for name in filenames if name.lower().endswith(".gguf")][:40],
             "q4_k_m_files": [
                 name for name in filenames
                 if name.lower().endswith(".gguf") and "q4_k_m" in name.lower()
