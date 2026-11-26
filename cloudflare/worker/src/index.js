@@ -144,7 +144,9 @@ async function hybrid(body, env) {
   const requested = Array.isArray(nexus.agents) ? nexus.agents : (Array.isArray(body.models) ? body.models : []);
   const candidates = requested.length ? requested : available.map((model) => model.id);
   const maxAgents = Math.max(1, Math.min(Number(env.MAX_HYBRID_AGENTS || 12), 12));
-  const selected = [...new Set(candidates)].filter((id) => available.some((model) => model.id === id)).slice(0, maxAgents);
+  const uniqueCandidates = [...new Set(candidates)];
+  const unconfigured = uniqueCandidates.filter((id) => !available.some((model) => model.id === id));
+  const selected = uniqueCandidates.filter((id) => available.some((model) => model.id === id)).slice(0, maxAgents);
   if (!selected.length) {
     return json({ error: { message: "No configured model agents are available." }, available_models: available }, 503);
   }
@@ -155,7 +157,7 @@ async function hybrid(body, env) {
     catch (error) { return { ok: false, id, error: String(error?.message || "agent_failed").slice(0, 160) }; }
   }));
   const successful = initial.filter((item) => item.ok);
-  const failed = initial.filter((item) => !item.ok);
+  const failed = initial.filter((item) => !item.ok).concat(unconfigured.map((id) => ({ ok: false, id, error: "model_not_configured" })));
   if (!successful.length) return json({ error: { message: "All selected agents failed." }, failed_agents: failed }, 502);
 
   const reviewReports = [];
