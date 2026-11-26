@@ -43,7 +43,7 @@ def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]
             priority = 100
         ranked.append((priority, 0 if task in capabilities else 1, agent_id))
     ranked.sort()
-    if task != "general":
+    if task in {"coding", "reasoning"}:
         known = {item[2] for item in ranked}
         fallbacks = []
         for agent_id, agent in config.items():
