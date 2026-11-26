@@ -955,8 +955,8 @@ private fun NexusScreen(
                                         val snapshot = NexusRuntimeProbe.read(
                                             context, effectiveLocalPath, localReady && loadedModelPath == effectiveLocalPath
                                         )
-                                        val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
-                                            NexusRuntimePolicy.localServerCanHandle(task, remoteModels.first())
+                                        val localServerAvailable = loopback &&
+                                            NexusRuntimePolicy.hasCompatibleRemoteModel(remoteModels, task)
                                         val decision = NexusRuntimePolicy.decide(
                                             mode = mode,
                                             snapshot = snapshot,
