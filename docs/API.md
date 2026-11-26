@@ -27,16 +27,18 @@ The bearer key authenticates access to the NEXUS gateway. It is **not** a model-
 
 Streaming is not implemented. Send `"stream": false`.
 
-## Current first-party model
+## Current first-party models
 
-The deployed Worker exposes one configured first-party model:
+The deployed Worker exposes two configured first-party models through the Cloudflare `AI` binding:
 
-- Public NEXUS model ID: `nexus-gemma-4-26b-a4b`
-- Cloudflare Workers AI model ID: `@cf/google/gemma-4-26b-a4b-it`
-- Licence metadata: Apache-2.0
-- Inference binding: `env.AI`
+| NEXUS model ID | Cloudflare model ID | Licence | Context | Price per 1M tokens (input/output) |
+|---|---|---|---:|---:|
+| `nexus-gemma-4-26b-a4b` | `@cf/google/gemma-4-26b-a4b-it` | Apache-2.0 | 256,000 | $0.10 / $0.30 |
+| `nexus-qwen-3.8-27b` | `@cf/qwen/qwen3.8-27b` | Apache-2.0 | 262,144 | $0.45 / $3.20 |
 
-Example:
+Both models were called successfully through the connected Cloudflare account API. No third-party model-provider API token is needed. The separate NEXUS bearer key still authenticates gateway access.
+
+Example single-brain request:
 
 ```bash
 curl --fail-with-body \
@@ -53,6 +55,8 @@ curl --fail-with-body \
   }'
 ```
 
+To use Qwen, change the model field to `nexus-qwen-3.8-27b`.
+
 Workers AI Free currently includes 10,000 Neurons per day, not unlimited inference. Actual response counts depend on model and request size; model access, capacity and pricing can change. Check [official Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 
 ## List configured models
@@ -63,13 +67,11 @@ curl --fail-with-body \
   https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/models
 ```
 
-The endpoint returns only currently configured and enabled model IDs. The twelve-family local model registry is not twelve live cloud endpoints. The current online catalogue has one tested first-party model.
+The endpoint returns only currently configured and enabled model IDs. The twelve-family local model registry is not twelve live cloud endpoints; two first-party online models are currently configured.
 
 ## Hybrid orchestration
 
-Hybrid mode is deliberately disabled unless at least **two distinct model IDs** are configured. It must not present repeated calls to one model as a multi-agent consensus.
-
-After a second licensed, tested model is configured, use:
+Hybrid mode is enabled because two distinct first-party model IDs are configured. It runs independent analysis, bounded peer review and synthesis. It reports actual participants and failures, and rejects the request if fewer than two distinct model IDs are available.
 
 ```json
 {
@@ -80,13 +82,13 @@ After a second licensed, tested model is configured, use:
   "stream": false,
   "nexus": {
     "mode": "hybrid",
-    "agents": ["model-one", "model-two"],
+    "agents": ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"],
     "review_rounds": 1
   }
 }
 ```
 
-The response reports actual participants and failures. Hybrid can use independent analysis, peer review and synthesis, but it consumes multiple inference calls and therefore more quota. Do not infer that Hybrid is available from the route existing; it remains unavailable until the model catalogue contains at least two distinct configured IDs.
+Hybrid consumes multiple inference calls and therefore more quota. It is a real two-model workflow, not repeated calls to one model presented as separate agents.
 
 ## Authentication and client keys
 
