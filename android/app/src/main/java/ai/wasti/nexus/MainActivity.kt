@@ -767,7 +767,9 @@ private fun NexusScreen(
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
-    var localModelPath by remember { mutableStateOf(initialModelPath) }
+    var localModelPath by remember {
+        mutableStateOf(initialModelPath.takeIf { it in initialModels } ?: initialModels.firstOrNull().orEmpty())
+    }
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
     var registryDialog by remember { mutableStateOf(false) }
@@ -800,7 +802,7 @@ private fun NexusScreen(
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    val configuredRemoteModelCount = remoteModels.count { it != "nexus-auto" && it != "nexus-hybrid" }
+    val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
@@ -1407,7 +1409,7 @@ private fun NexusScreen(
                                 val fetchedModels = onFetchModels(url, key)
                                 remoteModels = fetchedModels
                                 if (agentId !in fetchedModels) agentId = fetchedModels.firstOrNull().orEmpty()
-                                val fetchedBrainCount = fetchedModels.count { it != "nexus-auto" && it != "nexus-hybrid" }
+                                val fetchedBrainCount = NexusRuntimePolicy.configuredRemoteBrainCount(fetchedModels)
                                 if (fetchedBrainCount < 2) hybrid = false
                                 if (fetchedBrainCount < 2) {
                                     "Loaded $fetchedBrainCount configured online brain(s). Hybrid stays disabled until two distinct models are configured."
