@@ -106,6 +106,8 @@ jobs:
           gradle-version: "8.13"
       - name: Assemble debug APK
         run: gradle -p android --no-daemon assembleDebug
+      - name: Run Android JVM unit tests
+        run: gradle -p android --no-daemon testDebugUnitTest
       - name: Validate release signing with an ephemeral CI-only keystore
         env:
           NEXUS_RELEASE_STORE_FILE: ${{ runner.temp }}/nexus-ci-test.jks
