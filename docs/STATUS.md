@@ -8,7 +8,7 @@ Last updated: 2026-11-26.
 - All changes have been committed without force-pushes or history rewrites.
 - No repository visibility change was made.
 - The repository contains the Android client, FastAPI orchestration service, Cloudflare Worker, model registry/download tools, SDKs, tests, memory schemas and dataset schemas.
-- Public GitHub Actions standard hosted runners are free. The workflow skips documentation-only, memory-only and dataset-only pushes; APK artifact retention is one day to limit storage.
+- Public GitHub Actions standard hosted runners are free. The workflow skips documentation-only, memory-only and dataset-only pushes, cancels superseded runs on the same ref, and uploads an APK only for manual/tagged builds (one-day retention). Standard GitHub-hosted runners are free for public repositories.
 
 ## Android and local models
 
