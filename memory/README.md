@@ -12,13 +12,13 @@ This repository is public. The only permitted personal-memory payload is **clien
 ## Rules
 
 1. Encrypt on the trusted client before any network request. The Worker must never receive plaintext.
-2. Use AES-256-GCM with a fresh random 12-byte nonce for every encryption under a given key.
+2. Derive the AES-256 key from a user-controlled recovery passphrase using PBKDF2-HMAC-SHA256 with 600,000 iterations and a fresh 16-byte salt per snapshot. Use AES-256-GCM with a fresh random 12-byte nonce. Never upload the passphrase.
 3. Keep encryption keys outside GitHub and Cloudflare. Never upload keys, passphrases, API keys, GitHub tokens or recovery codes.
 4. Batch related memory entries into one bounded snapshot to reduce commits and API calls.
 5. Keep local encrypted snapshots so Offline mode continues to work without internet.
 6. Public paths, timestamps, tags, record counts and commit history are metadata; keep them non-sensitive.
 7. The current vault is single-user. Do not use it for customer records or multi-tenant data.
-8. Before enabling cross-device restore, implement a user-controlled recovery-key/passphrase flow. Android Keystore keys alone are device-bound.
+8. Before enabling cross-device restore, implement a user-controlled recovery-key/passphrase flow. The passphrase is portable across devices but must be retained securely by the user; if forgotten, snapshots cannot be decrypted.
 
 ## API
 
