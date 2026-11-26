@@ -15,7 +15,7 @@ def test_vision_does_not_claim_text_only_model_is_a_vision_model():
     config = {"text": {"capabilities": ["chat"]}}
     task, ranked = rank_agents(messages, config, lambda _: True)
     assert task == "vision"
-    assert ranked == ["text"]  # explicitly marked general fallback, not a vision specialist
+    assert ranked == []  # no text-only fallback may claim to perform vision
 
 def test_license_policy_excludes_uncleared_agents():
     messages = [{"role": "user", "content": "Explain this"}]
