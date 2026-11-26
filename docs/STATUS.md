@@ -7,9 +7,9 @@ Last updated: 2026-11-26.
 - Canonical repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
 - One monorepo contains the Android client, model registry, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
 - GitHub Actions now uses Node 24-compatible action releases. Dependabot is enabled for GitHub Actions, Gradle, Python and npm dependencies.
-- Latest full CI run: [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406), commit `f648a5112c696f8b3da0a37dc155c517a993dded`. Python/source tests, Worker tests, Android debug assembly and Android JVM fallback-policy tests have passed. The deployed public health check confirms both configured model IDs, and an unauthenticated `/v1/models` request correctly returns HTTP 401. The ephemeral release-signature validation and debug APK artifact upload are still running. The authenticated model-generation smoke is skipped because the GitHub Actions `NEXUS_API_KEY` secret is absent.
+- Latest full CI run: [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406), commit `f648a5112c696f8b3da0a37dc155c517a993dded` — **passed**. Python/source tests, Cloudflare Worker tests, Android debug assembly, Android JVM fallback-policy tests, ephemeral release APK assembly/signature verification, debug APK artifact upload and deployed public gateway checks all passed. The public health check confirms both configured model IDs, and an unauthenticated `/v1/models` request correctly returns HTTP 401. The authenticated model-generation smoke is skipped because the GitHub Actions `NEXUS_API_KEY` secret is absent; this remains a release gate.
 - Earlier run [45827619035](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827619035) passed Python/source checks, Cloudflare Worker tests and the deployed gateway smoke test; its Android job was still running when the newer run was queued. Do not treat it as a complete end-to-end pass.
-- The most recent downloadable debug APK before these changes is from run [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029). It is a debug build, not an owner-signed production APK.
+- Latest debug APK artifact: `wasti-nexus-debug-apk`, 20,383,452 bytes, SHA-256 `85eaf5acd80470cc863d1222fce270e9efbd461b590933ceab55092e1ca3c5b6`, from run [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406). It expires 2026-12-03. This is a debug APK, not an owner-signed production release.
 - No model weights, provider credentials, GitHub tokens or personal plaintext memory are committed.
 
 ## Android client
@@ -19,7 +19,7 @@ Last updated: 2026-11-26.
 - The app defaults to Auto mode and has the deployed NEXUS gateway URL preconfigured. It attempts online inference first, then falls back to an installed local model on network errors, missing online credentials and transient HTTP 408/429/5xx failures. Authentication/permission errors remain visible.
 - Local-fallback turns are excluded from subsequent cloud conversation history. Explicit Offline mode does not send inference prompts to the gateway.
 - Manual GGUF import, metadata validation, model listing/selection, load/unload and removal are implemented. A resumable in-app model catalogue downloader and registry SHA-256 verification for manually imported files are not implemented.
-- JVM tests cover network/quota fallback, auth/permission non-fallback and missing online credentials. The latest full Android build/test run is pending at this status update.
+- JVM tests cover network/quota fallback, auth/permission non-fallback and missing online credentials. The latest full Android build and JVM test suite passed in CI run [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406).
 - No GGUF model has been loaded on the target phone in this work. Real-device install, offline generation, RAM/thermal/battery measurements and upgrade testing remain unverified. Local inference is implemented in source but not device-certified.
 
 ## Model catalogue and licensing
