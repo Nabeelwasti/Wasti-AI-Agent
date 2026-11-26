@@ -1,7 +1,7 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Main HEAD:** `da44753f612647803b600b632851a5703753b287`  
+**Release commit:** `da44753f612647803b600b632851a5703753b287`  
 **Merged milestone:** PR #31 — resource-aware local-first orchestration, Termux server, 50-entry model governance and self-hosted-only edge relay  
 **Android release:** `0.5.0` (`versionCode 5`)  
 **Signed release workflow:** run `45888314128` — successful  
