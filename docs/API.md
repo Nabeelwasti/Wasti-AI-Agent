@@ -43,8 +43,8 @@ The Worker also accepts `POST /v1/hybrid/chat/completions` with an optional `mod
 The FastAPI orchestrator provides a personal-memory snapshot adapter. It stores only client-encrypted AES-256-GCM payloads as files in the configured GitHub repository. The API never decrypts memory.
 
 Configure these variables on the trusted orchestrator host:
-- `NEXUS_MEMORY_REPOSITORY=owner/private-repository`
-- `NEXUS_GITHUB_TOKEN` — fine-grained token with Contents read/write for that private repository only
+- `NEXUS_MEMORY_REPOSITORY=owner/Wasti-AI-Agent`
+- `NEXUS_GITHUB_TOKEN` — fine-grained token with Contents read/write access restricted to this repository
 - `NEXUS_MEMORY_BRANCH=main` (optional)
 - `NEXUS_MEMORY_PREFIX=memory/personal/encrypted` (optional)
 
@@ -53,9 +53,9 @@ Endpoints (all require the NEXUS bearer key):
 - `POST /v1/memory/snapshots` — create an immutable encrypted snapshot file.
 - `GET /v1/memory/snapshots/{snapshot_id}` — retrieve an encrypted snapshot for client-side decryption.
 
-The write body includes `snapshot_id` (UUID), timezone-aware `created_at`, `key_id`, base64url `nonce`, base64url `ciphertext`, optional `content_type` and `tags`. Batch many memory records into one encrypted snapshot before upload. The API writes under `memory/personal/encrypted/`; it does not accept a client-controlled repository path or tenant path.
+The write body includes `snapshot_id` (UUID), timezone-aware `created_at`, `key_id`, base64url `nonce`, base64url `ciphertext`, optional `content_type` and `tags`. Batch many memory records into one encrypted snapshot before upload. The API writes under `memory/personal/encrypted/`; it does not accept a client-controlled repository path or tenant path. The configured repository must be public. GitHub exposes encrypted blobs and their metadata to everyone; the server refuses plaintext records. Keep encryption keys exclusively on trusted devices and maintain a separate encrypted recovery backup.
 
-This initial adapter is for one personal vault, not a multi-customer identity system. Do not expose the shared NEXUS key to customers or point this at a public repository. Keep the GitHub token server-side, encrypt before upload, and retain a local encrypted copy so offline mode works. GitHub commit history and API rate limits make this a versioned sync/archive layer, not a high-frequency transactional database.
+This initial adapter is for one personal vault, not a multi-customer identity system. Do not expose the shared NEXUS key to customers. This deployment deliberately uses a public repository: only client-encrypted ciphertext is written there, and all blob metadata is public. Keep the GitHub token server-side, encrypt before upload, and retain a local encrypted copy so offline mode works. Never store plaintext customer or personal records in this repository. GitHub commit history and API rate limits make this a versioned sync/archive layer, not a high-frequency transactional database.
 
 ## Provider configuration
 
