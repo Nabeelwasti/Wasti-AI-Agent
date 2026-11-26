@@ -16,7 +16,7 @@ function providers(env) {
 function catalog(env) {
   return providers(env).flatMap((provider) =>
     (provider.models || [])
-      .filter((model) => model.enabled === true && typeof model.id === "string")
+      .filter((model) => model.enabled === true && model.commercial_allowed === true && typeof model.id === "string")
       .map((model) => ({
         id: model.id,
         object: "model",
@@ -71,7 +71,7 @@ function parseMessages(body) {
 
 function resolveModel(env, modelId) {
   for (const provider of providers(env)) {
-    const model = (provider.models || []).find((entry) => entry.id === modelId && entry.enabled === true);
+    const model = (provider.models || []).find((entry) => entry.id === modelId && entry.enabled === true && entry.commercial_allowed === true);
     if (model) return { provider, model };
   }
   return null;
