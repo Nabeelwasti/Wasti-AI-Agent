@@ -4,13 +4,19 @@ Research date: 2026-11-26. Public repositories are reference material, not depen
 
 ## Android local inference
 
-### Preferred first runtime: llama.cpp
+### Preferred first runtime: Arm AI Chat library backed by llama.cpp
 
-- Upstream: https://github.com/ggml-org/llama.cpp
+- Upstream engine: https://github.com/ggml-org/llama.cpp
+- Android binding: https://github.com/arm/ai-chat
+- Maven Central artifact: https://central.sonatype.com/artifact/com.arm/ai-chat
 - Official Android guide: https://github.com/ggml-org/llama.cpp/blob/master/docs/android.md
-- Android Studio sample: https://github.com/ggml-org/llama.cpp/tree/master/examples/llama.android
-- Why: GGUF support, Android native binding, Kotlin Flow token generation, metadata reader, and broad quantized model coverage.
-- Integration strategy: use the official Android sample/library as the reference implementation; pin a specific upstream commit; integrate its native module into this monorepo and adapt the interface behind a NEXUS LocalModelEngine. Do not vendor an unpinned moving branch.
+- Official Android sample: https://github.com/ggml-org/llama.cpp/tree/master/examples/llama.android
+- Selected dependency: `com.arm:ai-chat:0.1.0` (Apache-2.0).
+- API: `AiChat.getInferenceEngine(context)`, `InferenceEngine.loadModel(path)`, token `Flow` from `sendUserPrompt`, `cleanUp()` and `destroy()`.
+- The library's documented baseline is minSdk 33, compileSdk 36 and Java 17; the Android project toolchain has been aligned to that baseline.
+- Why: GGUF support, native llama.cpp integration, Kotlin Flow token generation, and a maintained Android library rather than a hand-written JNI bridge.
+
+The NEXUS app currently has source integration for GGUF import, model load/unload and local chat. The dependency and app have not yet passed CI or a real-device inference test. Do not claim offline support verified until those checks pass.
 
 ### Additional implementation references
 
@@ -22,7 +28,7 @@ Research date: 2026-11-26. Public repositories are reference material, not depen
 
 ### Runtime decision
 
-Start with llama.cpp + GGUF because it gives one broadly compatible route for the selected models. Keep a runtime adapter interface so LiteRT-LM or ExecuTorch can be added later for models with better compiled/mobile support. Do not add several native runtimes to the first APK until one end-to-end offline model has passed device tests.
+Start with Arm AI Chat + llama.cpp + GGUF because it gives one broadly compatible route for the first selected models. Keep a runtime adapter interface so LiteRT-LM or ExecuTorch can be added later for models with better compiled/mobile support. Do not add several native runtimes to the first APK until one end-to-end offline model has passed device tests.
 
 Official llama.cpp Android docs show both an Android Studio binding and an NDK route. The binding is preferable for a native app; CLI-in-Termux is useful for experimentation but should not become the production app architecture.
 
