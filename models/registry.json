@@ -34,7 +34,7 @@
         "file_name": "qwen2.5-0_5b-instruct-q4_k_m.gguf",
         "quantization": "Q4_K_M",
         "parameters": "0.5B",
-        "estimated_size_bytes": 398000000,
+        "estimated_size_bytes": 491000000,
         "license_id": "Apache-2.0",
         "license_review": "initial model-card check; pin exact GGUF repo revision and preserve base-model notices before use",
         "download_status": "not-downloaded",
