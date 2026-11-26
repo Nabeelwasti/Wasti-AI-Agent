@@ -51,10 +51,10 @@ Copy one tested GGUF into `$HOME/models/`, configure `termux/env.example` as `~/
 nexus server start "$HOME/models/your-model.gguf"
 nexus server token
 nexus models
-nexus chat <model-id-from-list> "Hello in Urdu and English"
+nexus chat MODEL_ID "Hello in Urdu and English"
 ```
 
-Paste the generated local pairing token into the app's endpoint key field. This is local authentication, not an AI provider API key. See [termux/README.md](termux/README.md).
+Replace `MODEL_ID` with the ID printed by `nexus models`. Paste the generated local pairing token into the app's endpoint key field. This is local authentication, not an AI provider API key. See [termux/README.md](termux/README.md).
 
 ## Important limits
 
