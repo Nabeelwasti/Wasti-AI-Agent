@@ -1,0 +1,644 @@
+{
+  "schema_version": 1,
+  "collection": "WASTI NEXUS Extended Model & Capability Registry",
+  "policy": "Discovery records only. The twelve pinned GGUF entries in nexus-model-catalog.json are the only archive-ready models. Every entry here requires an exact checkpoint, immutable revision, checksum, licence review, runtime adapter and device/server validation before activation.",
+  "storage": "Google Drive via Android SAF for private model and training artefact archives. No Cloudflare R2 or other Cloudflare object storage.",
+  "entries": [
+    {
+      "id": "gemma4-e2b",
+      "name": "Gemma 4 E2B",
+      "placement": "mobile_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "gemma4-e4b",
+      "name": "Gemma 4 E4B",
+      "placement": "mobile_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "qwen35-4b",
+      "name": "Qwen3.5 4B",
+      "placement": "mobile_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "phi4-mini",
+      "name": "Phi-4-mini-instruct",
+      "placement": "mobile_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "granite41-3b",
+      "name": "Granite 4.1 3B",
+      "placement": "mobile_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "qwen38-27b",
+      "name": "Qwen3.8 27B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding",
+        "vision"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "deepseek-v41-flash",
+      "name": "DeepSeek V4.1 Flash",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "gpt-oss-20b",
+      "name": "gpt-oss-20b",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0 + usage policy",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "gpt-oss-120b",
+      "name": "gpt-oss-120b",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0 + usage policy",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "mistral-small-4",
+      "name": "Mistral Small 4",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding",
+        "vision"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "devstral-small-2",
+      "name": "Devstral Small 2 24B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "coding",
+        "reasoning"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "glm53-flash",
+      "name": "GLM-5.3-Flash",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "granite41-8b",
+      "name": "Granite 4.1 8B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "granite41-30b",
+      "name": "Granite 4.1 30B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "olmo31-7b",
+      "name": "OLMo 3.1 7B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "olmo31-32b",
+      "name": "OLMo 3.1 32B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "muse-glimmer",
+      "name": "Muse Glimmer 30B",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "mimo-v26-flash",
+      "name": "Xiaomi MiMo-V2.6 Flash",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision"
+      ],
+      "license": "verify exact checkpoint licence",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "mimo-v26-pro",
+      "name": "Xiaomi MiMo-V2.6 Pro",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "vision"
+      ],
+      "license": "verify exact checkpoint licence",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "hunyuan-hy3",
+      "name": "Tencent Hunyuan Hy3",
+      "placement": "server_candidate",
+      "capabilities": [
+        "chat",
+        "reasoning",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "flux-schnell",
+      "name": "FLUX.1 schnell",
+      "placement": "image_generation_server",
+      "capabilities": [
+        "image-generation"
+      ],
+      "license": "Apache-2.0",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "whisper-tiny",
+      "name": "Whisper Tiny",
+      "placement": "speech_local_or_server",
+      "capabilities": [
+        "speech-to-text"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "whisper-base",
+      "name": "Whisper Base",
+      "placement": "speech_local_or_server",
+      "capabilities": [
+        "speech-to-text"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "whisper-small",
+      "name": "Whisper Small",
+      "placement": "speech_server_candidate",
+      "capabilities": [
+        "speech-to-text"
+      ],
+      "license": "MIT",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "piper-tts",
+      "name": "Piper TTS",
+      "placement": "speech_local_or_server",
+      "capabilities": [
+        "text-to-speech"
+      ],
+      "license": "MIT engine; each voice has its own licence",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "kokoro-82m",
+      "name": "Kokoro-82M",
+      "placement": "speech_local_or_server",
+      "capabilities": [
+        "text-to-speech"
+      ],
+      "license": "Apache-2.0 weights / MIT inference code; voice and language coverage must be checked",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    },
+    {
+      "id": "unsloth-colab",
+      "name": "Unsloth + Google Colab",
+      "placement": "training_tool",
+      "capabilities": [
+        "training"
+      ],
+      "license": "tooling and base-model licences both apply",
+      "status": "candidate_not_enabled",
+      "exact_checkpoint": null,
+      "revision": null,
+      "sha256": null,
+      "runtime_validation": "not_started",
+      "activation_requirements": [
+        "pin exact upstream checkpoint and immutable revision",
+        "capture complete licence and usage-policy text",
+        "verify architecture, tokenizer and quantization support",
+        "calculate memory and storage requirements",
+        "run automated smoke and evaluation tests",
+        "record device or server benchmark"
+      ]
+    }
+  ]
+}
