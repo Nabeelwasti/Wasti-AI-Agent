@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
 import com.arm.aichat.gguf.GgufMetadataReader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -1071,6 +1072,8 @@ private fun NexusScreen(
                                                 archiveProgress = if (total > 0L) completed.toFloat() / total.toFloat() else 0f
                                             }
                                             answer = "Archived $count model files to your private Google Drive folder. Each source file passed its pinned size and SHA-256 checks. Select Download from Drive on any model to install it locally."
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
                                         } catch (error: Exception) {
                                             answer = "Google Drive model archive failed: ${error.message}"
                                         } finally {
