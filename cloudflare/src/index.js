@@ -594,10 +594,10 @@ export default {
         return json({ object: "list", data: modelCatalog(env) }, 200, headers);
       }
       if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
-        return single(request, env, headers);
+        return await single(request, env, headers);
       }
       if (request.method === "POST" && url.pathname === "/v1/hybrid/chat/completions") {
-        return hybrid(request, env, headers);
+        return await hybrid(request, env, headers);
       }
       if (env.ASSETS) return env.ASSETS.fetch(request);
       return json({ error: { message: "Not found" } }, 404, headers);
