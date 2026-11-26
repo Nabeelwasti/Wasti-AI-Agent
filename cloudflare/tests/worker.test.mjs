@@ -81,7 +81,7 @@ test("hybrid refuses to present one model as a multi-agent result", async () => 
         id: "one-provider",
         base_url: "https://provider.example/v1",
         api_key_env: "UPSTREAM_KEY",
-        models: [{ id: "only-model", enabled: true, commercial_allowed: true }],
+        models: [{ id: "only-model", enabled: true, commercial_allowed: true, license_status: "verified" }],
       }],
     }),
     UPSTREAM_KEY: "test-provider-key",
@@ -210,7 +210,7 @@ test("external providers reject HTTP and credential-bearing base URLs", async ()
           id: "unsafe-provider",
           base_url,
           api_key_env: "UPSTREAM_KEY",
-          models: [{ id: "unsafe-model", enabled: true, commercial_allowed: true }],
+          models: [{ id: "unsafe-model", enabled: true, commercial_allowed: true, license_status: "verified" }],
         }],
       }),
     };
@@ -239,7 +239,7 @@ test("external provider redirects are not followed", async () => {
           id: "redirect-provider",
           base_url: "https://provider.example/v1",
           api_key_env: "UPSTREAM_KEY",
-          models: [{ id: "redirect-model", enabled: true, commercial_allowed: true }],
+          models: [{ id: "redirect-model", enabled: true, commercial_allowed: true, license_status: "verified" }],
         }],
       }),
     };
