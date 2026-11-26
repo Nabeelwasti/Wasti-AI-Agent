@@ -21,7 +21,7 @@ function encryptedInput(id = snapshotId) {
     key_id: "pbkdf2-sha256-600k-v1",
     kdf: "PBKDF2-HMAC-SHA256",
     iterations: 600000,
-    salt: "AAAAAAAAAAAAAAAAAAAAAAAAAA",
+    salt: "AAAAAAAAAAAAAAAAAAAAAA",
     nonce: "AAAAAAAAAAAAAAAA",
     ciphertext: "AAAAAAAAAAAAAAAAAAAAAA",
     content_type: "project-note",
