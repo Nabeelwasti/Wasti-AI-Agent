@@ -431,6 +431,12 @@ function validateMemorySnapshot(body) {
   if (typeof keyId !== "string" || keyId.length < 8 || keyId.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(keyId)) {
     throw new GatewayError("key_id must be 8-128 safe characters", 400);
   }
+  const kdf = body.kdf;
+  const iterations = body.iterations;
+  const salt = body.salt;
+  if (kdf !== "PBKDF2-HMAC-SHA256" || iterations !== 600000 || decodeBase64Url(salt).length !== 16) {
+    throw new GatewayError("Memory encryption requires PBKDF2-HMAC-SHA256, 600000 iterations and a 16-byte salt", 400);
+  }
   const nonce = body.nonce;
   const ciphertext = body.ciphertext;
   if (decodeBase64Url(nonce).length !== 12 || decodeBase64Url(ciphertext).length < 16 || ciphertext.length > 1400000) {
@@ -453,6 +459,9 @@ function validateMemorySnapshot(body) {
     tags,
     cipher: {
       algorithm: "AES-256-GCM",
+      kdf,
+      iterations,
+      salt,
       key_id: keyId,
       nonce,
       ciphertext,
