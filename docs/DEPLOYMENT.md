@@ -52,7 +52,7 @@ Deploy the Worker through the configured Cloudflare account and verify the deplo
 
 ## Model acquisition and offline mode
 
-Termux is not required to run the Android app or execute local inference. The app currently supports manual GGUF import, metadata validation, one active local model at a time, load/unload and removal. Auto mode tries online inference first and falls back to a local model for network errors, missing online credentials and transient gateway/quota failures when a compatible local model is installed. Offline mode never sends inference prompts to the gateway.
+Termux is not required to run the Android app or execute local inference. The app currently supports manual GGUF import, metadata validation, one active local model at a time, load/unload and removal. The target Auto mode is local-first; online inference is an explicit optional route. Offline mode never sends inference prompts to the gateway.
 
 The first phone-sized candidate is Qwen2.5-0.5B-Instruct Q4_K_M. It is pinned with an upstream SHA-256, but has not been downloaded to or tested on the target phone. The app does not yet provide the private Google Drive model catalogue/downloader or verify a manual import against the registry SHA-256. See [MODEL_DISTRIBUTION.md](MODEL_DISTRIBUTION.md), [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md) and [the model catalogue](../models/README.md).
 
