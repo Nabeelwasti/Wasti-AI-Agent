@@ -109,7 +109,7 @@ private fun NexusScreen(
     var prompt by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("Connect a NEXUS gateway or install an offline model to begin.") }
     var busy by remember { mutableStateOf(false) }
-    var hybrid by remember { mutableStateOf(true) }
+    var hybrid by remember { mutableStateOf(true) }\n    var agentId by remember { mutableStateOf("qwen") }
     var agentId by remember { mutableStateOf("qwen") }
     val scope = rememberCoroutineScope()
     Scaffold(topBar = { TopAppBar(title = { Text("WASTI NEXUS") }) }) { inset ->
@@ -126,7 +126,7 @@ private fun NexusScreen(
                 OutlinedTextField(agentId, { agentId = it }, Modifier.fillMaxWidth(),
                     label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true)
             }
-            OutlinedTextField(prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp), label = { Text("Your prompt") })
+            if (!hybrid) OutlinedTextField(agentId, { agentId = it }, Modifier.fillMaxWidth(), label = { Text("Configured agent/model ID") }, singleLine = true)\n            OutlinedTextField(prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp), label = { Text("Your prompt") })
             Button(enabled = !busy && prompt.isNotBlank(), onClick = {
                 onSave(url, key); busy = true
                 scope.launch {
