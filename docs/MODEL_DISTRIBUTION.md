@@ -4,7 +4,7 @@
 
 **Google Drive is the sole owner model archive and model-file distribution source. Cloudflare R2, Cloudflare storage products and GitHub Releases are not part of the NEXUS model-storage design.** Cloudflare Workers AI remains an optional inference fallback only; it does not store or serve the twelve personal GGUF checkpoints.
 
-The owner's Google Drive subscription currently has approximately 250 GB available. The curated twelve-model Q3_K_M/Q4_K_M collection has a preliminary combined size of roughly 10 GB using rounded public model-card figures; exact total bytes will be recorded after each artifact is pinned. This is sufficient capacity for the current shortlist, but capacity does not approve a model's licence or guarantee that every model can run on the phone.
+The owner's Google Drive subscription currently has approximately 250 GB available. The twelve exact GGUF artifacts total 9,586,646,112 bytes (about 8.93 GiB), excluding licence notices and future revisions. This is comfortably within the reported Drive capacity, but capacity does not guarantee that every model can run on the phone.
 
 ## Drive layout
 
@@ -75,10 +75,10 @@ The curated shortlist is twelve open-weight candidates selected for permissive u
 
 - One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
 - All twelve selected GGUF artifacts have immutable source revisions, exact byte lengths and SHA-256 values pinned in the registry and Android catalogue.
-- The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-family catalogue UI and a verified Qwen Drive copy/install path.
-- The exact Qwen file is 491,400,032 bytes with the pinned SHA-256 in the catalogue; it must be uploaded by the owner into the selected Drive workspace.
+- The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-model catalogue UI and an exact length/SHA-256 verified Drive copy/install path.
+- The twelve exact model files total 9,586,646,112 bytes. They must be uploaded by the owner into the selected private Drive workspace; no model binaries have been uploaded through this repository connection.
 - No model binaries have been uploaded to the owner's Google Drive through this repository connection.
-- The catalogue now lists twelve permissively licensed candidates. One Qwen2.5-0.5B file is checksum-pinned and marked ready; the other eleven are intentionally unavailable until their exact revisions, byte lengths, SHA-256 values, licence evidence and runtime compatibility are verified.
+- All twelve models have immutable source revisions, exact byte lengths, SHA-256 values and permissive base-model licence evidence pinned; all twelve are marked ready for verified Drive-to-device download. Physical-device runtime, memory, thermal and latency validation remains pending.
 - A real Google Drive provider transfer, permission-revocation recovery and airplane-mode install test on the target Redmi are still outstanding.
 
 The app implementation is in review and must pass CI and target-device testing before being called production-certified.
