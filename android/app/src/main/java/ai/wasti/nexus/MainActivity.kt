@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 NexusScreen(
-                    initialUrl = prefs.getString("url", "") ?: "",
+                    initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "https://wasti-nexus-gateway.wastinabeel99.workers.dev",
                     initialPrompt = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty().take(12000),
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
@@ -597,7 +597,7 @@ private fun NexusScreen(
     var autoMode by remember { mutableStateOf(true) }
     var offlineMode by remember { mutableStateOf(false) }
     var localReady by remember { mutableStateOf(false) }
-    var agentId by remember { mutableStateOf("qwen") }
+    var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
