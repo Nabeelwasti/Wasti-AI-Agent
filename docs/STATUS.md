@@ -11,6 +11,8 @@ Last updated: 2026-11-26.
 - GitHub-backed memory record and dataset manifest schemas are present. The FastAPI orchestrator now has a personal-vault adapter with authenticated list/create/read endpoints, client-side AES-256-GCM payload validation, immutable per-snapshot files, and mocked transport tests. Android-side encryption, sync queue/retry, restore UX and full retrieval/indexing remain incomplete.
 - A root `.gitignore` now excludes secrets, local build outputs, model checkpoints, private memory exports and generated indexes.
 - The Cloudflare static web console source is in `cloudflare/public/index.html`; Wrangler is configured to serve static assets and preserve the deployed Worker name `wasti-nexus-gateway`.
+- Android now includes Arm AI Chat (`com.arm:ai-chat:0.1.0`) backed by llama.cpp, GGUF file import into app-private storage, RAM preflight, model load/unload and local token generation source code.
+- A Qwen2.5-0.5B Q4_K_M GGUF local candidate (about 398 MB, Apache-2.0) is registered. A family-scoped revision pinning flow and single-file downloader have been added.
 - Research references and runtime recommendations are recorded in `docs/RESEARCH.md`.
 
 ## Verified defects found and changes made
@@ -32,12 +34,12 @@ Last updated: 2026-11-26.
 
 ## Not complete / release blockers
 
-- Android currently remains a remote-only prototype. Native llama.cpp integration, local model manager, model-fit checks, offline routing and real-device tests are not complete.
+- The Android source now has a local GGUF inference path and explicit Offline mode. The Gradle build, dependency resolution, APK and real-device offline inference are still unverified. Current model management is manual GGUF import/load/unload; in-app catalogue, download manager, checksum validation and uninstall UI remain incomplete.
 - Android-side memory encryption and sync integration are not implemented. The server adapter requires a private GitHub repository and a fine-grained token configured only on the orchestrator host. It currently supports one personal vault, not customer multi-tenancy. Conflict recovery, pagination beyond the first 100 entries, restore UX, retrieval and rebuildable index pipeline remain incomplete.
 - Cloudflare web console source/config is committed but has not been redeployed or externally smoke-tested after these changes.
 - The Cloudflare gateway has no configured inference providers; online chat cannot generate answers until real providers are connected.
-- Android Gradle build, APK, signing and CI result remain unverified.
-- Model downloads, checksums, runtime-load tests and device benchmarks remain outstanding.
+- Android Gradle build, APK, signing and CI result remain unverified. The app now targets Android 13+ (minSdk 33) to use the selected Arm AI Chat runtime.
+- The Qwen GGUF candidate is not yet downloaded; immutable revision, SHA-256, runtime-load test and device benchmarks remain outstanding.
 - Production auth, customer identity/tenant isolation, quotas, rate limits, audit persistence, monitoring, retention controls, restore drills and security testing remain release gates.
 
 A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not complete until an installed model answers a prompt with networking disabled.
