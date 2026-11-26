@@ -1,0 +1,56 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+secrets/
+credentials/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.hprof
+
+# Local model checkpoints and generated indexes
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.litertlm
+*.task
+*.pte
+*.tflite
+*.model
+*.bin
+nexus-model-archive/
+private-model-archive/
+model-cache/
+hf-cache/
+embeddings/
+vector-index/
+
+# Local memory exports and generated datasets
+memory/local/
+memory/exports/
+datasets/private/
+datasets/generated/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
