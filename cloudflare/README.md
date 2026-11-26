@@ -25,6 +25,8 @@ Cloudflare's role is limited to hosting the online web app's static files and fo
 - `POST /v1/memory/snapshots` — append one immutable client-encrypted snapshot to GitHub.
 - `GET /v1/memory/snapshots/{uuid}` — retrieve a ciphertext snapshot for device-side decryption.
 
+Snapshot filenames use a reverse-timestamp prefix so GitHub's lexicographic directory listing returns the newest snapshots first. The list endpoint returns at most 100; the current GitHub Contents API directory listing is bounded to the first 1,000 entries.
+
 ## GitHub memory integration
 
 The Worker writes encrypted memory files directly through the GitHub Contents API. It does not use Cloudflare storage. The configured repository must remain public in this deployment mode; the Worker verifies visibility before every operation. Only AES-256-GCM ciphertext and non-sensitive metadata are accepted. GitHub exposes those ciphertext files and metadata publicly, so plaintext personal/customer information and encryption keys must never be committed.
