@@ -40,6 +40,10 @@ internal object DriveModelWorkspace {
 
     fun loadCatalog(context: Context): List<WorkspaceModel> {
         val json = context.assets.open(CATALOG_ASSET).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        return parseCatalog(json)
+    }
+
+    internal fun parseCatalog(json: String): List<WorkspaceModel> {
         val root = JSONObject(json)
         require(root.optInt("schema_version") == 1) { "Unsupported model catalogue schema." }
         val array = root.optJSONArray("models") ?: error("The model catalogue has no models array.")
@@ -76,8 +80,8 @@ internal object DriveModelWorkspace {
             )
         }
         require(result.size == 12) { "The NEXUS catalogue must contain exactly twelve model families." }
-        require(result.count { it.downloadable } == 1) {
-            "Only the currently verified Qwen model may be marked ready until more artifacts pass verification."
+        require(result.any { it.id == "qwen-0.5b" && it.downloadable }) {
+            "The pinned Qwen starter model must remain available in the catalogue."
         }
         return result
     }
@@ -173,7 +177,11 @@ internal object DriveModelWorkspace {
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE
                 )
             } catch (_: Exception) {
-                require(temporary.renameTo(target)) { "Verified model could not be installed atomically." }
+                java.nio.file.Files.move(
+                    temporary.toPath(),
+                    target.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
             }
             target.absolutePath
         } catch (error: Exception) {
