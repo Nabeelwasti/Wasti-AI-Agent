@@ -61,6 +61,8 @@ def test_save_snapshot_writes_one_immutable_encrypted_file(monkeypatch):
     seen = {}
 
     async def handler(request):
+        if request.method == "GET":
+            return httpx.Response(200, json={"private": True})
         seen["method"] = request.method
         seen["url"] = str(request.url)
         seen["body"] = json.loads(request.content)
