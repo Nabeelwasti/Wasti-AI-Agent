@@ -111,7 +111,7 @@ test("hybrid refuses to present one model as a multi-agent result", async () => 
   assert.equal(response.status, 503);
   const data = await response.json();
   assert.match(data.error.message, /at least two distinct configured model IDs/);
-  assert.deepEqual(data.available_models.map(model => model.id), ["nexus-gemma-4-26b-a4b"]);
+  assert.deepEqual(data.error.details.available_models.map(model => model.id), ["nexus-gemma-4-26b-a4b"]);
 });
 
 test("scoped per-application keys can use chat but cannot access personal memory", async () => {
