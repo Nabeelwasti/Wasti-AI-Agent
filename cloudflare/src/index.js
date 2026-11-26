@@ -124,7 +124,7 @@ async function authorizeRequest(request, env, pathname) {
 
   const master = env.NEXUS_API_KEY || "";
   if (master.length >= 32 && constantTimeEqual(presented, master)) {
-    return { ok: true, role: "master", scopes: ["models", "chat", "memory", "admin"] };
+    return { ok: true, role: "master", rate_limit_key: "master", scopes: ["models", "chat", "memory", "admin"] };
   }
 
   let configured;
@@ -145,7 +145,7 @@ async function authorizeRequest(request, env, pathname) {
     recognized = true;
     const scopes = Array.isArray(entry.scopes) ? entry.scopes : [];
     if (scopes.includes(scope)) {
-      return { ok: true, role: "client", client_id: String(entry.id || "unnamed"), scopes };
+      return { ok: true, role: "client", client_id: String(entry.id || "unnamed"), rate_limit_key: hash, scopes };
     }
   }
   return { ok: false, status: recognized ? 403 : 401 };
@@ -711,6 +711,22 @@ export default {
               status === 503 ? "Gateway client-key configuration is invalid." : "Unauthorized",
           },
         }, status, headers);
+      }
+      if (env.NEXUS_DEPLOYMENT_MODE === "customer") {
+        if (!env.NEXUS_RATE_LIMIT || typeof env.NEXUS_RATE_LIMIT.limit !== "function") {
+          return json({ error: { message: "Gateway rate limiting is not configured." } }, 503, headers);
+        }
+        try {
+          const { success } = await env.NEXUS_RATE_LIMIT.limit({ key: authorization.rate_limit_key });
+          if (!success) {
+            return json({ error: { message: "Rate limit exceeded. Please retry shortly." } }, 429, {
+              ...headers,
+              "Retry-After": "60",
+            });
+          }
+        } catch {
+          return json({ error: { message: "Gateway rate limiting is temporarily unavailable." } }, 503, headers);
+        }
       }
     }
 
