@@ -23,6 +23,10 @@ def test_each_extended_entry_has_explicit_hosting_licence_and_activation_state()
         assert isinstance(item["requires_internet_for_download"], bool)
         assert isinstance(item["requires_internet_for_self_hosted_inference"], bool)
         assert isinstance(item["self_hosted_possible"], bool)
+        assert item["openness_class"]
+        assert item["hosted_api_free_unlimited"] is False
+        assert item["internet_required_for_hosted_api"] is True
+        assert item["self_hosting_cost"]
         assert item["status"] in {"candidate_needs_artifact_pin", "blocked_pending_review"}
         assert item["runtime_validation"] == "not_started"
         assert item["exact_checkpoint"] is None
