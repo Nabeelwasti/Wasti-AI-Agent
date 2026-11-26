@@ -29,28 +29,23 @@ def test_wasti_nexus_catalog_has_twelve_unique_model_candidates():
     assert all(model["display_name"].startswith("WASTI NEXUS") for model in models)
 
 
-def test_only_fully_pinned_qwen_starter_is_downloadable():
+def test_all_twelve_models_have_pinned_download_manifests():
     models = load_catalog()["models"]
-    ready = [model for model in models if model["status"] == "ready"]
 
-    assert [model["id"] for model in ready] == ["qwen-0.5b"]
-    for model in ready:
+    assert len(models) == 12
+    for model in models:
+        assert model["status"] == "ready", model["id"]
         assert model["source_revision"]
         assert isinstance(model["size_bytes"], int) and model["size_bytes"] > 0
         assert len(model["sha256"]) == 64
+        assert model["runtime_validation"] == "pending_device_test"
 
 
-def test_unverified_candidates_are_blocked_until_all_integrity_fields_exist():
+def test_model_ids_and_integrity_fields_are_unique_and_complete():
     models = load_catalog()["models"]
-    pending = [model for model in models if model["status"] == "pending_verification"]
-
-    assert len(pending) == 11
-    for model in pending:
-        assert model["size_bytes"] is None
-        assert model["sha256"] is None
-        assert model["source_revision"] is None
-        assert model["source"].startswith("https://huggingface.co/")
-        assert model["upstream_model"]
+    assert len({model["id"] for model in models}) == 12
+    assert len({model["file_name"] for model in models}) == 12
+    assert len({model["sha256"] for model in models}) == 12
 
 
 def test_selected_models_use_permissive_upstream_licence_families():
