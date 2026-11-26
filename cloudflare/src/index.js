@@ -68,6 +68,8 @@ function modelCatalog(env) {
     agent: model.agent,
     license: model.license,
     license_url: model.license_url,
+    context_window: model.context_window,
+    pricing_usd_per_million_tokens: model.pricing_usd_per_million_tokens,
     inference: "Cloudflare Workers AI binding; no third-party provider key",
   }));
   const external = configuredProviders(env).flatMap(provider =>
