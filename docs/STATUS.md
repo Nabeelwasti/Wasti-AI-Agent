@@ -27,7 +27,7 @@ Last updated: 2026-11-26.
 - The FastAPI memory adapter and Cloudflare Worker both support encrypted snapshot list/create/read routes.
 - The Worker verifies that the configured repository is public and accepts only AES-256-GCM ciphertext envelopes. It writes directly to the GitHub Contents API; it does not use Cloudflare storage.
 - The Android app can save and restore local encrypted snapshots, sync ciphertext to the Worker, and restore the newest GitHub snapshot on the same device. Cross-device recovery remains unimplemented.
-- The encryption key is device-bound to Android Keystore. Cross-device recovery/passphrase support is not implemented.
+- Memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations, random 16-byte salt) plus AES-256-GCM. The user-controlled passphrase is portable across devices and is never uploaded; losing it makes snapshots unrecoverable.
 - The Worker requires a fine-grained GitHub token in the Cloudflare secret `NEXUS_GITHUB_TOKEN`. That secret is **not configured yet**. Therefore remote memory sync returns HTTP 503 until the owner adds it. No memory snapshots have been written.
 - `memory/README.md` and `datasets/README.md` define the public ciphertext-only and dataset-admission policies. No personal data, training corpus or model weights have been committed.
 
@@ -55,7 +55,7 @@ Last updated: 2026-11-26.
 2. Configure at least one inference provider and its API secret. Free providers have request/token caps and changing model availability; there is no unlimited free online inference.
 3. Run CI and fix any failing Python, Worker or Android job.
 4. Build/install the APK and test Qwen GGUF on the Redmi with networking disabled; benchmark RAM, context, speed, heat and battery.
-5. Implement memory recovery/export, decrypt/restore, indexing/retrieval and sync retry/conflict handling before treating GitHub as a durable personal memory system.
+5. Implement memory indexing/retrieval, sync retry/conflict handling and passphrase recovery UX/documentation before treating GitHub as a durable personal memory system.
 6. Complete customer authentication, tenant isolation, quotas, rate limits, monitoring, retention and legal model-licence review before commercial release.
 
 A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not verified until an installed model answers with networking disabled.
