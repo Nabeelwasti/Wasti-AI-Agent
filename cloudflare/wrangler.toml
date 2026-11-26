@@ -11,7 +11,3 @@ NEXUS_MEMORY_REPOSITORY = "Nabeelwasti/Wasti-AI-Agent"
 NEXUS_MEMORY_BRANCH = "main"
 NEXUS_MEMORY_PREFIX = "memory/personal/encrypted"
 
-[assets]
-directory = "./public"
-binding = "ASSETS"
-run_worker_first = ["/v1/*", "/healthz"]
