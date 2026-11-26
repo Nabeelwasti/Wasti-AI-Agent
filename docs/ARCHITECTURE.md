@@ -33,8 +33,8 @@ Cloudflare hosts the optional web console and inference gateway only. It does no
 3. If the user explicitly chooses an online brain or enables remote fallback, resolve the requested model against the live hosted catalogue.
 4. For Hybrid, fan out only to configured, licensed and healthy hosted providers. Return a truthful participant/failure list.
 5. If no local model is installed and remote inference is disabled, explain that a model must first be downloaded from the Google Drive workspace or imported.
-5. Synthesize with a configured synthesis model. If synthesis fails, return a structured partial result and explicitly label it as unsynthesized; do not silently claim a collective answer.
-6. Keep local and remote memory scopes separate unless the user explicitly enables sync.
+6. Synthesize with a configured synthesis model. If synthesis fails, return a structured partial result and explicitly label it as unsynthesized; do not silently claim a collective answer.
+7. Keep local and remote memory scopes separate unless the user explicitly enables sync.
 
 ## Memory and training-data storage on GitHub
 
