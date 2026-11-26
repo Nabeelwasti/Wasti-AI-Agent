@@ -32,7 +32,7 @@ def test_snapshot_path_rejects_path_traversal(monkeypatch):
     configure_memory(monkeypatch)
     store = GitHubMemoryStore()
     with pytest.raises(GitHubMemoryError):
-        store._path("../../secrets")
+        store._path("../../secrets", datetime.now(timezone.utc))
 
 
 def test_snapshot_input_is_client_encrypted_and_timezone_aware():
@@ -105,6 +105,7 @@ def test_private_repository_is_rejected_before_memory_write(monkeypatch):
     store = GitHubMemoryStore(transport=httpx.MockTransport(handler))
     record = {
         "record_id": str(uuid.uuid4()),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "cipher": {"ciphertext": "encrypted"},
     }
     with pytest.raises(GitHubMemoryError, match="must remain public"):
