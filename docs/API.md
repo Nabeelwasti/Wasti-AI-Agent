@@ -60,7 +60,10 @@ Example write body:
 {
   "snapshot_id": "123e4567-e89b-42d3-a456-426614174000",
   "created_at": "2026-11-26T12:00:00+05:00",
-  "key_id": "android-key-2026",
+  "key_id": "pbkdf2-sha256-600k-v1",
+  "kdf": "PBKDF2-HMAC-SHA256",
+  "iterations": 600000,
+  "salt": "base64url-encoded-16-byte-salt",
   "nonce": "base64url-encoded-12-byte-nonce",
   "ciphertext": "base64url-encoded-AES-256-GCM-ciphertext-and-tag",
   "content_type": "conversation-summary",
@@ -68,7 +71,7 @@ Example write body:
 }
 ```
 
-The Android client must encrypt locally before upload, retain an encrypted local copy for offline use, and never send plaintext to this endpoint. The current API is a single personal vault, not a multi-tenant customer memory service. Keep the GitHub token in Worker secrets only. Batch many records into one encrypted snapshot because GitHub is a versioned sync/archive layer, not a transactional database; respect API rate limits and repository history growth. A device-bound Keystore key cannot be recovered on a new phone without a separately designed recovery mechanism.
+The Android client derives an AES-256 key from a user-controlled recovery passphrase using PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte random salt), then encrypts with AES-256-GCM (12-byte random nonce). It retains an encrypted local copy for offline use and never sends plaintext or the passphrase to this endpoint. The same passphrase can decrypt snapshots on another device; losing it makes snapshots unrecoverable. The current API is a single personal vault, not a multi-tenant customer memory service. Keep the GitHub token in Worker secrets only. Batch many records into one encrypted snapshot because GitHub is a versioned sync/archive layer, not a transactional database; respect API rate limits and repository history growth. A device-bound Keystore key cannot be recovered on a new phone without a separately designed recovery mechanism.
 
 ## Provider configuration
 
