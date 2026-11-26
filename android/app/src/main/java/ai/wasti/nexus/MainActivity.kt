@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -594,10 +595,16 @@ class MainActivity : ComponentActivity() {
             "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
         }
         try {
-            when (val state = localEngine.state.first {
-                it is InferenceEngine.State.Initialized || it is InferenceEngine.State.Error
-            }) {
-                is InferenceEngine.State.Error -> throw state.exception
+            val engineState = kotlinx.coroutines.withTimeout(45_000L) {
+                localEngine.state.first {
+                    it is InferenceEngine.State.Initialized ||
+                        it is InferenceEngine.State.ModelReady ||
+                        it is InferenceEngine.State.Error
+                }
+            }
+            when (engineState) {
+                is InferenceEngine.State.Error,
+                is InferenceEngine.State.ModelReady -> localEngine.cleanUp()
                 else -> Unit
             }
             localEngine.loadModel(model.absolutePath)
@@ -624,11 +631,21 @@ class MainActivity : ComponentActivity() {
     private suspend fun sendLocal(prompt: String, onToken: (String) -> Unit): String =
         withContext(Dispatchers.Default) {
             val output = StringBuilder()
-            localEngine.sendUserPrompt(prompt).collect { token ->
-                output.append(token)
-                withContext(Dispatchers.Main.immediate) { onToken(token) }
+            try {
+                localEngine.sendUserPrompt(prompt).collect { token ->
+                    output.append(token)
+                    withContext(Dispatchers.Main.immediate) { onToken(token) }
+                }
+                check(localEngine.state.value is InferenceEngine.State.ModelReady) {
+                    "The inference engine did not return to its ready state. Reload the model before sending another message."
+                }
+                output.toString().ifBlank { "The local model returned an empty response." }
+            } catch (error: Exception) {
+                if (localEngine.state.value is InferenceEngine.State.Error) {
+                    runCatching { localEngine.cleanUp() }
+                }
+                throw error
             }
-            output.toString().ifBlank { "The local model returned an empty response." }
         }
 
 
@@ -707,7 +724,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (localEngineDelegate.isInitialized()) runCatching { localEngine.destroy() }
+        // AiChat.getInferenceEngine() returns a process-wide singleton. An Activity can be
+        // destroyed for configuration changes while the process remains alive; destroying the
+        // singleton here would leave the next Activity with a cancelled, unusable engine.
+        // Native resources are reclaimed when the Android process exits. Users can explicitly
+        // unload a model from Settings to release its working memory while the process is alive.
         super.onDestroy()
     }
 }
@@ -875,6 +896,7 @@ private fun NexusScreen(
                                 busy = true
                                 scope.launch {
                                     var usedRemote = false
+                                    var attemptedLocalInference = false
                                     try {
                                         val mode = when {
                                             offlineMode -> NexusMode.OFFLINE
@@ -925,6 +947,7 @@ private fun NexusScreen(
                                                         loadedModelPath = effectiveLocalPath
                                                     }
                                                     streamingResponse = ""
+                                                    attemptedLocalInference = true
                                                     onSendLocal(submittedPrompt) { token -> streamingResponse += token }
                                                 } catch (localError: Exception) {
                                                     localReady = false
@@ -971,6 +994,10 @@ private fun NexusScreen(
                                         answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (error: Exception) {
                                         streamingResponse = ""
+                                        if (attemptedLocalInference) {
+                                            localReady = false
+                                            loadedModelPath = ""
+                                        }
                                         answer = "Request failed: ${error.message}"
                                     } finally {
                                         busy = false
