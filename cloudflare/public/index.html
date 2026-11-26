@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10131b"><title>WASTI NEXUS — AI Brain</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}
+main{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}
+h1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}
+label{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}
+.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}
+@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}
+</style></head>
+<body><main>
+<header><div class="brand"><div class="mark">N</div><h1>WASTI NEXUS</h1></div><p class="sub">One universal brain API · Multiple model providers · Hybrid intelligence</p></header>
+<section class="panel">
+<div class="row"><div><label for="key">NEXUS API key</label><input id="key" type="password" autocomplete="off" placeholder="Enter your API key"></div><div><label for="model">Brain</label><select id="model"><option value="nexus-hybrid">NEXUS Hybrid</option></select></div></div>
+<div class="actions"><button id="refresh" class="secondary">Refresh model catalogue</button><span id="status" class="status">Connecting to gateway…</span></div>
+<p class="muted">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>
+</section>
+<section class="panel">
+<label for="prompt">Ask NEXUS</label><textarea id="prompt" placeholder="What would you like the AI brains to work on?"></textarea>
+<div class="actions"><button id="send">Send request</button><span class="pill" id="mode">Hybrid collective</span></div>
+</section>
+<section class="panel"><label>Response</label><div id="answer" class="answer">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>
+<p class="muted">NEXUS gateway: same-origin /v1 · Model availability depends on configured providers and their licences.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id), key=()=>$("key").value.trim();
+function status(s){$("status").textContent=s}
+async function loadModels(){status("Loading configured brains…");try{const r=await fetch("/v1/models",{headers:{Authorization:"Bearer "+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||"HTTP "+r.status);const list=d.data||[];$("model").replaceChildren(...list.map(m=>{const o=document.createElement("option");o.value=m.id;o.textContent=m.id+(m.owned_by?" · "+m.owned_by:"");return o}));status(list.length?list.length+" brain(s) available.":"Gateway is online, but no inference providers are configured yet.");}catch(e){status("Catalogue unavailable: "+e.message)}}
+$("refresh").addEventListener("click",loadModels);
+$("model").addEventListener("change",()=>{$("mode").textContent=$("model").value==="nexus-hybrid"?"Hybrid collective":"Single brain"});
+$("send").addEventListener("click",async()=>{const prompt=$("prompt").value.trim();if(!prompt)return; if(!key()){status("Enter your API key first.");return}const btn=$("send");btn.disabled=true;$("answer").textContent="Working…";try{const model=$("model").value;const body={model,messages:[{role:"user",content:prompt}],stream:false};if(model==="nexus-hybrid")body.nexus={mode:"hybrid",review_rounds:1};const r=await fetch("/v1/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+key(),"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||"HTTP "+r.status);$("answer").textContent=d.choices?.[0]?.message?.content||"No answer returned.";status("Completed.");}catch(e){$("answer").textContent="Request failed: "+e.message;status("Check provider setup and API key.")}finally{btn.disabled=false}});
+loadModels();
+</script></body></html>
