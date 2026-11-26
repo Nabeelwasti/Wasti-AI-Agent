@@ -94,6 +94,26 @@ test("Workers AI binding provides first-party brains without third-party provide
   assert.equal(calls[0].input.messages[0].content, "Hello");
 });
 
+test("hybrid refuses to present one model as a multi-agent result", async () => {
+  const configured = {
+    ...env,
+    AI: {
+      async run() {
+        return { response: "Single configured model answer." };
+      },
+    },
+  };
+  const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "nexus-hybrid",
+    messages: [{ role: "user", content: "Compare several perspectives." }],
+    stream: false,
+  }), configured);
+  assert.equal(response.status, 503);
+  const data = await response.json();
+  assert.match(data.error.message, /at least two distinct configured model IDs/);
+  assert.deepEqual(data.available_models.map(model => model.id), ["nexus-gemma-4-26b-a4b"]);
+});
+
 test("scoped per-application keys can use chat but cannot access personal memory", async () => {
   const clientKey = "nexus-client-key-for-mobile-app-0123456789";
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientKey));
