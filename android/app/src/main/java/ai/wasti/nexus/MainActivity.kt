@@ -167,6 +167,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
             require(target.length() > 1024L * 1024L) { "The selected file is too small to be a valid GGUF model." }
+            val magic = ByteArray(4)
+            target.inputStream().use { stream ->
+                require(stream.read(magic) == 4 && String(magic, Charsets.US_ASCII) == "GGUF") {
+                    "The selected file does not have a valid GGUF header."
+                }
+            }
             prefs.edit().putString("local_model_path", target.absolutePath).apply()
             target.absolutePath
         } catch (error: Exception) {
