@@ -1,0 +1,7 @@
+name = "wasti-nexus-edge"
+main = "src/index.js"
+compatibility_date = "2026-11-26"
+
+[vars]
+# Configure the HTTPS origin URL in your Cloudflare Worker settings.
+# Do not put credentials in this file.
