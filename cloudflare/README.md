@@ -4,7 +4,7 @@ Worker name: `wasti-nexus-gateway`
 
 Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
 
-Cloudflare's role is limited to hosting the online web app's static files and forwarding the online API. NEXUS does not use Cloudflare KV, D1, R2, Durable Objects, Vectorize or other Cloudflare storage for memory, datasets or model weights.
+Cloudflare serves the web console, authenticated NEXUS API gateway and first-party Workers AI inference through the `AI` binding. Workers AI hosts the selected model; it does not accept arbitrary custom GGUF uploads. NEXUS does not currently use KV, D1, R2, Durable Objects or Vectorize for memory or model weights. A separate R2 bucket is a possible future archive/download origin, but no NEXUS R2 bucket is provisioned.
 
 ## Static web app
 
@@ -55,11 +55,11 @@ Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. 
 - `api_key_env`: name of another Worker secret;
 - `models`: array of `id`, optional `upstream_model`, `agent`, `enabled` and `commercial_allowed` values.
 
-The Worker defaults to customer-safe mode: a model is hidden and blocked unless `commercial_allowed: true` is explicitly set after reviewing its exact licence. For private personal testing only, set `NEXUS_DEPLOYMENT_MODE=personal`; this does not grant redistribution or commercial rights.
+The Worker defaults to customer-safe mode: a model is hidden and blocked unless `commercial_allowed: true` is explicitly set after reviewing its exact licence. Hybrid mode now requires at least two distinct configured model IDs; with the current one-model catalogue, use single-brain mode. For private personal testing only, set `NEXUS_DEPLOYMENT_MODE=personal`; this does not grant redistribution or commercial rights.
 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
-The Worker exposes a first-party Cloudflare Workers AI model through the `AI` binding and can also route to optional HTTPS OpenAI-compatible providers. The built-in `nexus-gemma-4-26b-a4b` model uses `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, Apache-2.0); no third-party provider API key is needed for this route. Cloudflare inference is metered, not unlimited free compute. Offline Android operation remains separate and uses the locally imported GGUF model.
+The Worker exposes one currently configured first-party Cloudflare Workers AI model through the `AI` binding: `nexus-gemma-4-26b-a4b`, backed by `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, Apache-2.0). No third-party provider API key is needed for this route; the NEXUS bearer key still authenticates access to the gateway. Cloudflare inference is metered, not unlimited free compute. Offline Android operation remains separate and uses a locally imported GGUF model.
 
 ## Online inference providers
 
