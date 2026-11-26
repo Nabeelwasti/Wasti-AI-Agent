@@ -245,9 +245,82 @@ function validateGenerationOptions(body) {
   }
 }
 
+function classifyAutoTask(messages) {
+  const text = messages
+    .filter(message => message.role === "user" || message.role === "system")
+    .map(message => message.content)
+    .join(" ")
+    .toLowerCase();
+  if (["generate image", "create image", "draw", "illustration", "flux"].some(term => text.includes(term))) return "image_generation";
+  if (["transcribe", "speech to text", "voice note", "audio transcription"].some(term => text.includes(term))) return "speech_to_text";
+  if (["read aloud", "text to speech", "speak this", "voice output"].some(term => text.includes(term))) return "text_to_speech";
+  if (["analyze image", "this image", "attached image", "image of", "what is in this picture", "photo", "visual inspection"].some(term => text.includes(term))) return "vision";
+  if (["fine tune", "fine-tune", "lora", "qlora", "train an adapter", "dataset"].some(term => text.includes(term))) return "fine_tuning";
+  if (["write code", "debug", "program", "python", "kotlin", "javascript", "compile", "stack trace"].some(term => text.includes(term))) return "coding";
+  if (["compare", "evaluate", "plan", "strategy", "analyze", "research", "reason"].some(term => text.includes(term))) return "reasoning";
+  return "general";
+}
+
+async function autoBody(body, env, headers) {
+  const messages = validateMessages(body);
+  const task = classifyAutoTask(messages);
+  if (!["general", "coding", "reasoning"].includes(task)) {
+    throw new GatewayError(
+      "This self-hosted text gateway does not have a verified runtime for the requested modality.",
+      400,
+      { task, supported_tasks: ["general", "coding", "reasoning"] },
+    );
+  }
+  const available = modelCatalog(env);
+  const candidates = available.filter(model => {
+    const capabilities = new Set(model.capabilities.map(value => String(value).toLowerCase()));
+    if (task === "general") return capabilities.has("chat");
+    return capabilities.has(task) || capabilities.has("chat");
+  });
+  if (!candidates.length) {
+    throw new GatewayError("No licensed, configured model can handle this task.", 503, {
+      task,
+      available_models: available.map(model => ({ id: model.id, capabilities: model.capabilities })),
+    });
+  }
+
+  const failures = [];
+  for (const model of candidates) {
+    try {
+      const result = await invoke(env, model.id, messages, body);
+      return json({
+        id: crypto.randomUUID(),
+        object: "chat.completion",
+        created: Math.floor(Date.now() / 1000),
+        model: "nexus-auto",
+        choices: [{
+          index: 0,
+          message: { role: "assistant", content: result.content },
+          finish_reason: "stop",
+        }],
+        usage: result.usage,
+        nexus: {
+          mode: "auto",
+          task,
+          selected_model: model.id,
+          provider: result.provider,
+          fallback_order: candidates.map(item => item.id),
+          failed_models: failures,
+        },
+      }, 200, headers);
+    } catch (error) {
+      failures.push({ model: model.id, error: error.message || "provider_failed" });
+    }
+  }
+  throw new GatewayError("All compatible self-hosted models failed.", 502, { task, failed_models: failures });
+}
+
 async function single(request, env, headers) {
   const body = await parseJson(request);
   validateGenerationOptions(body);
+  if (body.model === "nexus-auto" || body.nexus?.mode === "auto") {
+    return autoBody(body, env, headers);
+  }
   if (body.model === "nexus-hybrid" || body.nexus?.mode === "hybrid") {
     return hybridBody(body, env, headers);
   }
@@ -689,7 +762,18 @@ export default {
         if (memoryResponse) return memoryResponse;
       }
       if (request.method === "GET" && url.pathname === "/v1/models") {
-        return json({ object: "list", data: modelCatalog(env) }, 200, headers);
+        const models = modelCatalog(env);
+        const data = models.length
+          ? [...models, {
+              id: "nexus-auto",
+              object: "model",
+              owned_by: "wasti-nexus",
+              agent: "task-router",
+              capabilities: ["chat", "coding", "reasoning"],
+              inference: "Self-hosted task-aware model selection with sequential fallback",
+            }]
+          : models;
+        return json({ object: "list", data }, 200, headers);
       }
       if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
         return await single(request, env, headers);
