@@ -2,63 +2,57 @@
 
 Last updated: 2026-11-26.
 
-## Repository and architecture
+## Repository and delivery
 
-- Single public repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
-- All changes have been committed without force-pushes or history rewrites.
-- No repository visibility change was made.
-- The repository contains the Android client, FastAPI orchestration service, Cloudflare Worker, model registry/download tools, SDKs, tests, memory schemas and dataset schemas.
-- Public GitHub Actions standard hosted runners are free. The workflow skips documentation-only, memory-only and dataset-only pushes, cancels superseded runs on the same ref, and uploads an APK only for manual/tagged builds (one-day retention). Standard GitHub-hosted runners are free for public repositories.
+- Canonical repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
+- One monorepo contains the Android app, model registry/acquisition scripts, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
+- No model weights, provider credentials, GitHub tokens or personal plaintext memory are committed.
+- The latest previously verified full CI run passed on commit `d5dfa7fb5d8c88b44545c763033181e56914afab` (run [45819011014](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45819011014)). It built a **debug** APK; it did not produce a signed production release.
 
-## Android and local models
+## Android client
 
-- Android source uses Arm AI Chat `com.arm:ai-chat:0.1.0`, backed by llama.cpp and GGUF.
-- The client has source for online single/Hybrid requests, refreshable online model discovery/selection and offline local inference.
-- GGUF import validates metadata and copies files into app-private storage.
-- Multiple installed GGUF files can be listed, selected, loaded, unloaded and removed. Only one local model is loaded at a time.
-- Conversation snapshots use a user-controlled passphrase with PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM; the passphrase is never sent to the server.
-- A Qwen2.5-0.5B Q4_K_M candidate is the first phone trial (about 491 MB; Apache-2.0).
-- All twelve model families now have a candidate GGUF repository, filename, approximate size, licence gate and conservative RAM planning estimate in `models/registry.json`.
-- The downloader fetches one selected candidate and generates a SHA-256 manifest. No model weights have been downloaded into this repository or onto the phone by this work.
+- Kotlin/Jetpack Compose app; package `ai.wasti.nexus`; min SDK 33, target SDK 36.
+- Arm AI Chat `com.arm:ai-chat:0.1.0` supplies the GGUF/llama.cpp inference integration.
+- Source supports manual GGUF import into app-private storage, one active local model, load/unload, chat, and removal.
+- A Qwen2.5-0.5B Q4_K_M candidate is pinned to an immutable repository revision and SHA-256 in `models/registry.json`.
+- No GGUF model has been downloaded to the target phone in this work. No real-device install, offline generation, RAM/thermal/battery benchmark, or Android upgrade test has been recorded.
+- Therefore local inference is implemented in source but **not yet device-certified**.
 
-## GitHub memory and datasets
+## Model registry
 
-- The repository remains public as requested.
-- The FastAPI memory adapter and Cloudflare Worker both support encrypted snapshot list/create/read routes.
-- The Worker verifies that the configured repository is public and accepts only PBKDF2/AES-256-GCM ciphertext envelopes. It writes directly to the GitHub Contents API; it does not use Cloudflare storage.
-- The Android app can save/restore local encrypted snapshots, sync ciphertext to the Worker and restore the newest GitHub snapshot on another device when the same user-controlled recovery passphrase is supplied.
-- Memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations, random 16-byte salt) plus AES-256-GCM. The user-controlled passphrase is portable across devices and is never uploaded; losing it makes snapshots unrecoverable.
-- The Worker secret list now confirms `NEXUS_GITHUB_TOKEN` is configured (secret value not read). This removes the missing-secret blocker; an authenticated encrypted snapshot write/read smoke test is still required. No memory snapshots have been written by this work.
-- `memory/README.md` and `datasets/README.md` define the public ciphertext-only and dataset-admission policies. No personal data, training corpus or model weights have been committed.
+- Twelve requested model families are represented in the registry.
+- The registry deliberately distinguishes model families, candidate checkpoints, licence status, download status and device fit. It does not imply all twelve checkpoints are free for commercial use or suitable for the user's phone.
+- Qwen 0.5B is the first conservative local candidate. Other models require immutable revision, exact artifact hash, runtime compatibility, licence review and device-fit verification before being labelled production-ready.
+- Model weights are not stored in GitHub. Selected downloads are SHA-256 checked where a trusted expected hash is registered.
 
-## Cloudflare gateway and online console
+## Cloudflare gateway
 
-- Worker `wasti-nexus-gateway` has been redeployed through the Cloudflare API after the route error-handling fix (deployment tag `28847c762f5f4e72a906cddbafc5fa81`).
-- The Worker awaits chat route handlers so validation/provider errors reach the central HTTP error mapper instead of escaping as unhandled promise rejections.
-- The Worker serves the web console at `/` from its embedded HTML response. The canonical HTML source remains `cloudflare/public/index.html`.
-- `/healthz`, OpenAI-compatible chat routes and encrypted GitHub memory routes are in the deployed Worker source.
-- The existing `NEXUS_API_KEY` secret was preserved during deployment.
-- Plain-text variables point the memory adapter at `Nabeelwasti/Wasti-AI-Agent`, branch `main`, under `memory/personal/encrypted`.
-- Cloudflare Workers AI is bound as `env.AI`; no KV, D1, R2, Durable Objects, Vectorize or model-weight storage is configured.
-- First-party Workers AI inference is implemented and deployed with two Llama 3.2 model IDs; no third-party provider credentials are configured or required for this path. The GitHub token is configured, but memory round-trip is not yet smoke-tested.
-- Deployment was accepted by the Cloudflare control plane, but an external HTTP smoke test of the public workers.dev endpoint has not been verified in this environment.
+- Worker name: `wasti-nexus-gateway`; public endpoint: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
+- Worker source of record: `cloudflare/src/index.js`; Wrangler config: `cloudflare/wrangler.toml`.
+- The Worker has an `AI` binding and a protected OpenAI-compatible API.
+- **Critical upstream lifecycle finding:** Cloudflare deprecated both previous built-in model IDs, `@cf/meta/llama-3.2-1b-instruct` and `@cf/meta/llama-3.2-3b-instruct`, effective 2026-11-20. The prior successful CI only checked the binding/catalogue count and therefore did not detect that the upstream models no longer generated responses.
+- The current repair branch replaces those retired IDs with `@cf/google/gemma-4-26b-a4b-it`, exposes its Apache-2.0 licence, context and published token pricing metadata, and updates the unit test to verify dispatch to that exact ID.
+- That repair is not yet deployed or proven by a live authenticated generation request. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
+- The existing `NEXUS_API_KEY` and `NEXUS_GITHUB_TOKEN` bindings were observed as configured secrets; secret values were not read or exposed.
 
-## CI and verification
+## Memory
 
-- The consolidated `WASTI NEXUS CI` workflow runs Python tests/source validation, Cloudflare Worker syntax/unit tests and Android debug APK assembly.
-- The duplicate Android-only workflow was removed; the consolidated workflow is the single source of CI verification.
-- CI skips documentation-only, memory-only and dataset-only changes; it runs for code, tests, registry and workflow changes.
-- Latest full CI run passed on 2026-11-26 for commit `d5dfa7fb5d8c88b44545c763033181e56914afab` (run [45819011014](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45819011014)): Python tests, registry/schema checks, Python compilation, JSON/TOML validation, Termux shell syntax, Worker syntax/unit tests, deployed public gateway smoke test (2 configured first-party models) and Android `assembleDebug`.
-- The APK was assembled and uploaded as `wasti-nexus-debug-apk` (about 20.4 MB; artifact ID `15116409189`; seven-day retention, expires 2026-12-03). This is a debug APK, not a release-signed production APK.
-- No real-device installation, offline inference, thermal, battery or memory benchmark has been performed. The live gateway health check verifies the Worker and binding/model catalogue count; it does not yet prove a real model generation request.
+- Android-side snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM with a user-controlled recovery passphrase.
+- Worker routes accept encrypted envelopes and store ciphertext in the public GitHub repository. The passphrase is not sent to the Worker.
+- GitHub-backed memory write/read has unit-test coverage with mocked GitHub responses, but no authenticated live round-trip or cross-device recovery drill is recorded.
+- Because the repository is public, paths and metadata are visible. Only client-encrypted ciphertext may be stored there. GitHub is an archive/sync layer, not a transactional multi-tenant database.
 
-## Release blockers
+## Security and production release gates
 
-1. Add the GitHub fine-grained token as Worker secret `NEXUS_GITHUB_TOKEN` (Contents read/write only for this repository).
-2. Configure at least one inference provider and its API secret. Free providers have request/token caps and changing model availability; there is no unlimited free online inference.
-3. Keep the consolidated CI workflow green for every code change.
-4. Install the built APK on the Redmi and test Qwen GGUF with networking disabled; benchmark RAM, context, speed, heat and battery.
-5. Implement memory indexing/retrieval, sync retry/conflict handling and restore/backup drills before treating GitHub as a durable personal memory system.
-6. Complete customer authentication, tenant isolation, quotas, rate limits, monitoring, retention and legal model-licence review before commercial release.
+The project must not be advertised as a fully production-ready multi-customer service until all of the following have evidence:
 
-A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not verified until an installed model answers with networking disabled.
+1. Deploy the current Worker source and run authenticated real model generation against the live endpoint.
+2. Provide per-application/customer credentials, revocation, quotas and robust distributed rate limiting. The current shared bearer secret is suitable only for controlled owner testing; it must not be embedded in a public browser bundle or distributed APK.
+3. Add tenant isolation and authorization for memory and any future customer data. The current GitHub memory path is a single personal vault, not a customer memory service.
+4. Complete privacy/retention disclosures, abuse controls, monitoring/alerting, backup/restore drills and operational incident procedures.
+5. Install the APK on the target Android device, test with networking disabled, validate at least one GGUF model's actual generation, and record RAM, thermal, latency and battery results.
+6. Resolve all twelve candidate model revisions, expected artifact checksums, licences and redistribution/use restrictions before presenting the full catalogue as verified.
+7. Create a release-signed APK using protected signing secrets, verify its signature and install/upgrade behaviour, and publish a versioned release.
+8. Run dependency, secret, static-analysis and supply-chain checks and keep all CI jobs green on the exact release commit.
+
+A passing unit test proves only the tested behaviour. A successful APK assembly is not a signed release. A healthy Worker is not proof of successful inference. A source-level local runtime is not proof of offline inference on a physical device.
