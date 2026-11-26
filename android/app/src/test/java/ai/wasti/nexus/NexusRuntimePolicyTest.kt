@@ -127,3 +127,4 @@ class NexusRuntimePolicyTest {
         assertEquals(NexusRoute.BLOCKED, hot.route)
         assertEquals(NexusRoute.BLOCKED, lowBattery.route)
     }
+}
