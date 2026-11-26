@@ -103,3 +103,37 @@ def test_private_repository_is_rejected_before_memory_write(monkeypatch):
     with pytest.raises(GitHubMemoryError, match="must remain public"):
         asyncio.run(store.save(record))
 
+
+def test_get_snapshot_uses_public_repository_and_validates_identity(monkeypatch):
+    configure_memory(monkeypatch)
+    snapshot_id = str(uuid.uuid4())
+    record = {
+        "record_id": snapshot_id,
+        "cipher": {"algorithm": "AES-256-GCM", "ciphertext": "opaque"},
+    }
+    encoded = __import__("base64").b64encode(json.dumps(record).encode()).decode()
+
+    async def handler(request):
+        if request.url.path == "/repos/Nabeelwasti/Wasti-AI-Agent":
+            return httpx.Response(200, json={"private": False})
+        return httpx.Response(200, json={"encoding": "base64", "content": encoded})
+
+    store = GitHubMemoryStore(transport=httpx.MockTransport(handler))
+    assert asyncio.run(store.get(snapshot_id)) == record
+
+
+def test_list_snapshots_uses_public_repository(monkeypatch):
+    configure_memory(monkeypatch)
+    snapshot_id = str(uuid.uuid4())
+
+    async def handler(request):
+        if request.url.path == "/repos/Nabeelwasti/Wasti-AI-Agent":
+            return httpx.Response(200, json={"private": False})
+        return httpx.Response(200, json=[
+            {"name": snapshot_id + ".json", "type": "file", "sha": "c" * 40},
+            {"name": "README.md", "type": "file", "sha": "d" * 40},
+        ])
+
+    store = GitHubMemoryStore(transport=httpx.MockTransport(handler))
+    assert asyncio.run(store.list()) == [{"snapshot_id": snapshot_id, "sha": "c" * 40}]
+
