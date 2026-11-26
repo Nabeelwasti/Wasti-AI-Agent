@@ -118,7 +118,7 @@ function requiredScope(pathname) {
 
 async function authorizeRequest(request, env, pathname) {
   const authorization = request.headers.get("Authorization") || "";
-  const match = authorization.match(/^Bearer ([A-Za-z0-9._~-]{32,})$/);
+  const match = authorization.match(/^Bearer ([^\\s]{32,})$/);
   if (!match) return { ok: false, status: 401 };
   const presented = match[1];
 
