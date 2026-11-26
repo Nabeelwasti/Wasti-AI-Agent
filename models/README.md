@@ -59,8 +59,8 @@ All twelve families now have a candidate GGUF repository and an exact Q4_K_M fil
 | Family | Q4_K_M file size | Estimated free RAM | Customer-use status |
 |---|---:|---:|---|
 | Qwen 2.5 0.5B | ~491 MB | ~2.5 GB | Candidate; Apache-2.0 |
-| Llama 3.2 1B | ~808 MB | ~3 GB | Meta licence/gated base; review required |
-| Gemma 3 1B | ~806 MB | ~3 GB | Gemma terms; review required |
+| Llama 3.2 1B | ~808 MB | ~3.2 GB | Meta licence/gated base; review required |
+| Gemma 3 1B | ~806 MB | ~3.2 GB | Gemma terms; review required |
 | DeepSeek R1 Distill 1.5B | ~1.12 GB | ~4 GB | Apache-2.0 GGUF repo; preserve DeepSeek/Qwen notices and review |
 | Mistral 7B v0.3 | ~4.37 GB | ~8 GB | Apache-2.0 candidate |
 | Phi 3.5 Mini | ~2.39 GB | ~5 GB | MIT candidate |
