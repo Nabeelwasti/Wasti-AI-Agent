@@ -131,6 +131,16 @@ test("protected API rejects missing or invalid bearer tokens", async () => {
   assert.equal(response.status, 401);
 });
 
+test("legacy master API keys containing URL-safe and punctuation characters remain accepted", async () => {
+  const legacyKey = "legacy/master+token=with-punctuation-0123456789";
+  const configured = { ...env, NEXUS_API_KEY: legacyKey };
+  const request = new Request("https://nexus.example/v1/models", {
+    headers: { Authorization: "Bearer " + legacyKey },
+  });
+  const response = await worker.fetch(request, configured);
+  assert.equal(response.status, 200);
+});
+
 test("memory write, list and read round-trip only encrypted payloads", async () => {
   const originalFetch = globalThis.fetch;
   let storedContent = null;
