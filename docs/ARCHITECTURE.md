@@ -24,7 +24,7 @@ The API never reports an unconfigured model as available or fabricates model par
 
 ### Online hosting
 
-Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes the currently configured Gemma 4 26B A4B model through the `AI` binding and can route to optional configured HTTPS providers. The live online catalogue currently has two configured first-party models (Gemma 4 26B A4B and Qwen 3.8 27B), so genuine two-model Hybrid is enabled. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
+Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes the two configured first-party models (Gemma 4 26B A4B and Qwen 3.8 27B) through the `AI` binding and can route to optional configured HTTPS providers. Genuine two-model Hybrid is enabled. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
 
 ## Request routing
 
