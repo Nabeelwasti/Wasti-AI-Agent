@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wasti-nexus.local/schemas/dataset-manifest.schema.json",
+  "title": "WASTI NEXUS dataset manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_id", "purpose", "created_at", "records", "rights_review"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "dataset_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,80}$" },
+    "purpose": { "type": "string", "enum": ["training", "evaluation", "retrieval", "benchmark"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "records": { "type": "array", "items": { "type": "string", "maxLength": 512 }, "minItems": 1 },
+    "record_count": { "type": "integer", "minimum": 1 },
+    "language_codes": { "type": "array", "items": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" } },
+    "rights_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer", "evidence"],
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reviewer": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "evidence": { "type": "array", "items": { "type": "string", "maxLength": 1024 } },
+        "consent_required": { "type": "boolean" },
+        "consent_verified": { "type": "boolean" },
+        "pii_reviewed": { "type": "boolean" }
+      }
+    },
+    "license": { "type": "string", "maxLength": 128 },
+    "notes": { "type": "string", "maxLength": 4000 }
+  }
+}
