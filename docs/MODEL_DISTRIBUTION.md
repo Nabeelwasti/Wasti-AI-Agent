@@ -76,7 +76,7 @@ The curated shortlist is twelve open-weight candidates selected for permissive u
 - One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
 - All twelve selected GGUF artifacts have immutable source revisions, exact byte lengths and SHA-256 values pinned in the registry and Android catalogue.
 - The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-model catalogue UI and an exact length/SHA-256 verified Drive copy/install path.
-- The twelve exact model files total 9,586,646,112 bytes. They must be uploaded by the owner into the selected private Drive workspace; no model binaries have been uploaded through this repository connection.
+- The twelve exact model files total 9,586,646,112 bytes. The app now has an **Archive all 12 models to Drive** action that streams them sequentially from pinned public Hugging Face revisions into the owner's selected private Drive folder, without AI API keys. If the Drive provider does not grant write access, the app reports a manual-upload fallback.
 - All twelve models have immutable source revisions, exact byte lengths, SHA-256 values and permissive base-model licence evidence pinned; all twelve are marked ready for verified Drive-to-device download. Physical-device runtime, memory, thermal and latency validation remains pending.
 - A real Google Drive provider transfer, permission-revocation recovery and airplane-mode install test on the target Redmi are still outstanding.
 
