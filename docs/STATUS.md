@@ -48,13 +48,13 @@ Last updated: 2026-11-26.
 
 The project must not be advertised as a fully production-ready multi-customer service until all of the following have evidence:
 
-1. Keep the authenticated real chat-completion smoke test enabled on the exact release commit; run 45824565915 has passed this route test.
+1. Run an authenticated real chat-completion request through the deployed Worker. The optional GitHub Actions step is currently skipped because the repository secret `NEXUS_API_KEY` is not configured; the account-level model test and public health check do not prove the authenticated Worker route.
 2. Configure `NEXUS_CLIENT_KEYS_JSON` with unique per-application keys. The merged source includes a 256-bit key generator, SHA-256 hash validation, `models`/`chat` scopes and master-only memory access; the secret is not yet populated with app-specific client keys. The approximate per-location rate limiter is not a strict quota; add Durable Objects or an external metering service for strict global limits, plus user authentication and short-lived tokens for public apps.
 3. Add tenant isolation and authorization for memory and any future customer data. The current GitHub memory path is a single personal vault, not a customer memory service.
 4. Complete privacy/retention disclosures, abuse controls, monitoring/alerting, backup/restore drills and operational incident procedures.
 5. Install the APK on the target Android device, test with networking disabled, validate at least one GGUF model's actual generation, and record RAM, thermal, latency and battery results.
 6. Resolve all twelve candidate model revisions, expected artifact checksums, licences and redistribution/use restrictions before presenting the full catalogue as verified.
-7. Configure the four protected release-signing secrets and run the new `.github/workflows/release.yml` workflow. CI now creates a disposable test keystore to validate release assembly/signature verification; this does not replace the owner's permanent release keystore. No production keystore was provided or tested; verify the signed APK signature and install/upgrade behaviour before publishing a versioned release.
+7. Configure the four protected release-signing secrets and run the new `.github/workflows/release.yml` workflow. CI is being extended to create a disposable test keystore and validate release assembly/signature verification; this does not replace the owner's permanent release keystore. The first attempt found and fixed an `apksigner` PATH issue, and the corrected run is still being verified. No production keystore was provided or tested; verify the signed APK signature and install/upgrade behaviour before publishing a versioned release.
 8. Run dependency, secret, static-analysis and supply-chain checks and keep all CI jobs green on the exact release commit.
 
 A passing unit test proves only the tested behaviour. A successful APK assembly is not a signed release. A healthy Worker is not proof of successful inference. A source-level local runtime is not proof of offline inference on a physical device.
