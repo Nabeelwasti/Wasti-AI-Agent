@@ -137,9 +137,6 @@ class MainActivity : ComponentActivity() {
         require(target.parentFile == directory && target.extension.equals("gguf", ignoreCase = true)) {
             "Refusing to delete a file outside NEXUS model storage."
         }
-        require(prefs.getString("local_model_path", "") != path) {
-            "Select another model before deleting the currently selected model."
-        }
         require(target.delete()) { "Could not delete the selected model file." }
     }
 
@@ -426,7 +423,7 @@ private fun NexusScreen(
                     AlertDialog(
                         onDismissRequest = { confirmDeleteModel = false },
                         title = { Text("Remove downloaded model?") },
-                        text = { Text("This deletes the selected GGUF file from NEXUS private storage. The original file is not affected.") },
+                        text = { Text("This deletes the selected GGUF file from this app's private storage. The original file is not affected.") },
                         confirmButton = {
                             TextButton(onClick = {
                                 if (localReady) onUnloadLocal()
