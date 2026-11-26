@@ -63,3 +63,25 @@ def test_small_local_gguf_candidate_is_registered_with_explicit_metadata():
     assert candidate["download_status"] == "not-downloaded"
     if candidate.get("revision"):
         assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"])
+
+def test_all_twelve_families_have_a_pinned_candidate_definition_for_local_install():
+    for family in load_registry():
+        candidate = family.get("local_candidate")
+        assert isinstance(candidate, dict), family["id"]
+        assert re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", candidate.get("repo_id", ""))
+        assert candidate.get("file_name", "").endswith(".gguf")
+        assert candidate.get("quantization") == "Q4_K_M"
+        assert candidate.get("estimated_size_bytes", 0) > 0
+        assert candidate.get("minimum_available_ram_gb", 0) > 0
+        assert isinstance(candidate.get("commercial_allowed"), bool)
+        assert candidate.get("redistribution_allowed") is False
+        assert candidate.get("download_status") == "not-downloaded"
+        if candidate.get("revision"):
+            assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"])
+
+
+def test_noncommercial_local_candidates_are_marked_blocked_for_customer_use():
+    by_id = {item["id"]: item["local_candidate"] for item in load_registry()}
+    assert by_id["command-r"]["commercial_allowed"] is False
+    assert by_id["stablelm"]["commercial_allowed"] is False
+    assert by_id["glm"]["commercial_allowed"] is False
