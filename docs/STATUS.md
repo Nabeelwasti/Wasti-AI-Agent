@@ -1,6 +1,6 @@
 # Verified implementation status
 
-Evidence snapshot: 2026-11-26. Latest application change: PR #26 merged as `fae12f79135d1ee15dc856420669fab3370a7db3`. PR #25 selected Google Drive as the sole model archive; PR #26 added the Android SAF folder picker, verified Qwen Drive installer, twelve-family catalogue UI and local-first Auto routing.
+Evidence snapshot: 2026-11-26. PR #27 (versionCode 3 / versionName 0.3.0) merged as `2aaf539b4ee0ad6c76b42a37b4a03edc1a8ab5d2`. PR #25 selected Google Drive as the sole model archive; PR #26 added the Android SAF folder picker, verified Qwen Drive installer, twelve-model catalogue UI and local-first Auto routing. PR #27 makes the Drive-enabled app an upgrade over the previous 0.2.0 APK.
 
 ## Executive status
 
@@ -9,7 +9,7 @@ WASTI NEXUS is an active, tested release candidate in one monorepo. It is **not 
 - PR #16: https://github.com/Nabeelwasti/Wasti-AI-Agent/pull/16
 - PR #17: https://github.com/Nabeelwasti/Wasti-AI-Agent/pull/17
 - Latest post-merge main CI: https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45859639925 (run #300, commit `348201f11383c6fe3a533881d1d96339a6670459`) completed successfully. Android debug APK assembly, Android JVM tests, ephemeral CI signing validation, Python tests/source validation, Cloudflare Worker syntax/unit tests, deployed gateway health and protected-route rejection all passed.
-- The deployed authenticated chat-generation step was **skipped**, not passed: GitHub Actions logged that repository secret `NEXUS_API_KEY` is not configured. Therefore live authenticated inference through the Worker remains unverified.
+- On the new post-PR-27 main CI run `45871427587`, the deployed gateway health/protection checks and authenticated generation step both completed successfully for the configured hosted models. The Android debug build and JVM test steps were still running at the time of this status snapshot; check the linked run for final conclusion before release.
 - A separate owner-controlled signed release workflow completed successfully on 2026-11-26 (run #1, commit `4df9d4b971128eeaf7d207fd6ed49dee173c3909`). The permanent keystore was decoded, the release APK assembled, `apksigner verify --verbose --print-certs` passed, and artifact `wasti-nexus-signed-release-apk` was uploaded (17,277,969 bytes; expires 2026-12-26). The signing certificate is RSA 4096, subject `CN=Syed Nabeel wasti, OU=Wasti Nexus, O=ThriveBridge Growth Solutions, L=Lahore, ST=Punjab, C=PK`, certificate SHA-256 `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`. **This signed APK is from an earlier application commit**, before the dependency refresh now on `main`; rebuild the permanent signed APK from the current `main` before treating it as the latest release.
 - The CI debug APK artifact `wasti-nexus-debug-apk` was uploaded successfully (20,508,214 bytes; SHA-256 `c08af05480f17c7145614dab8702eac47a99fee15b1fb0f2cfcfa3bcc824e7b5`); it expires 2026-12-03. This is a debug artifact, not a signed production release.
 
@@ -18,11 +18,11 @@ WASTI NEXUS is an active, tested release candidate in one monorepo. It is **not 
 - Canonical repository: https://github.com/Nabeelwasti/Wasti-AI-Agent, default branch `main`.
 - One monorepo contains the native Android client, model registry/acquisition tools, Python orchestration API, Cloudflare Worker gateway/web console, SDKs, schemas, tests and documentation.
 - No model weights, provider credentials, GitHub tokens, or plaintext personal memory are committed.
-- Android toolchain: AGP 9.3.1, Gradle 9.7.0, Kotlin/Compose compiler 2.4.21, Android SDK/Build Tools 36, JDK 17.
+- Android toolchain: AGP 9.5.3, Gradle 9.7.0, Kotlin/Compose compiler 2.4.21, Android SDK/Build Tools 36, JDK 17.
 
 ## Android client
 
-- Native Kotlin/Jetpack Compose app, package `ai.wasti.nexus`, min SDK 33, target SDK 36, version 0.2.0 (versionCode 2).
+- Native Kotlin/Jetpack Compose app, package `ai.wasti.nexus`, min SDK 33, target SDK 36, version 0.3.0 (versionCode 3).
 - Arm AI Chat `com.arm:ai-chat:0.1.0` supplies in-process GGUF/llama.cpp inference; Termux is not required at runtime.
 - The latest UI milestone provides a focused chat screen with app identity/status, New chat, Settings, user/assistant turns, welcome state, persistent composer, keyboard-aware layout, auto-scroll, request progress and visible errors. Model, gateway, hybrid and encrypted-memory controls remain in Settings.
 - Modes: Auto is local-first and uses an installed compatible local model before any hosted inference. If local inference fails, Auto may use the optional authenticated gateway. Online explicitly uses the gateway. Offline uses the local runtime without sending inference prompts to the gateway.
@@ -35,9 +35,9 @@ WASTI NEXUS is an active, tested release candidate in one monorepo. It is **not 
 
 ## Model catalogue and licensing
 
-- Twelve requested families are research candidates: Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM.
-- This is **not** twelve verified downloadable local models. The Android catalogue displays all twelve families, but only Qwen2.5-0.5B-Instruct Q4_K_M currently has a pinned source revision, exact byte length and SHA-256 and is marked downloadable.
-- The other eleven entries remain pending exact checkpoint revision, checksum, licence, GGUF/runtime compatibility and device-fit evidence. The app refuses to download them until those gates are met.
+- The app catalogue now curates twelve compact open-weight candidates with permissive upstream licence families (Apache-2.0 or MIT, including the inherited Qwen base terms for DeepSeek R1 Distill): Qwen2.5 0.5B, Qwen2.5 1.5B, Qwen2.5 Coder 1.5B, Qwen3 0.6B, Qwen3 1.7B, SmolLM2 135M, SmolLM2 360M, SmolLM2 1.7B, TinyLlama 1.1B, Granite 3.1 2B, DeepSeek R1 Distill 1.5B and OLMo 2 1B Instruct.
+- WASTI NEXUS is the product and collection identity; upstream model names, authors, source repositories, licences and required notices are preserved. NEXUS does not claim to have trained or authored these third-party models. See `docs/WASTI_NEXUS_MODEL_LIBRARY.md`.
+- This is **not** twelve verified downloadable local models. Only Qwen2.5-0.5B-Instruct Q4_K_M currently has a pinned immutable source revision, exact byte length and SHA-256 and is marked downloadable. The other eleven remain pending exact revision, checksum, licence evidence, GGUF/runtime compatibility and device-fit checks; the app refuses to download them.
 - Google Drive is the sole owner model archive. No model weights are committed to Git or stored in Cloudflare. Cloudflare Workers AI remains optional hosted inference only.
 - Manual import currently validates GGUF metadata; it does not establish publisher provenance or registry-hash identity for arbitrary imported files.
 
@@ -74,4 +74,4 @@ Do not label this build a production-certified customer service until the follow
 
 ## Current honest conclusion
 
-The repository now includes a native Android app, a twelve-family catalogue, a scoped Google Drive folder picker, a verified Qwen Drive-to-device installer, local-first Auto routing, and an optional two-model Cloudflare inference gateway. PR #26's Android debug build, JVM tests and ephemeral release-signing verification passed in CI (run `45869848845`); Python validation and Worker tests also passed. This does not certify real Drive-provider transfers or phone performance. The owner must upload the exact Qwen GGUF to the private Drive workspace and select that folder in the app. The other eleven models remain unverified and unavailable. Latest-main permanent signed APK, physical-device testing, authenticated hosted inference, memory recovery and customer-grade security remain separate gates. This is an improved **release candidate, not yet fully production-certified**.
+The repository now includes a native Android app at version 0.3.0, a twelve-model permissive open-weight shortlist, a scoped Google Drive folder picker, a verified Qwen Drive-to-device installer, local-first Auto routing, and an optional two-model Cloudflare inference gateway. PR #27 passed its pull-request CI. Post-merge main CI run `45871427587` passed Python validation, Worker syntax/tests and the deployed gateway checks including authenticated live generation; Android build/JVM tests were still running at the time of this snapshot. The latest-main permanent signed APK must still be built through the manual release workflow. This does not certify real Drive-provider transfers or phone performance. The owner must upload the exact Qwen GGUF to the private Drive workspace and select that folder in the app. The other eleven models remain unavailable until their integrity/licence/runtime gates pass. Physical-device testing, encrypted memory recovery and customer-grade security remain separate gates. This is an improved **release candidate, not yet fully production-certified**.
