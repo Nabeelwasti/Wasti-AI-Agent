@@ -860,7 +860,6 @@ private fun NexusScreen(
                                     }
                                 }
                             }
-                            }
                         ) { Text("Send") }
                     }
                 }
