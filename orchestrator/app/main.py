@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hmac
 import json
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
+
+from .github_memory import GitHubMemoryError, GitHubMemoryStore
 
 APP_VERSION = "0.1.1"
 app = FastAPI(title="WASTI NEXUS Orchestrator", version=APP_VERSION)
@@ -37,6 +41,39 @@ class ChatRequest(BaseModel):
     stream: bool = False
     nexus: NexusOptions = Field(default_factory=NexusOptions)
 
+
+
+class MemorySnapshotInput(BaseModel):
+    snapshot_id: uuid.UUID
+    created_at: datetime
+    key_id: str = Field(min_length=8, max_length=128)
+    nonce: str = Field(pattern=r"^[A-Za-z0-9_-]{16,64}$")
+    ciphertext: str = Field(min_length=1, max_length=1_048_576)
+    content_type: str = Field(default="conversation-summary", pattern="^(conversation-summary|fact|preference|project-note|knowledge-reference)$")
+    tags: list[str] = Field(default_factory=list, max_length=32)
+
+    def encrypted_record(self) -> dict[str, Any]:
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
+            raise ValueError("created_at must include a timezone")
+        try:
+            raw = self.ciphertext.encode("ascii")
+            base64.urlsafe_b64decode(raw + b"=" * (-len(raw) % 4))
+        except (UnicodeEncodeError, ValueError) as exc:
+            raise ValueError("ciphertext must be base64url encoded") from exc
+        return {
+            "schema_version": "1.0",
+            "record_id": str(self.snapshot_id).lower(),
+            "tenant_scope": "personal",
+            "created_at": self.created_at.astimezone(timezone.utc).isoformat(),
+            "content_type": self.content_type,
+            "tags": self.tags,
+            "cipher": {
+                "algorithm": "AES-256-GCM",
+                "key_id": self.key_id,
+                "nonce": self.nonce,
+                "ciphertext": self.ciphertext,
+            },
+        }
 
 def agents_config() -> dict[str, dict[str, Any]]:
     raw = os.getenv("NEXUS_AGENTS_JSON", "{}")
@@ -165,6 +202,36 @@ async def list_models():
     )
     return {"object": "list", "data": data}
 
+
+
+@app.get("/v1/memory/snapshots", dependencies=[Depends(authenticate)])
+async def list_memory_snapshots(limit: int = 100):
+    try:
+        return {"data": await GitHubMemoryStore().list(limit)}
+    except GitHubMemoryError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/v1/memory/snapshots", status_code=201, dependencies=[Depends(authenticate)])
+async def create_memory_snapshot(req: MemorySnapshotInput):
+    try:
+        record = req.encrypted_record()
+        result = await GitHubMemoryStore().save(record)
+        return {"object": "memory.snapshot", **result}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except GitHubMemoryError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/v1/memory/snapshots/{snapshot_id}", dependencies=[Depends(authenticate)])
+async def get_memory_snapshot(snapshot_id: str):
+    try:
+        record = await GitHubMemoryStore().get(snapshot_id)
+        return {"object": "memory.snapshot", "data": record}
+    except GitHubMemoryError as exc:
+        status = 404 if "not found" in str(exc).lower() else 503
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 @app.post("/v1/chat/completions", dependencies=[Depends(authenticate)])
 async def chat_completions(req: ChatRequest):
