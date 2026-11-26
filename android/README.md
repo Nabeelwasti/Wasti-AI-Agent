@@ -14,6 +14,7 @@ Native Kotlin + Jetpack Compose app with online single/Hybrid routing and a loca
 - Runtime: Arm AI Chat `com.arm:ai-chat:0.1.0`, an Android library built on llama.cpp.
 - Model format: GGUF.
 - Import: Android Storage Access Framework; selected GGUF files are copied into app-private storage and their metadata is parsed before install.
+- One-tap catalogue install: Qwen2.5-0.5B-Instruct Q4_K_M downloads from its pinned public Hugging Face revision without an AI/provider API key. The app checks available storage, streams to a temporary file, verifies the pinned SHA-256, validates GGUF metadata, atomically finalizes the file and loads it. Failed/incomplete/checksum-mismatched downloads are deleted.
 - Model manager: multiple installed files can be selected, loaded one at a time, unloaded and removed.
 - Runtime lifecycle: load, chat, unload and release native memory.
 - Preflight: file size/storage checks and a conservative available-RAM estimate before model load.
@@ -33,19 +34,19 @@ Choose the exact file `qwen2.5-0.5b-instruct-q4_k_m.gguf` (about 491 MB). The Mo
 
 After the browser download completes, open NEXUS → **Offline → Import GGUF** and select the file from Downloads. NEXUS copies it into app-private storage. Keep at least 1 GB free after import. The guarded Python downloader remains an optional developer/reproducibility tool; it is not part of the Android runtime and does not require Termux on the phone if run on another computer.
 
-**Important:** in-app model catalogue downloads, resumable background transfers and automatic SHA-256 verification on imported files are not implemented yet. They remain explicit release gates before we advertise one-tap model installation.
+**Current limits:** the first in-app catalogue entry is the verified Qwen 0.5B candidate only. The transfer currently requires the app to remain open; resumable background downloads, a full multi-family catalogue, and automatic SHA-256 verification for manually imported files are not implemented. Device-level inference, speed, memory and thermal tests are still required.
 
 ## Online inference
 
-Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online mode requests the shared NEXUS gateway. The deployed gateway currently exposes Gemma 4 26B A4B through Cloudflare Workers AI; the account-level model call and public gateway health/model-catalogue smoke test passed. An authenticated chat-completion request through the Worker itself has not yet been verified because the GitHub Actions `NEXUS_API_KEY` secret is not configured. The app can save and restore encrypted conversation snapshots locally and sync/restore ciphertext through the Worker using the configured GitHub token, but a live memory round-trip and cross-device recovery drill have not been verified. The passphrase is not stored or uploaded by NEXUS.
+Online inference is optional. Local model downloads and offline chat do not require a NEXUS API key. Configure the HTTPS gateway URL and a dedicated client bearer key only when you choose to use the protected hosted gateway. The key is encrypted with Android Keystore AES-GCM. Online mode requests the shared NEXUS gateway. The deployed gateway currently exposes Gemma 4 26B A4B through Cloudflare Workers AI; the account-level model call and public gateway health/model-catalogue smoke test passed. An authenticated chat-completion request through the Worker itself has not yet been verified because the GitHub Actions `NEXUS_API_KEY` secret is not configured. The app can save and restore encrypted conversation snapshots locally and sync/restore ciphertext through the Worker using the configured GitHub token, but a live memory round-trip and cross-device recovery drill have not been verified. The passphrase is not stored or uploaded by NEXUS.
 
 ## Toolchain
 
 - JDK 17
-- Android Gradle Plugin 8.13.2
-- Gradle 8.13
-- Kotlin 2.2.20
-- Android SDK 36
+- Android Gradle Plugin 9.3.1
+- Gradle 9.7.0
+- Kotlin Compose plugin 2.4.21 (AGP built-in Kotlin)
+- Android SDK 36 / Build Tools 36.0.0
 - minSdk 33 (Android 13+)
 
 Open `android/` in Android Studio or run the CI Gradle build. The native library integration has been compiled in CI. Real-device model load, offline generation, RAM/thermal behaviour and upgrade tests are still required before calling offline mode device-certified.
