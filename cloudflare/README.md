@@ -47,6 +47,25 @@ The script prints a random 256-bit client key once and a SHA-256 registry entry.
 
 The Worker stores only SHA-256 hashes of client keys in `NEXUS_CLIENT_KEYS_JSON`; raw client keys are never committed. The customer deployment also requires the `NEXUS_RATE_LIMIT` binding (60 requests per 60 seconds per key, per Cloudflare location). Cloudflare documents these counters as approximate and local to each location; they are a basic abuse-control layer, not a strict global quota. Use Durable Objects or a dedicated metering service for strict cross-location quotas. This provides per-app separation and revocation, but it is not a substitute for customer identity, tenant isolation, quotas or distributed rate limiting. Do not use the personal-memory API as a multi-tenant customer data store.
 
+## GitHub Actions authenticated inference smoke test
+
+The repository's CI workflow uses a dedicated, least-privilege client key to verify that the deployed gateway can generate live responses from both configured models. This is a NEXUS gateway credential, not a Gemini/OpenAI/third-party provider key. The two first-party Cloudflare Workers AI models do not require a third-party provider key.
+
+1. From the repository root, generate a dedicated CI client key:
+   ```bash
+   node cloudflare/scripts/create-client-key.mjs --id nexus-ci --scopes chat
+   ```
+2. The script prints a raw random key and a JSON registry entry. Keep the raw key private. Do not paste it into chat, commit it, or put it in an APK.
+3. In Cloudflare Dashboard → Workers & Pages → `wasti-nexus-gateway` → Settings → Variables and Secrets, create/update the secret `NEXUS_CLIENT_KEYS_JSON`. If no other client keys exist, its value should be a JSON object with a `keys` array containing the printed entry, for example:
+   ```json
+   {"keys":[{"id":"nexus-ci","sha256":"<printed-sha256>","scopes":["chat"],"enabled":true}]}
+   ```
+   Preserve any existing entries instead of replacing them.
+4. In GitHub → Settings → Secrets and variables → Actions → New repository secret, create `NEXUS_API_KEY` and set its value to the raw key printed by the script.
+5. Open Actions → **WASTI NEXUS CI** → **Run workflow**. The authenticated smoke test should call both configured models and assert non-empty responses.
+
+The workflow environment variable is named `NEXUS_API_KEY`, but the value should be this dedicated `chat`-only client key. Do not use the master key: it also grants model listing, memory and administrative scopes. Never share or expose the master key.
+ 
 ## Provider setup
 
 Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. Each provider includes:
