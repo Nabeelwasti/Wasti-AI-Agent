@@ -1,0 +1,80 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/wasti-nexus/env"
+if [[ -f "$CONFIG" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$CONFIG"
+  set +a
+fi
+BASE="${NEXUS_BASE_URL:-https://wasti-nexus-gateway.wastinabeel99.workers.dev}"
+BASE="${BASE%/}"
+API_KEY="${NEXUS_API_KEY:-}"
+
+usage() {
+  cat <<'EOF'
+WASTI NEXUS Termux
+  nexus health
+  nexus models
+  nexus chat MODEL "prompt"
+  nexus hybrid "prompt"
+  nexus open "prompt"
+EOF
+}
+
+require_key() {
+  if [[ -z "$API_KEY" ]]; then
+    echo "Set NEXUS_API_KEY in ~/.config/wasti-nexus/env (chmod 600)." >&2
+    exit 2
+  fi
+}
+
+request_json() {
+  local endpoint="$1" payload="$2"
+  require_key
+  curl --fail-with-body --silent --show-error \
+    -H "Authorization: Bearer $API_KEY" \
+    -H "Content-Type: application/json" \
+    -X POST "$BASE$endpoint" --data "$payload"
+}
+
+case "${1:-}" in
+  health)
+    curl --fail-with-body --silent --show-error "$BASE/healthz"
+    echo
+    ;;
+  models)
+    require_key
+    curl --fail-with-body --silent --show-error \
+      -H "Authorization: Bearer $API_KEY" "$BASE/v1/models"
+    echo
+    ;;
+  chat)
+    [[ $# -ge 3 ]] || { usage; exit 2; }
+    model="$2"; shift 2
+    prompt="$*"
+    payload="$(python -c 'import json,sys; print(json.dumps({"model":sys.argv[1],"messages":[{"role":"user","content":sys.argv[2]}],"stream":False}))' "$model" "$prompt")"
+    result="$(request_json "/v1/chat/completions" "$payload")"
+    python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))' <<< "$result"
+    ;;
+  hybrid)
+    [[ $# -ge 2 ]] || { usage; exit 2; }
+    shift
+    prompt="$*"
+    payload="$(python -c 'import json,sys; print(json.dumps({"model":"nexus-hybrid","messages":[{"role":"user","content":sys.argv[1]}],"stream":False,"nexus":{"mode":"hybrid","review_rounds":1}}))' "$prompt")"
+    result="$(request_json "/v1/chat/completions" "$payload")"
+    python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))' <<< "$result"
+    ;;
+  open)
+    [[ $# -ge 2 ]] || { usage; exit 2; }
+    shift
+    prompt="$*"
+    command -v am >/dev/null || { echo "Android activity manager (am) is unavailable." >&2; exit 1; }
+    am start -n ai.wasti.nexus/.MainActivity -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "$prompt"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

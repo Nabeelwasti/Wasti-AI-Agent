@@ -2,6 +2,7 @@ package ai.wasti.nexus
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.StatFs
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 NexusScreen(
                     initialUrl = prefs.getString("url", "") ?: "",
+                    initialPrompt = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty().take(12000),
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
                     initialModels = installedModels(),
@@ -524,6 +526,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun NexusScreen(
     initialUrl: String,
+    initialPrompt: String,
     initialKey: String,
     initialModelPath: String,
     initialModels: List<String>,
@@ -551,7 +554,7 @@ private fun NexusScreen(
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
-    var prompt by remember { mutableStateOf("") }
+    var prompt by remember { mutableStateOf(initialPrompt) }
     var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
