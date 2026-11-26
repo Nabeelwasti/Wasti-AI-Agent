@@ -9,10 +9,10 @@ WASTI NEXUS is an offline-first Android assistant and a multi-model orchestratio
 ## Fixed architecture
 
 - **One repository:** Android, API, model registry, dataset/memory schemas, SDKs, deployment and tests.
-- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app currently supports manual GGUF import and load/unload; automatic model catalogue/download management is still being built.
+- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, validation, multi-model listing/selection, load/unload and removal. Automatic in-app downloads and a recovery/restore manager remain future work.
 - **Online:** all configured and legally usable remote brains can be called through one universal endpoint.
 - **Hybrid:** independent model responses, bounded peer review and a synthesis model; actual participants and failures are reported.
-- **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository.
+- **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository. Android can save snapshots locally and send ciphertext to the gateway; remote sync is blocked until the GitHub Worker token is configured.
 - **Cloudflare:** web app static assets and API gateway only. No Cloudflare storage for memory, datasets or weights.
 - **Model flexibility:** all 12 families remain catalogued; install only compatible models on the phone and leave the rest available online.
 
@@ -40,8 +40,11 @@ Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (deployment sh
 
 - `GET /v1/models`
 - `POST /v1/chat/completions`
+- `GET /v1/memory/snapshots`
+- `POST /v1/memory/snapshots`
+- `GET /v1/memory/snapshots/{snapshot_id}`
 
-Use a configured model ID for single-brain requests or `nexus-hybrid` for collective analysis. Future apps should call this API from their trusted backend, not expose a master API key in public JavaScript or APK resources. See [docs/API.md](docs/API.md).
+Use a configured model ID for single-brain requests or `nexus-hybrid` for collective analysis. The deployed gateway currently has zero inference providers, so chat requests cannot generate answers yet. Future apps should call this API from their trusted backend, not expose a master API key in public JavaScript or APK resources. See [docs/API.md](docs/API.md).
 
 ## GitHub memory and training data
 
