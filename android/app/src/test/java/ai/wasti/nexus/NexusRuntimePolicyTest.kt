@@ -86,7 +86,6 @@ class NexusRuntimePolicyTest {
         assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.VISION, "qwen3-1.7b.gguf"))
         assertFalse(NexusRuntimePolicy.localCanHandle(NexusTask.TRAINING, "qwen3-1.7b.gguf"))
     }
-}
 
     @Test fun autoSelectsTaskSpecialistFromInstalledModelsWithinRamBudget() {
         val coder = File.createTempFile("qwen-coder", ".gguf")
