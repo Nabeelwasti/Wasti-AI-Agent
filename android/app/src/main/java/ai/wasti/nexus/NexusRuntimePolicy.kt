@@ -11,7 +11,7 @@ import android.app.ActivityManager
 import java.io.File
 
 internal enum class NexusTask { GENERAL, REASONING, CODING, VISION, IMAGE_GENERATION, SPEECH_TO_TEXT, TEXT_TO_SPEECH, TRAINING }
-internal enum class NexusRoute { LOCAL, REMOTE, BLOCKED }
+internal enum class NexusRoute { LOCAL, TERMUX, REMOTE, BLOCKED }
 internal enum class NexusMode { AUTO, OFFLINE, ONLINE }
 
 internal data class NexusRuntimeSnapshot(
@@ -58,7 +58,7 @@ internal object NexusRuntimePolicy {
 
     fun localCanHandle(task: NexusTask): Boolean = task in setOf(NexusTask.GENERAL, NexusTask.REASONING, NexusTask.CODING)
 
-    fun decide(mode: NexusMode, snapshot: NexusRuntimeSnapshot, remoteConfigured: Boolean, prompt: String): NexusRouteDecision {
+    fun decide(mode: NexusMode, snapshot: NexusRuntimeSnapshot, remoteConfigured: Boolean, localServerAvailable: Boolean = false, prompt: String): NexusRouteDecision {
         val task = classify(prompt)
         val modelExists = snapshot.localModelPath.isNotBlank() && File(snapshot.localModelPath).isFile
         val memoryEnough = modelExists && snapshot.availableRamBytes >= estimatedLocalWorkingSet(snapshot.localModelPath)
@@ -67,19 +67,22 @@ internal object NexusRuntimePolicy {
         val localSafe = localCanHandle(task) && modelExists && (snapshot.localModelLoaded || (memoryEnough && thermalSafe && batterySafe))
         val online = snapshot.internetValidated
         if (mode == NexusMode.OFFLINE) {
-            return if (localSafe) NexusRouteDecision(NexusRoute.LOCAL, task, "Offline mode: use the installed local text model; network is never used.")
-            else NexusRouteDecision(NexusRoute.BLOCKED, task, "Offline mode cannot complete this task: no compatible local model or insufficient device headroom.")
+            return when {
+                localSafe -> NexusRouteDecision(NexusRoute.LOCAL, task, "Offline mode: use the installed local text model; internet is never used.")
+                localServerAvailable && localCanHandle(task) -> NexusRouteDecision(NexusRoute.TERMUX, task, "Offline mode: use the paired loopback Termux inference server.")
+                else -> NexusRouteDecision(NexusRoute.BLOCKED, task, "Offline mode cannot complete this task: no compatible local runtime or sufficient device headroom.")
+            }
         }
         if (mode == NexusMode.ONLINE) {
-            return if (online && remoteConfigured) NexusRouteDecision(NexusRoute.REMOTE, task, "Online mode: use the configured self-hosted remote endpoint.")
-            else NexusRouteDecision(NexusRoute.BLOCKED, task, if (!online) "No validated internet connection is available." else "No self-hosted remote model is configured.")
+            return when {
+                online && remoteConfigured -> NexusRouteDecision(NexusRoute.REMOTE, task, "Online mode: use the configured self-hosted remote endpoint.")
+                localServerAvailable && localCanHandle(task) -> NexusRouteDecision(NexusRoute.TERMUX, task, "Use the local Termux inference server; no internet route is required.")
+                else -> NexusRouteDecision(NexusRoute.BLOCKED, task, if (!online) "No validated internet connection or reachable local inference server is available." else "No self-hosted remote model is configured.")
+            }
         }
         if (localSafe) return NexusRouteDecision(NexusRoute.LOCAL, task, "Auto mode: local inference is compatible and device RAM, thermal and battery headroom are sufficient.")
+        if (localServerAvailable && localCanHandle(task)) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
         if (online && remoteConfigured) {
-            val network = if (snapshot.wifiConnected) "Wi-Fi" else if (snapshot.cellularConnected) "mobile data" else "validated internet"
-            val dataNote = if (snapshot.metered) " Metered connection: request is kept small; large downloads are not started automatically." else ""
-            return NexusRouteDecision(NexusRoute.REMOTE, task, "Auto mode: local route is unsuitable; use the configured self-hosted endpoint over $network.$dataNote")
-        }
         val reason = when {
             !localCanHandle(task) -> "This task needs a dedicated vision, image, speech or training runtime not installed in the local chat engine."
             !modelExists -> "No compatible local model is installed and no validated internet route is available."
