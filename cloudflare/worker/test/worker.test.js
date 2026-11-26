@@ -41,8 +41,8 @@ test("Hybrid request runs independent agents, review and synthesis", async () =>
           base_url: "https://provider.example/v1",
           api_key_env: "QWEN_KEY",
           models: [
-            { id: "qwen", upstream_model: "qwen-upstream", enabled: true },
-            { id: "llama", upstream_model: "llama-upstream", enabled: true },
+            { id: "qwen", upstream_model: "qwen-upstream", enabled: true, commercial_allowed: true },
+            { id: "llama", upstream_model: "llama-upstream", enabled: true, commercial_allowed: true },
           ],
         }],
       }),
