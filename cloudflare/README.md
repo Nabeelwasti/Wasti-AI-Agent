@@ -22,8 +22,8 @@ Cloudflare Workers still has platform request, CPU, memory, concurrency and plan
 ## API
 
 - `GET /healthz` — public health; reports `cloudflare_ai_enabled: false` and `inference_backend: self-hosted-provider-relay-only`.
-- `GET /v1/models` — authenticated list of configured, enabled and licence-approved self-hosted provider models.
-- `POST /v1/chat/completions` — request to a configured self-hosted OpenAI-compatible provider.
+- `GET /v1/models` — authenticated list of configured, enabled and licence-approved self-hosted provider models, plus a synthetic `nexus-auto` router when at least one eligible model exists.
+- `POST /v1/chat/completions` — explicit model requests or task-aware `nexus-auto` routing (general, coding and reasoning) across configured self-hosted OpenAI-compatible providers. Unsupported image/audio/training tasks are rejected.
 - `POST /v1/hybrid/chat/completions` — bounded multi-model review using at least two distinct configured self-hosted model IDs.
 - `GET/POST /v1/memory/snapshots` — encrypted memory sync through GitHub Contents API; this is separate from the Google Drive model archive.
 

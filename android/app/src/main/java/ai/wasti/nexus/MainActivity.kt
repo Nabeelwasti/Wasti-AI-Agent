@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         .build()
     private val alias = "wasti.nexus.gateway.key"
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
-    private val localEngineDelegate = lazy { AiChat.getInferenceEngine(this) }
+    private val localEngineDelegate = lazy { AiChat.getInferenceEngine(applicationContext) }
     private val localEngine: InferenceEngine by localEngineDelegate
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -316,7 +316,7 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val listRequest = Request.Builder()
             .url("$apiRoot/memory/snapshots?limit=1")
             .header("Authorization", "Bearer $key")
@@ -371,7 +371,7 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "API key must be at least 32 characters." }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val request = Request.Builder()
             .url("$apiRoot/memory/snapshots")
             .header("Authorization", "Bearer $key")
@@ -594,10 +594,16 @@ class MainActivity : ComponentActivity() {
             "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
         }
         try {
-            when (val state = localEngine.state.first {
-                it is InferenceEngine.State.Initialized || it is InferenceEngine.State.Error
-            }) {
-                is InferenceEngine.State.Error -> throw state.exception
+            val engineState = kotlinx.coroutines.withTimeout(45_000L) {
+                localEngine.state.first {
+                    it is InferenceEngine.State.Initialized ||
+                        it is InferenceEngine.State.ModelReady ||
+                        it is InferenceEngine.State.Error
+                }
+            }
+            when (engineState) {
+                is InferenceEngine.State.Error,
+                is InferenceEngine.State.ModelReady -> localEngine.cleanUp()
                 else -> Unit
             }
             localEngine.loadModel(model.absolutePath)
@@ -609,10 +615,10 @@ class MainActivity : ComponentActivity() {
                     "Never invent facts, sources, or actions."
             )
         } catch (error: OutOfMemoryError) {
-            localEngine.cleanUp()
+            runCatching { localEngine.cleanUp() }
             throw IllegalStateException("Android ran out of memory while loading this model. Try a smaller GGUF quantization.", error)
         } catch (error: Exception) {
-            localEngine.cleanUp()
+            runCatching { localEngine.cleanUp() }
             throw error
         }
     }
@@ -624,11 +630,21 @@ class MainActivity : ComponentActivity() {
     private suspend fun sendLocal(prompt: String, onToken: (String) -> Unit): String =
         withContext(Dispatchers.Default) {
             val output = StringBuilder()
-            localEngine.sendUserPrompt(prompt).collect { token ->
-                output.append(token)
-                withContext(Dispatchers.Main.immediate) { onToken(token) }
+            try {
+                localEngine.sendUserPrompt(prompt).collect { token ->
+                    output.append(token)
+                    withContext(Dispatchers.Main.immediate) { onToken(token) }
+                }
+                check(localEngine.state.value is InferenceEngine.State.ModelReady) {
+                    "The inference engine did not return to its ready state. Reload the model before sending another message."
+                }
+                output.toString().ifBlank { "The local model returned an empty response." }
+            } catch (error: Exception) {
+                if (localEngine.state.value is InferenceEngine.State.Error) {
+                    runCatching { localEngine.cleanUp() }
+                }
+                throw error
             }
-            output.toString().ifBlank { "The local model returned an empty response." }
         }
 
 
@@ -638,7 +654,7 @@ class MainActivity : ComponentActivity() {
             val local = NexusRuntimePolicy.isLoopbackHttp(root)
             require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
             require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
-            val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+            val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
             val requestBuilder = Request.Builder().url("$apiRoot/models").get()
             if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
             val request = requestBuilder.build()
@@ -691,7 +707,7 @@ class MainActivity : ComponentActivity() {
         if (hybrid) {
             payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
         }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val requestBuilder = Request.Builder()
             .url("$apiRoot/chat/completions")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
@@ -707,7 +723,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (localEngineDelegate.isInitialized()) runCatching { localEngine.destroy() }
+        // AiChat.getInferenceEngine() returns a process-wide singleton. An Activity can be
+        // destroyed for configuration changes while the process remains alive; destroying the
+        // singleton here would leave the next Activity with a cancelled, unusable engine.
+        // Native resources are reclaimed when the Android process exits. Users can explicitly
+        // unload a model from Settings to release its working memory while the process is alive.
         super.onDestroy()
     }
 }
@@ -747,7 +767,9 @@ private fun NexusScreen(
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
-    var localModelPath by remember { mutableStateOf(initialModelPath) }
+    var localModelPath by remember {
+        mutableStateOf(initialModelPath.takeIf { it in initialModels } ?: initialModels.minByOrNull { File(it).length() }.orEmpty())
+    }
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
     var registryDialog by remember { mutableStateOf(false) }
@@ -780,6 +802,7 @@ private fun NexusScreen(
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
@@ -840,10 +863,35 @@ private fun NexusScreen(
                 },
                 actions = {
                     TextButton(enabled = !busy, onClick = {
-                        conversation = emptyList()
-                        streamingResponse = ""
-                        remoteConversation = emptyList()
-                        answer = "New conversation started."
+                        val resetModelPath = localModelPath
+                        if (localReady && resetModelPath.isNotBlank()) {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    onUnloadLocal()
+                                    localReady = false
+                                    loadedModelPath = ""
+                                    onLoadLocal(resetModelPath)
+                                    localReady = true
+                                    loadedModelPath = resetModelPath
+                                    answer = "New local conversation started. Model context was reset."
+                                } catch (error: Exception) {
+                                    localReady = false
+                                    loadedModelPath = ""
+                                    answer = "New chat started, but the local model must be loaded again: ${error.message}"
+                                } finally {
+                                    conversation = emptyList()
+                                    streamingResponse = ""
+                                    remoteConversation = emptyList()
+                                    busy = false
+                                }
+                            }
+                        } else {
+                            conversation = emptyList()
+                            streamingResponse = ""
+                            remoteConversation = emptyList()
+                            answer = "New conversation started."
+                        }
                     }) { Text("New chat") }
                     TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
                         Text(if (settingsExpanded) "Done" else "Settings")
@@ -875,6 +923,7 @@ private fun NexusScreen(
                                 busy = true
                                 scope.launch {
                                     var usedRemote = false
+                                    var attemptedLocalInference = false
                                     try {
                                         val mode = when {
                                             offlineMode -> NexusMode.OFFLINE
@@ -906,8 +955,8 @@ private fun NexusScreen(
                                         val snapshot = NexusRuntimeProbe.read(
                                             context, effectiveLocalPath, localReady && loadedModelPath == effectiveLocalPath
                                         )
-                                        val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
-                                            NexusRuntimePolicy.localServerCanHandle(task, remoteModels.first())
+                                        val localServerAvailable = loopback &&
+                                            NexusRuntimePolicy.hasCompatibleRemoteModel(remoteModels, task)
                                         val decision = NexusRuntimePolicy.decide(
                                             mode = mode,
                                             snapshot = snapshot,
@@ -925,6 +974,7 @@ private fun NexusScreen(
                                                         loadedModelPath = effectiveLocalPath
                                                     }
                                                     streamingResponse = ""
+                                                    attemptedLocalInference = true
                                                     onSendLocal(submittedPrompt) { token -> streamingResponse += token }
                                                 } catch (localError: Exception) {
                                                     localReady = false
@@ -971,6 +1021,10 @@ private fun NexusScreen(
                                         answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (error: Exception) {
                                         streamingResponse = ""
+                                        if (attemptedLocalInference) {
+                                            localReady = false
+                                            loadedModelPath = ""
+                                        }
                                         answer = "Request failed: ${error.message}"
                                     } finally {
                                         busy = false
@@ -1359,12 +1413,12 @@ private fun NexusScreen(
                     FilterChip(
                         selected = hybrid,
                         onClick = { hybrid = true },
-                        enabled = remoteModels.size >= 2,
+                        enabled = configuredRemoteModelCount >= 2,
                         label = { Text("Hybrid orchestration") }
                     )
                     FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
                 }
-                if (remoteModels.size < 2) {
+                if (configuredRemoteModelCount < 2) {
                     Text(
                         "Hybrid requires at least two distinct configured online models. Single-brain mode is active.",
                         style = MaterialTheme.typography.bodySmall
@@ -1377,13 +1431,15 @@ private fun NexusScreen(
                         scope.launch {
                             answer = try {
                                 onSave(url, key)
-                                remoteModels = onFetchModels(url, key)
-                                if (agentId !in remoteModels) agentId = remoteModels.firstOrNull().orEmpty()
-                                if (remoteModels.size < 2) hybrid = false
-                                if (remoteModels.size < 2) {
-                                    "Loaded ${remoteModels.size} online brain(s). Hybrid stays disabled until two distinct models are configured."
+                                val fetchedModels = onFetchModels(url, key)
+                                remoteModels = fetchedModels
+                                if (agentId !in fetchedModels) agentId = fetchedModels.firstOrNull().orEmpty()
+                                val fetchedBrainCount = NexusRuntimePolicy.configuredRemoteBrainCount(fetchedModels)
+                                if (fetchedBrainCount < 2) hybrid = false
+                                if (fetchedBrainCount < 2) {
+                                    "Loaded $fetchedBrainCount configured online brain(s). Hybrid stays disabled until two distinct models are configured."
                                 } else {
-                                    "Loaded ${remoteModels.size} online brain(s). Hybrid orchestration is available."
+                                    "Loaded $fetchedBrainCount configured online brain(s). Hybrid orchestration is available."
                                 }
                             } catch (error: Exception) {
                                 "Could not load online brains: ${error.message}"

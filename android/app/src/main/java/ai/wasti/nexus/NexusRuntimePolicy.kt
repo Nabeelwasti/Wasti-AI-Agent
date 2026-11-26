@@ -45,15 +45,24 @@ internal object NexusRuntimePolicy {
     fun classify(prompt: String): NexusTask {
         val value = prompt.lowercase()
         return when {
-            listOf("generate image", "create an image", "draw me", "image generation", "flux").any(value::contains) -> NexusTask.IMAGE_GENERATION
+            listOf("generate image", "create an image", "create image", "draw ", "draw me", "image generation", "flux").any(value::contains) -> NexusTask.IMAGE_GENERATION
             listOf("transcribe", "speech to text", "voice note", "audio transcription").any(value::contains) -> NexusTask.SPEECH_TO_TEXT
             listOf("read aloud", "text to speech", "speak this", "voice output").any(value::contains) -> NexusTask.TEXT_TO_SPEECH
-            listOf("analyze this image", "what is in this picture", "describe this photo", "visual inspection").any(value::contains) -> NexusTask.VISION
-            listOf("fine tune", "fine-tune", "lora", "qlora", "train an adapter").any(value::contains) -> NexusTask.TRAINING
-            listOf("debug", "write code", "program", "python", "kotlin", "javascript", "stack trace", "compile").any(value::contains) -> NexusTask.CODING
-            listOf("compare", "evaluate", "strategy", "analyze", "reason", "plan", "math proof").any(value::contains) -> NexusTask.REASONING
+            listOf("analyze this image", "analyze image", "image of", "attached image", "what is in this picture", "what is in this photo", "describe this photo", "visual inspection", "photo").any(value::contains) -> NexusTask.VISION
+            listOf("fine tune", "fine-tune", "lora", "qlora", "train an adapter", "training dataset").any(value::contains) -> NexusTask.TRAINING
+            listOf("debug", "write code", "show code", "program", "programming", "python", "kotlin", "javascript", "stack trace", "compile", "fix this bug").any(value::contains) -> NexusTask.CODING
+            listOf("compare", "evaluate", "strategy", "analyze", "reason", "plan", "math proof", "research").any(value::contains) -> NexusTask.REASONING
             else -> NexusTask.GENERAL
         }
+    }
+
+    fun configuredRemoteBrainCount(modelIds: List<String>): Int =
+        modelIds.count { it != "nexus-auto" && it != "nexus-hybrid" }
+
+    fun normalizeApiRoot(root: String): String {
+        val normalized = root.trim().trimEnd('/')
+        require(normalized.isNotBlank()) { "Server URL is required." }
+        return if (normalized.endsWith("/v1", ignoreCase = true)) normalized else "$normalized/v1"
     }
 
     fun estimatedLocalWorkingSet(modelPath: String): Long {
@@ -66,18 +75,39 @@ internal object NexusRuntimePolicy {
         val name = modelPath.substringAfterLast('/').lowercase()
         return when (task) {
             NexusTask.GENERAL -> true
-            NexusTask.REASONING -> true
-            NexusTask.CODING -> name.contains("coder") || name.contains("qwen3") || name.contains("deepseek-r1")
+            NexusTask.REASONING -> name.contains("deepseek-r1") ||
+                name.contains("qwen3") ||
+                name.contains("qwen2.5-1.5b") ||
+                name.contains("granite") ||
+                name.contains("olmo2")
+            NexusTask.CODING -> name.contains("coder") ||
+                name.contains("qwen3") ||
+                name.contains("deepseek-r1") ||
+                name.contains("qwen2.5-1.5b") ||
+                name.contains("granite") ||
+                name.contains("olmo2")
             else -> false
         }
     }
+
+    fun hasCompatibleRemoteModel(modelIds: List<String>, task: NexusTask): Boolean =
+        modelIds.any { it != "nexus-auto" && it != "nexus-hybrid" && localServerCanHandle(task, it) }
 
     fun localServerCanHandle(task: NexusTask, modelId: String): Boolean {
         val name = modelId.lowercase()
         return when (task) {
             NexusTask.GENERAL -> true
-            NexusTask.REASONING -> name.contains("deepseek-r1") || name.contains("qwen3") || name.contains("qwen")
-            NexusTask.CODING -> name.contains("coder") || name.contains("qwen3") || name.contains("deepseek-r1")
+            NexusTask.REASONING -> name.contains("deepseek-r1") ||
+                name.contains("qwen3") ||
+                name.contains("qwen2.5-1.5b") ||
+                name.contains("granite") ||
+                name.contains("olmo2")
+            NexusTask.CODING -> name.contains("coder") ||
+                name.contains("qwen3") ||
+                name.contains("deepseek-r1") ||
+                name.contains("qwen2.5-1.5b") ||
+                name.contains("granite") ||
+                name.contains("olmo2")
             else -> false
         }
     }
@@ -88,11 +118,23 @@ internal object NexusRuntimePolicy {
             runCatching { File(path).isFile && File(path).extension.equals("gguf", ignoreCase = true) }.getOrDefault(false)
         }
         val ranked = when (task) {
-            NexusTask.CODING -> listOf("coder", "qwen3", "deepseek-r1", "qwen2.5-1.5b", "granite")
-            NexusTask.REASONING -> listOf("deepseek-r1", "qwen3-1.7b", "qwen2.5-1.5b", "granite", "qwen")
-            else -> listOf("qwen3-1.7b", "qwen2.5-1.5b", "qwen3-0.6b", "qwen2.5-0.5b", "smollm2-1.7b", "granite", "tinyllama")
+            NexusTask.CODING -> listOf(
+                "coder", "qwen3-1.7b", "qwen3-0.6b", "deepseek-r1", "qwen2.5-1.5b",
+                "granite", "olmo2"
+            )
+            NexusTask.REASONING -> listOf(
+                "deepseek-r1", "qwen3-1.7b", "granite", "olmo2-1b",
+                "qwen2.5-1.5b", "qwen3-0.6b"
+            )
+            else -> listOf(
+                "qwen3-1.7b", "qwen2.5-1.5b", "qwen2.5-coder-1.5b", "smollm2-1.7b", "granite",
+                "olmo2-1b", "deepseek-r1", "tinyllama", "qwen3-0.6b",
+                "qwen2.5-0.5b", "smollm2-360m", "smollm2-135m"
+            )
         }
-        val fitting = existing.filter { estimatedLocalWorkingSet(it) <= availableRamBytes }
+        val fitting = existing.filter {
+            localCanHandle(task, it) && estimatedLocalWorkingSet(it) <= availableRamBytes
+        }
         val chosen = fitting.minByOrNull { path ->
             val name = path.substringAfterLast('/').lowercase()
             val index = ranked.indexOfFirst { name.contains(it) }
