@@ -2,6 +2,13 @@
 
 Native Kotlin + Jetpack Compose app with online single/Hybrid routing and a local GGUF inference path.
 
+## Connection modes
+
+- **Auto (default):** tries the online gateway first. If the gateway URL/key is missing, the network request fails, or the gateway returns 408, 429 or a 5xx response, it falls back to the selected local GGUF model when one is loaded.
+- **Online:** uses the configured HTTPS gateway only. Authentication/permission errors (401/403) remain visible rather than being silently hidden by local fallback.
+- **Offline:** uses the local inference engine directly and does not call the gateway.
+- Online conversation context is bounded and contains only prior online turns. Local-only and offline-fallback turns are not sent to the gateway.
+
 ## Local inference
 
 - Runtime: Arm AI Chat `com.arm:ai-chat:0.1.0`, an Android library built on llama.cpp.
