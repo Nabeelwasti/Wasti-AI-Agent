@@ -18,7 +18,10 @@ function encryptedInput(id = snapshotId) {
   return {
     snapshot_id: id,
     created_at: "2026-11-26T12:00:00+05:00",
-    key_id: "android-key-2026",
+    key_id: "pbkdf2-sha256-600k-v1",
+    kdf: "PBKDF2-HMAC-SHA256",
+    iterations: 600000,
+    salt: "AAAAAAAAAAAAAAAAAAAAAAAAAA",
     nonce: "AAAAAAAAAAAAAAAA",
     ciphertext: "AAAAAAAAAAAAAAAAAAAAAA",
     content_type: "project-note",
@@ -97,6 +100,9 @@ test("memory write, list and read round-trip only encrypted payloads", async () 
     assert.equal(read.status, 200);
     const record = (await read.json()).data;
     assert.equal(record.cipher.algorithm, "AES-256-GCM");
+    assert.equal(record.cipher.kdf, "PBKDF2-HMAC-SHA256");
+    assert.equal(record.cipher.iterations, 600000);
+    assert.equal(record.cipher.salt, encryptedInput().salt);
     assert.equal(record.cipher.ciphertext, encryptedInput().ciphertext);
     assert.equal(JSON.stringify(record).includes("plaintext"), false);
   } finally {
