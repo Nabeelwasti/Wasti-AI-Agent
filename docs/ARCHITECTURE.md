@@ -24,7 +24,7 @@ The API never reports an unconfigured model as available or fabricates model par
 
 ### Online hosting
 
-Cloudflare Workers Static Assets host the web app files; the Worker handles authenticated API routing. The Worker is not an inference host and does not store memory, training data or model weights. Remote inference runs only on configured lawful provider endpoints. Keep provider credentials server-side.
+Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes Cloudflare-hosted Workers AI through the `AI` binding and can route to optional configured HTTPS providers. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
 
 ## Request routing
 
