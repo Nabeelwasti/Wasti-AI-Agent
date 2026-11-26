@@ -61,6 +61,8 @@ npx wrangler deploy
 
 The Worker must have its `workers.dev` subdomain enabled or a custom domain/route attached before it has a public URL. After deployment, verify the health route, authenticated model catalog, single-model request and Hybrid request.
 
-## Current connected-account observation
+## Current deployment
 
-A Worker named `wasti-nexus-gateway` exists in the connected Cloudflare account. Its `workers.dev` subdomain was observed disabled and no provider configuration was present. The repository source has since been improved; do not assume the deployed Worker is synchronized with this source until a deployment and smoke test are completed.
+Gateway base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
+
+The Worker is deployed, its `workers.dev` subdomain is enabled, and the deployed source was byte-for-byte compared with this repository. The `NEXUS_API_KEY` secret binding is configured. No provider models are configured yet, so the endpoint is provisioned but cannot generate answers until licensed HTTPS model backends are added and tested.
