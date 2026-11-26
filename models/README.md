@@ -1,6 +1,6 @@
-# Model catalogue and private archive
+# Model catalogue and acquisition tools
 
-This directory tracks all 12 target model families, exact candidate repositories, pinned revisions, licence evidence and acquisition tooling. **It does not contain model weights.**
+This directory tracks all 12 target model families, exact candidate GGUF repositories, pinned revisions, licence evidence and acquisition tooling. **It does not contain model weights.**
 
 ## Current verified state
 
@@ -11,19 +11,19 @@ This directory tracks all 12 target model families, exact candidate repositories
 - Redistribution is not approved for any candidate at this stage.
 - The registry's `download_status` values are authoritative; do not infer download success from a revision being pinned.
 
-## Download workflow
+## Selected local-model download workflow
 
 1. Review the exact checkpoint, model card and licence.
 2. For gated repositories, sign in to Hugging Face and accept the publisher's terms yourself.
 3. Install dependencies with `python -m pip install -r models/requirements.txt`.
 4. Set `HF_TOKEN` in your local shell or credential store; never commit it.
 5. Run `python models/pin_revisions.py` as a dry run, review the output, then run `python models/pin_revisions.py --write`.
-6. Review the registry diff and run `python models/download_all.py --dry-run`.
-7. Download to a private PC/external-drive archive with `python models/download_all.py --output /path/to/private-model-archive`.
-8. Verify every generated SHA-256 manifest and test each checkpoint before marking it downloaded.
-9. Quantize/convert only when the model's licence and conversion workflow permit it. Keep original checkpoints in the private archive.
+6. Review the registry diff and run `python models/download_all.py --family qwen --dry-run`.
+7. Download only the selected local GGUF candidate with `python models/download_all.py --family qwen --output /path/to/nexus-local-models`.
+8. Verify the generated SHA-256 manifest and test the checkpoint on the target device before marking it downloaded.
+9. Repeat with another explicit `--family` only when storage, available RAM, runtime compatibility and licence allow it. The script never downloads all twelve primary full checkpoints.
 
-The scripts refuse moving branches and do not bypass gated access or accept terms on your behalf.
+The scripts refuse moving branches and do not bypass gated access or accept terms on your behalf. The bulk compatibility command requires explicit family IDs and only downloads their registered GGUF files.
 
 ## First phone-sized local candidate
 
