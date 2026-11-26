@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
                     initialModels = installedModels(),
                     initialWorkspaceModels = DriveModelWorkspace.loadCatalog(this),
+                    initialRegistryModels = NexusModelRegistry.load(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
                     onListModels = { installedModels() },
@@ -722,6 +723,7 @@ private fun NexusScreen(
     initialModelPath: String,
     initialModels: List<String>,
     initialWorkspaceModels: List<WorkspaceModel>,
+    initialRegistryModels: List<NexusCapabilityModel>,
     initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
     onListModels: () -> List<String>,
@@ -748,6 +750,7 @@ private fun NexusScreen(
     var localModelPath by remember { mutableStateOf(initialModelPath) }
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
+    var registryDialog by remember { mutableStateOf(false) }
     var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
     var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
@@ -953,7 +956,42 @@ private fun NexusScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (settingsExpanded) {
-                            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+                Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+                Text("MODEL GOVERNANCE", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${initialRegistryModels.size} model families and tools are catalogued with their licence, capability, hosting and hardware status. Catalogue entries are not automatically installable.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedButton(
+                    onClick = { registryDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Browse extended model and licence registry") }
+                if (registryDialog) {
+                    AlertDialog(
+                        onDismissRequest = { registryDialog = false },
+                        title = { Text("WASTI NEXUS · Model Governance") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                initialRegistryModels.forEach { item ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(item.name, style = MaterialTheme.typography.titleSmall)
+                                        Text("${item.creator} · ${item.license}", style = MaterialTheme.typography.bodySmall)
+                                        Text("${item.placement.replace('_', ' ')} · ${item.licenseStatus} · ${item.status}", style = MaterialTheme.typography.labelSmall)
+                                        Text(item.notes, style = MaterialTheme.typography.bodySmall)
+                                        Text(item.commercialUse, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { registryDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = autoMode,
