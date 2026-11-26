@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalogue_revision": "2026-11-26.2",
+  "catalogue_revision": "2026-11-26.3",
   "storage": "google-drive-saf",
   "brand": "WASTI NEXUS",
   "branding_notice": "WASTI NEXUS is the product and collection identity. Each model remains an upstream third-party model; original names, creators, provenance and licence obligations must be preserved. These are open-weight models, not a claim that every training pipeline qualifies under an OSI open-source AI definition.",
@@ -58,8 +58,8 @@
       "family": "Qwen",
       "display_name": "WASTI NEXUS · Qwen3 0.6B",
       "upstream_model": "Qwen/Qwen3-0.6B",
-      "file_name": "Qwen3-0.6B-Q4_K_M.gguf",
-      "quantization": "Q4_K_M",
+      "file_name": "Qwen3-0.6B-Q3_K_M.gguf",
+      "quantization": "Q3_K_M",
       "size_bytes": null,
       "sha256": null,
       "status": "pending_verification",
@@ -67,15 +67,15 @@
       "source": "https://huggingface.co/tensorblock/Qwen_Qwen3-0.6B-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 2.5,
-      "note": "Compact reasoning/chat candidate. Original model by Qwen; GGUF quantized by TensorBlock. Pin exact artifact revision and checksum."
+      "note": "Compact Qwen3 candidate. The pinned repository provides Q3_K_M; original model by Qwen, GGUF quantized by TensorBlock. Exact revision and SHA-256 pending."
     },
     {
       "id": "qwen3-1.7b",
       "family": "Qwen",
       "display_name": "WASTI NEXUS · Qwen3 1.7B",
       "upstream_model": "Qwen/Qwen3-1.7B",
-      "file_name": "Qwen3-1.7B-Q4_K_M.gguf",
-      "quantization": "Q4_K_M",
+      "file_name": "Qwen3-1.7B-Q3_K_M.gguf",
+      "quantization": "Q3_K_M",
       "size_bytes": null,
       "sha256": null,
       "status": "pending_verification",
@@ -83,15 +83,15 @@
       "source": "https://huggingface.co/tensorblock/Qwen_Qwen3-1.7B-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 4.8,
-      "note": "Larger Qwen3 option. Original model by Qwen; GGUF quantized by TensorBlock. Pin exact artifact revision and checksum."
+      "note": "Larger Qwen3 candidate. The pinned repository provides Q3_K_M; original model by Qwen, GGUF quantized by TensorBlock. Exact revision and SHA-256 pending."
     },
     {
       "id": "smollm2-135m",
       "family": "SmolLM2",
       "display_name": "WASTI NEXUS · SmolLM2 135M",
       "upstream_model": "HuggingFaceTB/SmolLM2-135M-Instruct",
-      "file_name": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
-      "quantization": "Q4_K_M",
+      "file_name": "SmolLM2-135M-Instruct-Q3_K_M.gguf",
+      "quantization": "Q3_K_M",
       "size_bytes": null,
       "sha256": null,
       "status": "pending_verification",
@@ -99,7 +99,7 @@
       "source": "https://huggingface.co/tensorblock/SmolLM2-135M-Instruct-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 2.5,
-      "note": "Ultra-light quick-response candidate. Original model by Hugging Face; GGUF quantized by TensorBlock. Pin exact artifact revision and checksum."
+      "note": "Ultra-light quick-response candidate. Q3_K_M is available in the pinned public GGUF repository; original model by Hugging Face."
     },
     {
       "id": "smollm2-360m",
@@ -112,10 +112,10 @@
       "sha256": null,
       "status": "pending_verification",
       "license": "Apache-2.0",
-      "source": "https://huggingface.co/tensorblock/SmolLM2-360M-Instruct-GGUF",
+      "source": "https://huggingface.co/lmstudio-community/SmolLM2-360M-Instruct-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 2.5,
-      "note": "Lightweight everyday chat candidate. Original model by Hugging Face; GGUF quantized by TensorBlock. Pin exact artifact revision and checksum."
+      "note": "Lightweight everyday chat candidate. Q4_K_M from LM Studio Community quantization of the Hugging Face SmolLM2 model; preserve upstream Apache-2.0 notices."
     },
     {
       "id": "smollm2-1.7b",
@@ -138,8 +138,8 @@
       "family": "TinyLlama",
       "display_name": "WASTI NEXUS · TinyLlama 1.1B Chat",
       "upstream_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-      "file_name": "TinyLlama-1.1B-Chat-v1.0-Q4_K_M.gguf",
-      "quantization": "Q4_K_M",
+      "file_name": "TinyLlama-1.1B-Chat-v1.0-Q3_K_M.gguf",
+      "quantization": "Q3_K_M",
       "size_bytes": null,
       "sha256": null,
       "status": "pending_verification",
@@ -147,7 +147,7 @@
       "source": "https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 3.2,
-      "note": "Small chat model for low-memory devices. Original model by TinyLlama; GGUF quantized by TensorBlock. Pin exact artifact revision and checksum."
+      "note": "Small chat model for low-memory devices. Q3_K_M is the verified available quantization candidate; preserve TinyLlama Apache-2.0 notices."
     },
     {
       "id": "granite-2b",
@@ -170,8 +170,8 @@
       "family": "DeepSeek",
       "display_name": "WASTI NEXUS · DeepSeek R1 Distill 1.5B",
       "upstream_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-      "file_name": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
-      "quantization": "Q4_K_M",
+      "file_name": "DeepSeek-R1-Distill-Qwen-1.5B-Q3_K_M.gguf",
+      "quantization": "Q3_K_M",
       "size_bytes": null,
       "sha256": null,
       "status": "pending_verification",
@@ -179,7 +179,7 @@
       "source": "https://huggingface.co/tensorblock/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
       "source_revision": null,
       "minimum_available_ram_gb": 4.5,
-      "note": "Reasoning-focused distilled model. Preserve both DeepSeek MIT and Qwen base-model Apache-2.0 notices; pin exact GGUF artifact and checksum."
+      "note": "Reasoning-focused distilled model. Q3_K_M is available in the pinned GGUF repository. Preserve DeepSeek MIT and Qwen base Apache-2.0 notices."
     },
     {
       "id": "olmo2-1b",
