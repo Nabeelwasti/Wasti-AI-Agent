@@ -126,7 +126,13 @@ def test_get_snapshot_uses_public_repository_and_validates_identity(monkeypatch)
     snapshot_id = str(uuid.uuid4())
     record = {
         "record_id": snapshot_id,
-        "cipher": {"algorithm": "AES-256-GCM", "ciphertext": "opaque"},
+        "cipher": {
+            "algorithm": "AES-256-GCM",
+            "kdf": "PBKDF2-HMAC-SHA256",
+            "iterations": 600000,
+            "salt": "AAAAAAAAAAAAAAAAAAAAAA",
+            "ciphertext": "opaque",
+        },
     }
     created_at = datetime.now(timezone.utc).isoformat()
     filename = snapshot_filename(snapshot_id, created_at)
