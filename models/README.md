@@ -81,14 +81,14 @@ The Android app must never download all 12 models automatically. It will expose 
 
 With approximately 3 GB free RAM, start with one small quantized model in the 0.5B–1B class and a conservative 1K–2K context. This is a cautious starting point, not a guarantee: Android system pressure, chipset, thermal state and model architecture change the real limit. The app must benchmark before recommending larger models and must unload the active model before switching.
 
-All other configured models remain accessible through online routing when a lawful provider is configured. Free availability, quotas and provider terms vary; do not promise unlimited free inference.
+All other configured models remain candidates for online routing only when a currently available lawful provider is configured. The deployed NEXUS gateway currently exposes Gemma 4 26B A4B through Workers AI; the twelve-family local registry is not the same as twelve live cloud endpoints. Free availability, quotas and provider terms vary; do not promise unlimited free inference.
 
 ## Where files belong
 
 - GitHub repository: source, model registry, manifests, checksums, small versioned evaluation/training datasets, licence notices and reproducible scripts.
 - Private local archive: full upstream checkpoints and large quantized files that exceed repository limits.
 - Android private app storage: only the user-selected compatible quantized models and encrypted personal memory.
-- Cloudflare: web application assets and the online API gateway only; no memory, dataset or model-weight storage.
+- Cloudflare Workers AI: online inference only; it does not accept arbitrary custom GGUF uploads. A separate R2 bucket may be used as an optional model-file archive/distribution origin, subject to licence and privacy checks. R2 is not currently provisioned for NEXUS.
 
 GitHub is version control, not a high-throughput database or training runtime. This deployment intentionally stores only client-encrypted memory snapshots in the public repository. GitHub exposes ciphertext and metadata publicly; never place plaintext customer/personal data or secrets here. Batch writes and respect API/rate limits.
 
