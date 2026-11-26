@@ -472,7 +472,7 @@ async function memorySnapshots(request, env, headers, url) {
     if (!Array.isArray(result.data)) throw new GatewayError("GitHub memory path is not a directory", 502);
     const data = result.data
       .map(item => {
-        const match = String(item?.name || "").match(/^(\\d{13})-([0-9a-f-]{36})\\.json$/i);
+        const match = String(item?.name || "").match(/^(\d{13})-([0-9a-f-]{36})\.json$/i);
         return item?.type === "file" && match && SNAPSHOT_ID_PATTERN.test(match[2])
           ? { snapshot_id: match[2].toLowerCase(), sha: item.sha, created_at: new Date(Number(match[1])).toISOString(), timestamp: Number(match[1]) }
           : null;
@@ -515,7 +515,7 @@ async function memorySnapshots(request, env, headers, url) {
     const listing = await githubMemoryRequest(config, `${contentsBase}?ref=${encodeURIComponent(config.branch)}`);
     if (listing.status === 404 || !Array.isArray(listing.data)) throw new GatewayError("Memory snapshot not found", 404);
     const filename = listing.data.find(item =>
-      item?.type === "file" && new RegExp("^\\\\d{13}-" + snapshotId + "\\\\.json$", "i").test(String(item.name || ""))
+      item?.type === "file" && new RegExp("^\\d{13}-" + snapshotId + "\\.json$", "i").test(String(item.name || ""))
     )?.name;
     if (!filename) throw new GatewayError("Memory snapshot not found", 404);
     const path = `${contentsBase}/${encodeURIComponent(filename)}?ref=${encodeURIComponent(config.branch)}`;
