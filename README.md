@@ -4,12 +4,12 @@
 
 WASTI NEXUS is an offline-first Android assistant and a multi-model orchestration platform for future apps. The Android app can run selected compatible models locally; the same app can route to remote models when online. Other products can connect to one OpenAI-compatible API.
 
-> Status: active foundation, not production-ready. The Android prototype currently sends remote requests only. Local inference and model management are still being integrated. The Cloudflare gateway has no inference providers configured.
+> Status: active foundation, not production-ready. The Android source now includes Arm AI Chat/llama.cpp local GGUF inference and remote routing, but the APK build and real-device offline test are still unverified. The Cloudflare gateway has no inference providers configured.
 
 ## Fixed architecture
 
 - **One repository:** Android, API, model registry, dataset/memory schemas, SDKs, deployment and tests.
-- **Offline:** selected GGUF models run natively on Android using the llama.cpp Android runtime. No Cloudflare/API dependency for local chat.
+- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app currently supports manual GGUF import and load/unload; automatic model catalogue/download management is still being built.
 - **Online:** all configured and legally usable remote brains can be called through one universal endpoint.
 - **Hybrid:** independent model responses, bounded peer review and a synthesis model; actual participants and failures are reported.
 - **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and encrypted private memory snapshots.
