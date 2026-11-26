@@ -16,7 +16,7 @@ Research date: 2026-11-26. Public repositories are reference material, not depen
 - The library's documented baseline is minSdk 33, compileSdk 36 and Java 17; the Android project toolchain has been aligned to that baseline.
 - Why: GGUF support, native llama.cpp integration, Kotlin Flow token generation, and a maintained Android library rather than a hand-written JNI bridge.
 
-The NEXUS app currently has source integration for GGUF import, model load/unload and local chat. The dependency and app have not yet passed CI or a real-device inference test. Do not claim offline support verified until those checks pass.
+The NEXUS app source now includes GGUF metadata validation, multi-model import/selection/removal, native load/unload, local chat and device-encrypted memory snapshots. The dependency and app have not yet passed a verified CI build or real-device inference test. Do not claim offline support verified until those checks pass.
 
 ### Additional implementation references
 
@@ -34,7 +34,7 @@ Official llama.cpp Android docs show both an Android Studio binding and an NDK r
 
 ## Model fit and memory
 
-The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using the Q4_K_M file (about 491 MB according to the upstream Hugging Face model page). Its model card identifies Apache-2.0. Pin the exact repository revision and generate a SHA-256 manifest before installing it; do not infer an artifact checksum from the model-card size.
+The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using the Q4_K_M file (491 MB). The official file page identifies Apache-2.0, exact immutable revision `12145bd1d629190a4d44254073650877954d02c9`, and SHA-256 `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`. The downloader verifies this checksum. Upstream file listing: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/tree/12145bd1d629190a4d44254073650877954d02c9.
 
 - Storage free space is not the same as inference RAM.
 - Budget for weights + KV cache + compute buffers + tokenizer/runtime + Android OS and other apps.
@@ -50,13 +50,13 @@ The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using
 
 ## NEXUS-specific memory design
 
-Use Git as the versioned source for curated Markdown/JSON knowledge, dataset manifests, evaluation cases and encrypted snapshot files. Keep local encrypted SQLite as the fast offline working store. Build embeddings/indexes locally and rebuild them from source files; do not commit large, frequently rewritten vector indexes.
+Use the public Git repository for curated Markdown/JSON knowledge, dataset manifests, evaluation cases and client-encrypted memory snapshots. The Android client currently stores encrypted snapshot files in app-private storage; encrypted SQLite, retrieval indexing, embedding rebuilds and retention management are future work. Do not commit large, frequently rewritten vector indexes.
 
-GitHub API writes require a trusted backend credential, private repository access, commit batching and conflict-safe updates. Never put a GitHub write token in the Android app or browser bundle. Do not commit raw personal/customer memory to a public repository. Encrypt sensitive memory before upload and scope each file by tenant. Keep GitHub history retention/deletion implications explicit.
+The deployed Worker writes encrypted snapshots directly through the GitHub Contents API using a server-side fine-grained token. The repository must remain public in this deployment mode. GitHub exposes ciphertext, file paths, timestamps, tags, commit history and other metadata to everyone; never store plaintext personal/customer memory or encryption keys. Batch snapshots, use immutable IDs, and keep the GitHub token out of Android/browser code. The token is not configured yet, so remote memory sync is currently unavailable.
 
 ## Cloudflare role
 
-Use Workers Static Assets for the online web app and the Worker for API gateway/routing only. The Worker is not a GPU host and NEXUS will not use Cloudflare storage products for memory, datasets or model weights. Static asset hosting reference: https://developers.cloudflare.com/workers/static-assets/
+The Worker serves the online console from its embedded HTML response and provides API gateway/routing only. The Worker is not a GPU host. NEXUS does not use Cloudflare KV, D1, R2, Durable Objects, Vectorize or Workers Static Assets for memory, datasets or model weights. The canonical console HTML remains in `cloudflare/public/index.html`.
 
 ## GitHub repository constraints
 
@@ -66,3 +66,18 @@ References:
 - https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits
 - https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-git-large-file-storage
 - https://docs.github.com/en/billing/concepts/product-billing/git-lfs
+
+## Online inference providers and free-tier constraints
+
+The gateway accepts OpenAI-compatible providers, but no provider API key or provider catalogue is configured yet. A sample OpenRouter free-router config is in `cloudflare/providers.example.json`.
+
+- OpenRouter documents a free-account allowance of 50 free-model requests/day and 20 requests/minute. Its `openrouter/free` router chooses from the currently available free pool; it does not guarantee a specific one of NEXUS's twelve families. Availability and context windows change. See https://openrouter.ai/docs and https://openrouter.ai/blog/tutorials/how-to-get-the-lowest-cost-llm-inference-on-openrouter/.
+- Free hosted inference is not equivalent to unlimited self-hosted inference. Some providers require keys, impose quotas, or do not host a requested family.
+- The gateway hides models in customer mode unless `commercial_allowed: true` is explicitly set after exact model/provider terms are reviewed. The sample free router is marked personal-only.
+- A single provider key can make one or more models available, but no hosted free provider has been verified to serve all twelve selected families.
+
+## GitHub Actions cost strategy
+
+GitHub documents standard GitHub-hosted runner usage as free for public repositories. Private repositories instead consume plan-based included compute usage. NEXUS remains public as requested. Its CI workflow skips docs-only/memory-only/dataset-only changes, cancels superseded runs on the same ref, and uploads an APK artifact only for manual/tagged builds. GitHub Free artifact storage is limited, so APK artifacts have one-day retention.
+
+Reference: https://docs.github.com/en/actions/concepts/billing-and-usage and https://docs.github.com/en/billing/concepts/product-billing/github-actions.
