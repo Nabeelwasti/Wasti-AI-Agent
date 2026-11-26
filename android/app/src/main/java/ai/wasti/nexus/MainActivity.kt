@@ -52,6 +52,11 @@ private class GatewayHttpException(
 
 private fun shouldFallbackToLocal(error: Exception): Boolean {
     if (error is java.io.IOException) return true
+    if (error is IllegalArgumentException) {
+        val message = error.message.orEmpty()
+        return message.contains("Gateway URL", ignoreCase = true) ||
+            message.contains("API key", ignoreCase = true)
+    }
     val status = (error as? GatewayHttpException)?.statusCode ?: return false
     return status in setOf(408, 429, 500, 502, 503, 504)
 }
@@ -583,7 +588,7 @@ private fun NexusScreen(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(initialPrompt) }
-    var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
+    var answer by remember { mutableStateOf("Auto mode is ready. Connect online, or load a local GGUF model for offline fallback.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
