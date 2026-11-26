@@ -74,7 +74,7 @@ The curated shortlist is twelve open-weight candidates selected for permissive u
 ## Current verified state
 
 - One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
-- One Qwen2.5-0.5B-Instruct Q4_K_M source revision and SHA-256 are pinned in the registry.
+- All twelve selected GGUF artifacts have immutable source revisions, exact byte lengths and SHA-256 values pinned in the registry and Android catalogue.
 - The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-family catalogue UI and a verified Qwen Drive copy/install path.
 - The exact Qwen file is 491,400,032 bytes with the pinned SHA-256 in the catalogue; it must be uploaded by the owner into the selected Drive workspace.
 - No model binaries have been uploaded to the owner's Google Drive through this repository connection.
