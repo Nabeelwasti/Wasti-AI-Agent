@@ -82,7 +82,7 @@ server_start() {
   ctx="${NEXUS_SERVER_CTX:-4096}"
   port="${NEXUS_SERVER_PORT:-8088}"
   [[ "$threads" =~ ^[1-9][0-9]*$ && "$ctx" =~ ^[0-9]+$ && "$port" =~ ^[0-9]+$ ]] || { echo "Invalid server resource configuration."; exit 2; }
-  nohup llama-server -m "$model" --host 127.0.0.1 --port "$port" --ctx-size "$ctx" --threads "$threads" --parallel 1 --n-gpu-layers "${NEXUS_GPU_LAYERS:-0}" >"$LOG_FILE" 2>&1 &
+  nohup llama-server -m "$model" --alias "$MODEL_ID" --host 127.0.0.1 --port "$port" --ctx-size "$ctx" --threads "$threads" --parallel 1 --n-gpu-layers "${NEXUS_GPU_LAYERS:-0}" >"$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
   echo "Started loopback-only llama.cpp server (PID $(cat "$PID_FILE"))."
   echo "Model: $model"
