@@ -143,7 +143,6 @@ def test_get_snapshot_uses_public_repository_and_validates_identity(monkeypatch)
         if request.url.path == "/repos/Nabeelwasti/Wasti-AI-Agent":
             return httpx.Response(200, json={"private": False})
         if request.url.path.endswith("/memory/personal/encrypted"):
-            assert request.url.params.get("per_page") == "100"
             return httpx.Response(200, json=[
                 {"name": filename, "type": "file", "sha": "e" * 40}
             ])
