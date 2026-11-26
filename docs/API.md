@@ -1,17 +1,20 @@
 # NEXUS API quick reference
 
-Base URL: `https://YOUR-NEXUS-HOST/v1`
+## Live gateway address
 
-All protected requests require `Authorization: Bearer YOUR_API_KEY`.
+Base URL (do not append `/v1`): `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
 
-## List available brains
+All protected requests require `Authorization: Bearer YOUR_NEXUS_API_KEY` and `Content-Type: application/json`.
 
-`GET /v1/models`
+The gateway Worker is deployed and its workers.dev subdomain is enabled. **No inference provider is configured yet**, so `GET /v1/models` currently returns an empty model list and chat requests cannot generate answers until a real backend is connected.
 
-Returns configured model IDs and the virtual `nexus-hybrid` model. Only configured upstreams appear.
+## Health
+`GET /healthz` — public liveness response; does not expose provider secrets.
+
+## List configured brains
+`GET /v1/models` — authenticated; returns only enabled, configured providers.
 
 ## Single brain
-
 `POST /v1/chat/completions`
 
 ```json
@@ -23,35 +26,41 @@ Returns configured model IDs and the virtual `nexus-hybrid` model. Only configur
 ```
 
 ## Hybrid collective answer
+`POST /v1/chat/completions`
 
 ```json
 {
   "model": "nexus-hybrid",
   "messages": [{"role":"user","content":"Evaluate this business idea and produce a practical plan."}],
-  "stream": false,
-  "nexus": {
-    "mode": "hybrid",
-    "agents": ["qwen", "llama", "gemma"],
-    "synthesis_agent": "qwen",
-    "review_rounds": 0
-  }
+  "nexus": {"mode":"hybrid","agents":["qwen","llama","gemma"],"review_rounds":1}
 }
 ```
 
-The final answer is synthesized by the configured synthesis agent. The response's `nexus.participating_agents` lists actual successful contributors; `failed_agents` lists failures. `review_rounds` is reserved but not implemented in the current foundation and must remain zero until implemented.
+The Worker also accepts `POST /v1/hybrid/chat/completions` with an optional `models` array. Hybrid mode runs independent analysis, peer critique and synthesis. The response lists only actual successful participants, failures, independent answers and peer reviews.
 
-## Example cURL
+## Provider configuration
 
-```bash
-curl https://YOUR-NEXUS-HOST/v1/chat/completions \
-  -H "Authorization: Bearer $NEXUS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"nexus-hybrid","messages":[{"role":"user","content":"Hello"}],"nexus":{"mode":"hybrid","agents":["qwen","llama"],"synthesis_agent":"qwen"}}'
+Set the Cloudflare Worker secret `NEXUS_PROVIDERS_JSON` to this shape (replace placeholders):
+
+```json
+{
+  "providers": [
+    {
+      "id": "my-inference-host",
+      "base_url": "https://YOUR-INFERENCE-HOST/v1",
+      "api_key_env": "NEXUS_PROVIDER_KEY",
+      "models": [
+        {"id":"actual-upstream-model-id","agent":"reasoning","enabled":true}
+      ]
+    }
+  ]
+}
 ```
 
-## Integration notes
+Then create a Worker secret named `NEXUS_PROVIDER_KEY` with the provider's credential. The upstream must implement OpenAI-compatible `POST /chat/completions` and use HTTPS. Never place credentials in Git.
 
-- Use the same API base URL from all future products.
-- Issue separate API keys per app/customer; do not embed a master key in a public mobile/web client.
-- For customer-facing products, add user authentication and server-side tenant authorization before launch.
-- Streaming is not implemented in the current version.
+## Future product integration
+
+Use the same base URL in your backend services. For customer-facing web/mobile apps, authenticate each customer on your own backend and keep the NEXUS master key server-side. Do not embed the master key in public frontend code or ship one shared key to every customer.
+
+Streaming is not implemented. The Worker is an orchestration gateway, not a GPU host or model-weight archive.
