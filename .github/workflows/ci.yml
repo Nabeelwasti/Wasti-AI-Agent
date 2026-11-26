@@ -69,6 +69,9 @@ jobs:
           assert binding.get("simple") == {"limit": 60, "period": 60}, binding
           assert str(binding.get("namespace_id", "")).isdigit(), binding
           PY
+      - name: Audit public Hugging Face GGUF metadata (report only)
+        continue-on-error: true
+        run: python tools/audit_hf_model_catalog.py
 
   edge:
     name: Cloudflare Worker syntax
@@ -163,9 +166,6 @@ jobs:
           assert not any("llama-3.2" in model_id for model_id in data.get("model_ids", [])), data
           print("Gateway is reachable; active model IDs:", data["model_ids"])
           PY
-      - name: Audit public Hugging Face GGUF metadata (report only)
-        continue-on-error: true
-        run: python tools/audit_hf_model_catalog.py
           unauth_status=$(curl --silent --output /tmp/nexus-unauth.json --write-out "%{http_code}" https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/models)
           test "$unauth_status" = "401" || { echo "Expected protected model catalogue to return HTTP 401, got $unauth_status"; cat /tmp/nexus-unauth.json; exit 1; }
       - name: Verify authenticated live model generation
