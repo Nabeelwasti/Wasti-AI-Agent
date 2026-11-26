@@ -423,7 +423,7 @@ class MainActivity : ComponentActivity() {
         }
         val memory = ActivityManager.MemoryInfo()
         (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memory)
-        val estimatedNeed = (model.length() * 1.6).toLong() + 700L * 1024L * 1024L
+        val estimatedNeed = (model.length() * 2.0).toLong() + 1024L * 1024L * 1024L
         require(!memory.lowMemory && memory.availMem >= estimatedNeed) {
             "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
         }
