@@ -140,3 +140,44 @@ test("memory endpoint fails closed when GitHub token is missing", async () => {
   );
   assert.equal(response.status, 503);
 });
+
+test("online console is served by the Worker without Cloudflare storage", async () => {
+  const response = await worker.fetch(new Request("https://nexus.example/"), env);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  const html = await response.text();
+  assert.match(html, /WASTI NEXUS/);
+  assert.match(html, /nexus-hybrid/);
+  assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+});
+
+test("customer catalogue hides models without explicit commercial clearance", async () => {
+  const configured = {
+    ...env,
+    NEXUS_PROVIDERS_JSON: JSON.stringify({
+      providers: [{
+        id: "test-provider",
+        models: [
+          {id: "restricted-model", enabled: true, commercial_allowed: false},
+          {id: "approved-model", enabled: true, commercial_allowed: true},
+        ],
+      }],
+    }),
+  };
+  const response = await worker.fetch(authedRequest("/v1/models"), configured);
+  assert.equal(response.status, 200);
+  const ids = (await response.json()).data.map(model => model.id);
+  assert.deepEqual(ids, ["approved-model"]);
+});
+
+test("chat gateway rejects streaming before provider dispatch", async () => {
+  const response = await worker.fetch(
+    authedRequest("/v1/chat/completions", "POST", {
+      model: "qwen",
+      messages: [{role: "user", content: "hello"}],
+      stream: true,
+    }),
+    env,
+  );
+  assert.equal(response.status, 400);
+});
