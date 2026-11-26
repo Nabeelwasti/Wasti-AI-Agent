@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StatFs
 import androidx.documentfile.provider.DocumentFile
+import com.arm.aichat.gguf.GgufMetadataReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -179,6 +180,14 @@ internal object DriveModelWorkspace {
             val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
             require(actualHash.equals(model.sha256, ignoreCase = true)) {
                 "SHA-256 verification failed. The downloaded model was rejected."
+            }
+            try {
+                temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            } catch (metadataError: Exception) {
+                throw IllegalStateException(
+                    "The checksum-verified file is not a readable GGUF model and was rejected.",
+                    metadataError
+                )
             }
             try {
                 java.nio.file.Files.move(
