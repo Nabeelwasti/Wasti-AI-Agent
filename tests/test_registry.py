@@ -4,90 +4,94 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "models" / "registry.json"
+ANDROID_CATALOG = ROOT / "android" / "app" / "src" / "main" / "assets" / "nexus-model-catalog.json"
 EXPECTED = {
-    "llama", "qwen", "gemma", "deepseek", "mistral", "phi",
-    "granite", "glm", "command-r", "falcon", "smollm", "stablelm",
+    "qwen",
+    "qwen-1.5b",
+    "qwen-coder-1.5b",
+    "qwen3-0.6b",
+    "qwen3-1.7b",
+    "smollm2-135m",
+    "smollm2-360m",
+    "smollm2-1.7b",
+    "tinyllama-1.1b",
+    "granite-2b",
+    "deepseek-r1-1.5b",
+    "olmo2-1b",
 }
 
 
 def load_registry():
     data = json.loads(REGISTRY.read_text(encoding="utf-8"))
     assert isinstance(data, dict)
+    assert data.get("schema_version") == 2
+    assert data.get("brand") == "WASTI NEXUS"
     assert isinstance(data.get("families"), list)
     return data["families"]
 
 
-def test_registry_contains_exactly_twelve_unique_families():
+def test_registry_contains_exactly_twelve_unique_permissive_candidates():
     families = load_registry()
     ids = [item.get("id") for item in families]
     assert len(families) == 12
     assert len(ids) == len(set(ids))
     assert set(ids) == EXPECTED
 
+    for item in families:
+        licence = item["license_id"].lower()
+        assert "apache-2.0" in licence or "mit" in licence
+        assert item["redistribution"] == "not-approved"
 
-def test_every_family_has_candidate_and_license_metadata():
+
+def test_every_family_has_upstream_and_gguf_candidate_metadata():
     for item in load_registry():
         assert item.get("family")
         assert re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", item.get("repo_id", ""))
+        assert item.get("source_url", "").startswith("https://huggingface.co/")
         assert item.get("license_id")
         assert item.get("license_review")
-        assert item.get("redistribution") in {"not-approved", "approved", "conditional"}
 
-
-def test_pinned_revisions_are_immutable_commit_shas():
-    for item in load_registry():
-        revision = item.get("revision")
-        if revision:
-            assert re.fullmatch(r"[0-9a-f]{40}", revision), item["id"]
-
-
-def test_registry_does_not_claim_unverified_weights_are_downloaded():
-    for item in load_registry():
-        if not item.get("files"):
-            assert item.get("download_status") == "not-downloaded"
-
-
-def test_noncommercial_candidates_are_not_approved_for_redistribution():
-    by_id = {item["id"]: item for item in load_registry()}
-    assert by_id["command-r"]["redistribution"] == "not-approved"
-    assert by_id["stablelm"]["redistribution"] == "not-approved"
-
-def test_small_local_gguf_candidate_is_registered_with_explicit_metadata():
-    qwen = next(item for item in load_registry() if item["id"] == "qwen")
-    candidate = qwen["local_candidate"]
-    assert candidate["repo_id"] == "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-    assert candidate["file_name"].endswith(".gguf")
-    assert candidate["quantization"] == "Q4_K_M"
-    assert candidate["estimated_size_bytes"] > 0
-    assert candidate["license_id"] == "Apache-2.0"
-    assert candidate["download_status"] == "not-downloaded"
-    if candidate.get("revision"):
-        assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"])
-
-def test_all_twelve_families_have_a_pinned_candidate_definition_for_local_install():
-    for family in load_registry():
-        candidate = family.get("local_candidate")
-        assert isinstance(candidate, dict), family["id"]
+        candidate = item.get("local_candidate")
+        assert isinstance(candidate, dict)
         assert re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", candidate.get("repo_id", ""))
         assert candidate.get("file_name", "").endswith(".gguf")
-        assert candidate.get("quantization") == "Q4_K_M"
+        assert candidate.get("quantization") in {"Q4_K_M", "Q3_K_M"}
         assert candidate.get("estimated_size_bytes", 0) > 0
         assert candidate.get("minimum_available_ram_gb", 0) > 0
-        assert isinstance(candidate.get("commercial_allowed"), bool)
+        assert candidate.get("commercial_allowed") is True
         assert candidate.get("redistribution_allowed") is False
         assert candidate.get("download_status") == "not-downloaded"
-        if candidate.get("revision"):
-            assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"])
 
 
-def test_noncommercial_local_candidates_are_marked_blocked_for_customer_use():
-    by_id = {item["id"]: item["local_candidate"] for item in load_registry()}
-    assert by_id["command-r"]["commercial_allowed"] is False
-    assert by_id["stablelm"]["commercial_allowed"] is False
-    assert by_id["glm"]["commercial_allowed"] is False
+def test_all_twelve_candidates_have_pinned_immutable_integrity_manifests():
+    for family in load_registry():
+        candidate = family["local_candidate"]
+        assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"]), family["id"]
+        assert isinstance(candidate["estimated_size_bytes"], int)
+        assert candidate["estimated_size_bytes"] > 0
+        assert re.fullmatch(r"[0-9a-f]{64}", candidate["sha256"]), family["id"]
+        assert candidate["estimated_size_is_approximate"] is False
+        assert candidate["runtime_validation"] == "pending_device_test"
 
-def test_qwen_phone_candidate_is_pinned_and_checksum_verified():
-    qwen = next(item for item in load_registry() if item["id"] == "qwen")
-    candidate = qwen["local_candidate"]
-    assert candidate["revision"] == "12145bd1d629190a4d44254073650877954d02c9"
-    assert candidate["sha256"] == "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
+
+def test_registry_and_android_catalogue_reference_the_same_twelve_gguf_manifests():
+    registry_by_file = {
+        item["local_candidate"]["file_name"]: item["local_candidate"]
+        for item in load_registry()
+    }
+    catalog = json.loads(ANDROID_CATALOG.read_text(encoding="utf-8"))
+    android_by_file = {item["file_name"]: item for item in catalog["models"]}
+
+    assert len(registry_by_file) == 12
+    assert registry_by_file.keys() == android_by_file.keys()
+    for filename, candidate in registry_by_file.items():
+        model = android_by_file[filename]
+        assert candidate["revision"] == model["source_revision"]
+        assert candidate["estimated_size_bytes"] == model["size_bytes"]
+        assert candidate["sha256"] == model["sha256"]
+        assert candidate["quantization"] == model["quantization"]
+
+
+def test_twelve_model_archive_size_is_exact():
+    total = sum(item["local_candidate"]["estimated_size_bytes"] for item in load_registry())
+    assert total == 9586646112

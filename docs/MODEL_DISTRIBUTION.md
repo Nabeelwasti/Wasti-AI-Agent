@@ -4,7 +4,7 @@
 
 **Google Drive is the sole owner model archive and model-file distribution source. Cloudflare R2, Cloudflare storage products and GitHub Releases are not part of the NEXUS model-storage design.** Cloudflare Workers AI remains an optional inference fallback only; it does not store or serve the twelve personal GGUF checkpoints.
 
-The owner's Google Drive subscription currently has approximately 250 GB available. The twelve Q4_K_M candidate estimates in the registry total about 26 GB, before duplicate revisions and future additions. This is sufficient capacity for the current candidate set, but capacity does not approve a model's licence or guarantee that every model can run on the phone.
+The owner's Google Drive subscription currently has approximately 250 GB available. The twelve exact GGUF artifacts total 9,586,646,112 bytes (about 8.93 GiB), excluding licence notices and future revisions. This is comfortably within the reported Drive capacity, but capacity does not guarantee that every model can run on the phone.
 
 ## Drive layout
 
@@ -67,18 +67,17 @@ The Android client must:
 
 The current SAF stream path restarts an interrupted transfer from zero. Do not claim resumable byte-range support unless the selected document provider exposes and passes a tested range contract. Once installed, local inference must work when the owner is signed out of Drive, the phone is offline, and Cloudflare is unavailable.
 
-## Model licensing and the twelve families
+## Model licensing and the twelve-model collection
 
-"Open weights" does not automatically mean unrestricted open-source software or permission to redistribute. The registry currently contains twelve research candidates, not twelve approved downloadable assets. Some entries have gated or conditional terms; Command R and StableLM are marked non-commercial in the current screening. Preserve each upstream licence and base-model notice. Do not upload, share or expose a checkpoint in Drive until its exact licence permits the intended storage, copying and use. Keep restricted candidates disabled for commercial/customer products unless the rights are separately obtained.
+The curated shortlist is twelve open-weight candidates selected for permissive upstream licences: Apache-2.0 or MIT (DeepSeek R1 Distill also inherits Qwen base-model terms). This is not a claim that every training pipeline satisfies every formal Open Source AI definition. The list, original model names, upstream authors, exact GGUF repositories and sizes are documented in [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md) and [third-party model notices](THIRD_PARTY_MODEL_NOTICES.md). WASTI NEXUS is the app and collection identity, not the original model author. Preserve each upstream licence and base-model notice. Do not redistribute or expose a checkpoint to customers until the exact source revision, licence text and rights for the intended use have been verified.
 
 ## Current verified state
 
 - One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
-- One Qwen2.5-0.5B-Instruct Q4_K_M source revision and SHA-256 are pinned in the registry.
-- The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-family catalogue UI and a verified Qwen Drive copy/install path.
-- The exact Qwen file is 491,400,032 bytes with the pinned SHA-256 in the catalogue; it must be uploaded by the owner into the selected Drive workspace.
-- No model binaries have been uploaded to the owner's Google Drive through this repository connection.
-- The other eleven candidate files remain unavailable until their exact revisions, byte lengths, SHA-256 values, licences and runtime compatibility are verified.
+- All twelve selected GGUF artifacts have immutable source revisions, exact byte lengths and SHA-256 values pinned in the registry and Android catalogue.
+- The Android app now includes the scoped SAF folder picker, persisted read permission, a twelve-model catalogue UI and an exact length/SHA-256 verified Drive copy/install path.
+- The twelve exact model files total 9,586,646,112 bytes. The app now has an **Archive all 12 models to Drive** action that streams them sequentially from pinned public Hugging Face revisions into the owner's selected private Drive folder, without AI API keys. If the Drive provider does not grant write access, the app reports a manual-upload fallback.
+- All twelve models have immutable source revisions, exact byte lengths, SHA-256 values and permissive base-model licence evidence pinned; all twelve are marked ready for verified Drive-to-device download. Physical-device runtime, memory, thermal and latency validation remains pending.
 - A real Google Drive provider transfer, permission-revocation recovery and airplane-mode install test on the target Redmi are still outstanding.
 
 The app implementation is in review and must pass CI and target-device testing before being called production-certified.

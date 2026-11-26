@@ -69,6 +69,9 @@ jobs:
           assert binding.get("simple") == {"limit": 60, "period": 60}, binding
           assert str(binding.get("namespace_id", "")).isdigit(), binding
           PY
+      - name: Audit public Hugging Face GGUF metadata (report only)
+        continue-on-error: true
+        run: python tools/audit_hf_model_catalog.py
 
   edge:
     name: Cloudflare Worker syntax
