@@ -52,6 +52,13 @@ class GitHubMemoryStore:
             transport=self.transport,
         )
 
+    async def _ensure_private(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(f"/repos/{self.repository}")
+        if response.status_code != 200:
+            raise GitHubMemoryError(f"GitHub repository access check failed with HTTP {response.status_code}")
+        if response.json().get("private") is not True:
+            raise GitHubMemoryError("Memory repository must be private; refusing to store personal data")
+
     async def save(self, record: dict[str, Any]) -> dict[str, Any]:
         snapshot_id = str(record.get("record_id", ""))
         path = self._path(snapshot_id)
@@ -65,6 +72,7 @@ class GitHubMemoryStore:
             "branch": self.branch,
         }
         async with self._client() as client:
+            await self._ensure_private(client)
             response = await client.put(url, json=body)
         if response.status_code == 422:
             raise GitHubMemoryError("Snapshot already exists or GitHub rejected the file; IDs are immutable")
@@ -81,6 +89,7 @@ class GitHubMemoryStore:
         path = self._path(snapshot_id)
         url = f"/repos/{self.repository}/contents/{quote(path, safe='/')}"
         async with self._client() as client:
+            await self._ensure_private(client)
             response = await client.get(url, params={"ref": self.branch})
         if response.status_code == 404:
             raise GitHubMemoryError("Memory snapshot not found")
@@ -102,6 +111,7 @@ class GitHubMemoryStore:
         safe_limit = max(1, min(int(limit), 100))
         url = f"/repos/{self.repository}/contents/{quote(self.prefix, safe='/')}"
         async with self._client() as client:
+            await self._ensure_private(client)
             response = await client.get(url, params={"ref": self.branch})
         if response.status_code == 404:
             return []
