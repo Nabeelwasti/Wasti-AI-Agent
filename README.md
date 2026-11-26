@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Status: active engineering release candidate — not yet production-certified.** The twelve original pinned GGUF entries remain intact. PR #30 added task-aware provider routing and an expanded model registry. The current milestone adds resource-aware Android routing, a loopback-only Termux server, self-hosted-only edge relay policy and licence governance for 48 model families/tools. Device performance, all new checkpoint downloads, multimodal runtimes and long-running server benchmarks remain validation gates.
+> **Status: active engineering release candidate — not yet production-certified.** The twelve original pinned GGUF entries remain intact. PR #30 added task-aware provider routing and an expanded model registry. The current milestone adds resource-aware Android routing, a loopback-only Termux server, self-hosted-only edge relay policy and licence governance for 50 model families/tools. Device performance, all new checkpoint downloads, multimodal runtimes and long-running server benchmarks remain validation gates.
 
 ## Runtime hierarchy
 
