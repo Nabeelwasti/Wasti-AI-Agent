@@ -74,11 +74,24 @@ def test_all_twelve_candidates_have_pinned_immutable_integrity_manifests():
         assert candidate["runtime_validation"] == "pending_device_test"
 
 
-def test_registry_and_android_catalogue_reference_the_same_twelve_gguf_files():
-    registry_files = {
-        item["local_candidate"]["file_name"] for item in load_registry()
+def test_registry_and_android_catalogue_reference_the_same_twelve_gguf_manifests():
+    registry_by_file = {
+        item["local_candidate"]["file_name"]: item["local_candidate"]
+        for item in load_registry()
     }
     catalog = json.loads(ANDROID_CATALOG.read_text(encoding="utf-8"))
-    android_files = {item["file_name"] for item in catalog["models"]}
-    assert len(registry_files) == 12
-    assert registry_files == android_files
+    android_by_file = {item["file_name"]: item for item in catalog["models"]}
+
+    assert len(registry_by_file) == 12
+    assert registry_by_file.keys() == android_by_file.keys()
+    for filename, candidate in registry_by_file.items():
+        model = android_by_file[filename]
+        assert candidate["revision"] == model["source_revision"]
+        assert candidate["estimated_size_bytes"] == model["size_bytes"]
+        assert candidate["sha256"] == model["sha256"]
+        assert candidate["quantization"] == model["quantization"]
+
+
+def test_twelve_model_archive_size_is_exact():
+    total = sum(item["local_candidate"]["estimated_size_bytes"] for item in load_registry())
+    assert total == 9586646112
