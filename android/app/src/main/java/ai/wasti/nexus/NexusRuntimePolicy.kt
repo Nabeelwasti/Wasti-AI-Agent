@@ -64,7 +64,7 @@ internal object NexusRuntimePolicy {
         val memoryEnough = modelExists && snapshot.availableRamBytes >= estimatedLocalWorkingSet(snapshot.localModelPath)
         val thermalSafe = snapshot.thermalStatus < SEVERE_THERMAL_STATUS
         val batterySafe = snapshot.batteryPercent == null || snapshot.batteryPercent >= LOW_BATTERY_PERCENT || snapshot.charging
-        val localSafe = localCanHandle(task) && modelExists && (snapshot.localModelLoaded || (memoryEnough && thermalSafe && batterySafe))
+        val localSafe = localCanHandle(task) && modelExists && (snapshot.localModelLoaded || memoryEnough) && thermalSafe && batterySafe
         val online = snapshot.internetValidated
         if (mode == NexusMode.OFFLINE) {
             return when {
