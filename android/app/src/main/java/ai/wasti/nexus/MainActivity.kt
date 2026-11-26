@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         .build()
     private val alias = "wasti.nexus.gateway.key"
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
-    private val localEngineDelegate = lazy { AiChat.getInferenceEngine(this) }
+    private val localEngineDelegate = lazy { AiChat.getInferenceEngine(applicationContext) }
     private val localEngine: InferenceEngine by localEngineDelegate
 
     override fun onCreate(savedInstanceState: Bundle?) {
