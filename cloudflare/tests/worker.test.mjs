@@ -49,6 +49,37 @@ test("health route is public and does not expose provider secrets", async () => 
   assert.equal(JSON.stringify(data).includes(token), false);
 });
 
+test("Workers AI binding provides first-party brains without third-party provider API keys", async () => {
+  const calls = [];
+  const configured = {
+    ...env,
+    AI: {
+      async run(model, input) {
+        calls.push({ model, input });
+        return { response: "A local test answer from Workers AI." };
+      },
+    },
+  };
+  const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
+  assert.equal(catalogue.status, 200);
+  const ids = (await catalogue.json()).data.map(item => item.id);
+  assert.deepEqual(ids, ["nexus-llama-3.2-1b", "nexus-llama-3.2-3b"]);
+  const response = await worker.fetch(
+    authedRequest("/v1/chat/completions", "POST", {
+      model: "nexus-llama-3.2-1b",
+      messages: [{ role: "user", content: "Hello" }],
+      stream: false,
+    }),
+    configured,
+  );
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.choices[0].message.content, "A local test answer from Workers AI.");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].model, "@cf/meta/llama-3.2-1b-instruct");
+  assert.equal(calls[0].input.messages[0].content, "Hello");
+});
+
 test("protected API rejects missing or invalid bearer tokens", async () => {
   const response = await worker.fetch(new Request("https://nexus.example/v1/models"), env);
   assert.equal(response.status, 401);

@@ -11,3 +11,5 @@ NEXUS_MEMORY_REPOSITORY = "Nabeelwasti/Wasti-AI-Agent"
 NEXUS_MEMORY_BRANCH = "main"
 NEXUS_MEMORY_PREFIX = "memory/personal/encrypted"
 
+[ai]
+binding = "AI"

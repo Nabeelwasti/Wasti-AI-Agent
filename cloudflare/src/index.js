@@ -36,8 +36,47 @@ function modelAllowed(model, env) {
   return deploymentMode !== "customer" || model.commercial_allowed === true;
 }
 
+const BUILTIN_WORKERS_AI_MODELS = [
+  {
+    id: "nexus-llama-3.2-1b",
+    upstream_model: "@cf/meta/llama-3.2-1b-instruct",
+    agent: "fast-generalist",
+    license: "Llama 3.2 Community License",
+    commercial_allowed: true,
+    license_url: "https://www.llama.com/llama3_2/license/",
+  },
+  {
+    id: "nexus-llama-3.2-3b",
+    upstream_model: "@cf/meta/llama-3.2-3b-instruct",
+    agent: "generalist",
+    license: "Llama 3.2 Community License",
+    commercial_allowed: true,
+    license_url: "https://www.llama.com/llama3_2/license/",
+  },
+];
+
+function workersAiModels(env) {
+  if (!env.AI || typeof env.AI.run !== "function") return [];
+  return BUILTIN_WORKERS_AI_MODELS
+    .filter(model => modelAllowed(model, env))
+    .map(model => ({
+      ...model,
+      provider: "cloudflare-workers-ai",
+      type: "workers_ai",
+    }));
+}
+
 function modelCatalog(env) {
-  return configuredProviders(env).flatMap(provider =>
+  const native = workersAiModels(env).map(model => ({
+    id: model.id,
+    object: "model",
+    owned_by: "cloudflare-workers-ai",
+    agent: model.agent,
+    license: model.license,
+    license_url: model.license_url,
+    inference: "Cloudflare Workers AI binding; no third-party provider key",
+  }));
+  const external = configuredProviders(env).flatMap(provider =>
     provider.models
       .filter(model => model && model.enabled === true && typeof model.id === "string" && modelAllowed(model, env))
       .map(model => ({
@@ -47,6 +86,7 @@ function modelCatalog(env) {
         agent: model.agent || "generalist",
       }))
   );
+  return [...native, ...external];
 }
 
 function corsHeaders(request, env) {
@@ -109,6 +149,8 @@ function validateMessages(body) {
 }
 
 function findModel(env, modelId) {
+  const native = workersAiModels(env).find(item => item.id === modelId);
+  if (native) return { provider: { id: native.provider, type: native.type }, model: native };
   for (const provider of configuredProviders(env)) {
     const model = provider.models.find(item => item && item.id === modelId && item.enabled === true && modelAllowed(item, env));
     if (model) return { provider, model };
@@ -121,6 +163,34 @@ async function invoke(env, modelId, messages, options = {}) {
   if (!selected) throw new GatewayError(`Model '${modelId}' is not configured`, 404);
 
   const { provider, model } = selected;
+  if (provider.type === "workers_ai") {
+    if (!env.AI || typeof env.AI.run !== "function") {
+      throw new GatewayError("Cloudflare Workers AI binding is unavailable", 503);
+    }
+    try {
+      const result = await env.AI.run(model.upstream_model, {
+        messages,
+        temperature: options.temperature ?? 0.3,
+        max_tokens: Math.min(Number(options.max_tokens || 1200), 4096),
+        stream: false,
+      });
+      const content = typeof result === "string"
+        ? result
+        : result?.response ?? result?.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || !content.trim()) {
+        throw new GatewayError("Cloudflare Workers AI returned no text answer", 502);
+      }
+      return {
+        id: model.id,
+        provider: provider.id,
+        content: content.trim(),
+        usage: result?.usage || null,
+      };
+    } catch (error) {
+      if (error instanceof GatewayError) throw error;
+      throw new GatewayError("Cloudflare Workers AI inference failed", 502);
+    }
+  }
   const baseUrl = String(provider.base_url || "").replace(/\/$/, "");
   const apiKeyName = provider.api_key_env;
   const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
