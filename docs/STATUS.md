@@ -55,7 +55,7 @@ Last updated: 2026-11-26.
 2. Configure at least one inference provider and its API secret. Free providers have request/token caps and changing model availability; there is no unlimited free online inference.
 3. Run CI and fix any failing Python, Worker or Android job.
 4. Build/install the APK and test Qwen GGUF on the Redmi with networking disabled; benchmark RAM, context, speed, heat and battery.
-5. Implement memory indexing/retrieval, sync retry/conflict handling and passphrase recovery UX/documentation before treating GitHub as a durable personal memory system.
+5. Implement memory indexing/retrieval, sync retry/conflict handling and restore/backup drills before treating GitHub as a durable personal memory system.
 6. Complete customer authentication, tenant isolation, quotas, rate limits, monitoring, retention and legal model-licence review before commercial release.
 
 A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not verified until an installed model answers with networking disabled.
