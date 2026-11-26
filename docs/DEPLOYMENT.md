@@ -15,7 +15,7 @@ Google Drive is the selected model-file archive. **Do not provision or use Cloud
 
 The Android app must download selected model files from the owner's Google Drive through official Google Drive API access, verify the exact byte length and SHA-256, and then run the installed model locally. Once installed, offline chat must not require Google sign-in, an AI API key, an internet connection or Cloudflare Workers AI.
 
-Private Drive access requires Google account OAuth authorization. This is a Google storage permission, not an AI API key. The Android app must request only the necessary read scope, protect short-lived access tokens, and never embed a long-lived refresh token or service-account private key in the APK. See [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md).
+Private Drive access uses Android's system folder picker (Storage Access Framework). The owner selects one Google Drive folder and Android grants NEXUS scoped read access to that folder only. No AI API key, Google API key, OAuth client or service-account credential is required. See [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md).
 
 ## Current online inference
 
@@ -52,9 +52,9 @@ Deploy the Worker through the configured Cloudflare account and verify the deplo
 
 ## Model acquisition and offline mode
 
-Termux is not required to run the Android app or execute local inference. The app currently supports manual GGUF import, metadata validation, one active local model at a time, load/unload and removal. The target Auto mode is local-first; online inference is an explicit optional route. Offline mode never sends inference prompts to the gateway.
+Termux is not required to run the Android app or execute local inference. The app currently supports manual GGUF import, metadata validation, one active local model at a time, load/unload and removal. Auto mode is local-first; online inference is an explicit optional route. Offline mode never sends inference prompts to the gateway.
 
-The first phone-sized candidate is Qwen2.5-0.5B-Instruct Q4_K_M. It is pinned with an upstream SHA-256, but has not been downloaded to or tested on the target phone. The app does not yet provide the private Google Drive model catalogue/downloader or verify a manual import against the registry SHA-256. See [MODEL_DISTRIBUTION.md](MODEL_DISTRIBUTION.md), [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md) and [the model catalogue](../models/README.md).
+The first phone-sized candidate is Qwen2.5-0.5B-Instruct Q4_K_M. It is pinned with an upstream SHA-256, but has not been downloaded to or tested on the target phone. The app now includes the scoped Drive folder picker and verified Qwen copy path; the remaining eleven models are still pending exact artifact and licence validation. The Drive transfer has not yet been certified on the target phone. See [MODEL_DISTRIBUTION.md](MODEL_DISTRIBUTION.md), [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md) and [the model catalogue](../models/README.md).
 
 ## Production readiness
 
