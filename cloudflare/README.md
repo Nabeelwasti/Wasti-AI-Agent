@@ -35,6 +35,18 @@ Configure the Worker variables in `wrangler.toml` (`NEXUS_MEMORY_REPOSITORY`, br
 
 GitHub is a versioned sync/archive layer, not a transactional database. Batch memory into snapshots, keep local encrypted copies for offline access, and account for GitHub API rate limits and public visibility. The initial endpoint is a single personal vault, not a multi-tenant customer memory service.
 
+## Per-application API keys
+
+Do not ship the master `NEXUS_API_KEY` in a customer app, APK, website bundle or public source repository. For each product integration, create a separate client key with least-privilege scopes:
+
+```bash
+node cloudflare/scripts/create-client-key.mjs --id my-product --scopes models,chat
+```
+
+The script prints a random 256-bit client key once and a SHA-256 registry entry. Store the raw key only in the target app's protected secret/configuration store. Add the printed registry entry to the JSON value of the Cloudflare Worker secret `NEXUS_CLIENT_KEYS_JSON`, preserving existing entries. Client keys can access only the `models` and `chat` scopes; the personal GitHub memory endpoints remain master-key only. Revoke a client by removing its entry or setting `enabled: false` in the secret, then update the secret.
+
+The Worker stores only SHA-256 hashes of client keys in `NEXUS_CLIENT_KEYS_JSON`; raw client keys are never committed. This provides per-app separation and revocation, but it is not a substitute for customer identity, tenant isolation, quotas or distributed rate limiting. Do not use the personal-memory API as a multi-tenant customer data store.
+
 ## Provider setup
 
 Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. Each provider includes:
