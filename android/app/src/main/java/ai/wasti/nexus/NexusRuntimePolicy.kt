@@ -56,6 +56,9 @@ internal object NexusRuntimePolicy {
         }
     }
 
+    fun configuredRemoteBrainCount(modelIds: List<String>): Int =
+        modelIds.count { it != "nexus-auto" && it != "nexus-hybrid" }
+
     fun estimatedLocalWorkingSet(modelPath: String): Long {
         val modelBytes = runCatching { File(modelPath).takeIf { it.isFile }?.length() ?: 0L }.getOrDefault(0L)
         if (modelBytes <= 0L) return Long.MAX_VALUE
