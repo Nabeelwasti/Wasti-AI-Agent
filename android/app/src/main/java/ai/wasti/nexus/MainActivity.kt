@@ -1003,7 +1003,7 @@ private fun NexusScreen(
                                 Text(model.displayName, style = MaterialTheme.typography.titleSmall)
                                 Text("${model.family} · ${model.quantization} · ${model.license}", style = MaterialTheme.typography.bodySmall)
                                 if (model.downloadable) {
-                                    Text("Verified catalogue entry · ${model.sizeBytes?.div(1_000_000)} MB", style = MaterialTheme.typography.bodySmall)
+                                    Text("Pinned source · ${model.sizeBytes?.div(1_000_000)} MB · device runtime test pending", style = MaterialTheme.typography.bodySmall)
                                     Button(
                                         enabled = !busy,
                                         onClick = {
