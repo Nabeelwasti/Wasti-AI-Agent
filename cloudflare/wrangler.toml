@@ -1,4 +1,4 @@
-name = "wasti-nexus-edge"
+name = "wasti-nexus-gateway"
 main = "src/index.js"
 compatibility_date = "2026-11-26"
 
@@ -6,3 +6,8 @@ compatibility_date = "2026-11-26"
 ALLOWED_ORIGINS = ""
 MAX_HYBRID_AGENTS = "12"
 REQUEST_TIMEOUT_MS = "45000"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/v1/*", "/healthz"]
