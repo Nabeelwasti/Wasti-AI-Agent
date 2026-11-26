@@ -40,7 +40,7 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted under Apache-2.0; include required notices and preserve model provenance",
-      "gated": true,
+      "gated": false,
       "source_url": "https://huggingface.co/google/gemma-4-E2B-it",
       "candidate": "google/gemma-4-E2B-it",
       "runtime_note": "2.3B effective / 5.1B including embeddings; multimodal; intended for edge/mobile-class deployments"
