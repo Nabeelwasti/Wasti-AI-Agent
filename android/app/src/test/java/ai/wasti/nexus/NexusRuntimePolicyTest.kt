@@ -117,3 +117,14 @@ class NexusRuntimePolicyTest {
             model.delete()
         }
     }
+
+    @Test fun termuxFallbackIsBlockedWhenDeviceIsHotOrCriticallyLowOnBattery() {
+        val hot = NexusRuntimePolicy.decide(
+            NexusMode.OFFLINE, snapshot(thermal = 3), false, localServerAvailable = true, prompt = "Hello"
+        )
+        val lowBattery = NexusRuntimePolicy.decide(
+            NexusMode.OFFLINE, snapshot(battery = 5), false, localServerAvailable = true, prompt = "Hello"
+        )
+        assertEquals(NexusRoute.BLOCKED, hot.route)
+        assertEquals(NexusRoute.BLOCKED, lowBattery.route)
+    }
