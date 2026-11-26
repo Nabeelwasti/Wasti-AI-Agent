@@ -15,6 +15,7 @@ jobs:
       - run: pip install -r orchestrator/requirements-dev.txt
       - run: cd orchestrator && PYTHONPATH=. pytest -q
       - run: python -m compileall -q orchestrator/app models sdks/python
+      - run: pytest -q tests/test_registry.py
       - run: python -c "import json,pathlib; d=json.loads(pathlib.Path('models/registry.json').read_text()); assert len(d['families'])==12; assert len({x['id'] for x in d['families']})==12; print('12 model family registry: valid')"
   android:
     runs-on: ubuntu-latest
