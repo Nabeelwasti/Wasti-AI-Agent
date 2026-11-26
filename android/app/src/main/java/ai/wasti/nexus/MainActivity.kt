@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     initialModels = installedModels(),
                     initialWorkspaceModels = DriveModelWorkspace.loadCatalog(this),
                     initialRegistryModels = NexusModelRegistry.load(this),
+                    initialModelNotices = NexusModelRegistry.loadNotices(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
                     onListModels = { installedModels() },
@@ -719,6 +720,7 @@ private fun NexusScreen(
     initialModels: List<String>,
     initialWorkspaceModels: List<WorkspaceModel>,
     initialRegistryModels: List<NexusCapabilityModel>,
+    initialModelNotices: String,
     initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
     onListModels: () -> List<String>,
@@ -746,6 +748,7 @@ private fun NexusScreen(
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
     var registryDialog by remember { mutableStateOf(false) }
+    var noticesDialog by remember { mutableStateOf(false) }
     var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
     var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
@@ -991,6 +994,26 @@ private fun NexusScreen(
                     onClick = { registryDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Browse extended model and licence registry") }
+                OutlinedButton(
+                    onClick = { noticesDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Open Source Licences & Upstream Notices") }
+                if (noticesDialog) {
+                    AlertDialog(
+                        onDismissRequest = { noticesDialog = false },
+                        title = { Text("Open Source Licences & Notices") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
+                            ) {
+                                Text(initialModelNotices, style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { noticesDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
                 if (registryDialog) {
                     AlertDialog(
                         onDismissRequest = { registryDialog = false },
@@ -1007,6 +1030,14 @@ private fun NexusScreen(
                                         Text("${item.placement.replace('_', ' ')} · ${item.licenseStatus} · ${item.status}", style = MaterialTheme.typography.labelSmall)
                                         Text(item.notes, style = MaterialTheme.typography.bodySmall)
                                         Text(item.commercialUse, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            "Open upstream source",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable {
+                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.sourceUrl))) }
+                                            }
+                                        )
                                     }
                                     HorizontalDivider()
                                 }
