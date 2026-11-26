@@ -32,9 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
-import okhttp3.MediaType.Companion.toMediaType
+import kotlinx.coroutines.withContextimport okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -616,10 +614,10 @@ class MainActivity : ComponentActivity() {
                     "Never invent facts, sources, or actions."
             )
         } catch (error: OutOfMemoryError) {
-            localEngine.cleanUp()
+            runCatching { localEngine.cleanUp() }
             throw IllegalStateException("Android ran out of memory while loading this model. Try a smaller GGUF quantization.", error)
         } catch (error: Exception) {
-            localEngine.cleanUp()
+            runCatching { localEngine.cleanUp() }
             throw error
         }
     }
