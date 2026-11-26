@@ -45,8 +45,6 @@ GitHub is a versioned sync/archive layer, not a transactional database. Batch me
 
 Do not ship the master `NEXUS_API_KEY` in a customer app, APK, website bundle or public source repository. For each product integration, create a separate client key with least-privilege scopes:
 
-Do not ship the master `NEXUS_API_KEY` in a customer app, APK, website bundle or public source repository. For each product integration, create a separate client key with least-privilege scopes:
-
 ```bash
 node cloudflare/scripts/create-client-key.mjs --id my-product --scopes models,chat
 ```
