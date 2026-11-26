@@ -12,6 +12,9 @@ const env = {
   NEXUS_MEMORY_BRANCH: "main",
   NEXUS_MEMORY_PREFIX: "memory/personal/encrypted",
   NEXUS_DEPLOYMENT_MODE: "customer",
+  NEXUS_RATE_LIMIT: {
+    async limit() { return { success: true }; },
+  },
 };
 
 function encryptedInput(id = snapshotId) {
@@ -184,6 +187,23 @@ test("external provider redirects are not followed", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("customer API fails closed without the rate-limit binding", async () => {
+  const response = await worker.fetch(authedRequest("/v1/models"), {
+    ...env,
+    NEXUS_RATE_LIMIT: undefined,
+  });
+  assert.equal(response.status, 503);
+});
+
+test("customer API returns 429 when the per-key rate limit is exceeded", async () => {
+  const response = await worker.fetch(authedRequest("/v1/models"), {
+    ...env,
+    NEXUS_RATE_LIMIT: { async limit() { return { success: false }; } },
+  });
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("retry-after"), "60");
 });
 
 test("protected API rejects missing or invalid bearer tokens", async () => {
