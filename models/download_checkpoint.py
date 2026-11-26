@@ -42,6 +42,8 @@ def main() -> None:
                         "size_bytes": path.stat().st_size, "sha256": sha256(path)})
     manifest = {"family": item["family"], "repo_id": item["repo_id"],
                 "revision": revision, "license_id": item["license_id"],
+                "commercial_use": item.get("commercial_use", "unknown"),
+                "redistribution": item.get("redistribution", "unknown"),
                 "files": records}
     (target / "nexus-checksums.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"Downloaded and hashed {len(records)} files into {target}")
