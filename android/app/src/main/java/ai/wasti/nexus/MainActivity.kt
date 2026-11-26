@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt -> sendLocal(prompt) },
                     onSaveMemory = { turns -> saveMemorySnapshot(turns) },
+                    onRestoreMemory = { restoreLatestLocalMemorySnapshot() },
                     onSyncMemory = { url, key, turns -> syncMemorySnapshot(url, key, turns) },
                     onSendRemote = { url, key, prompt, hybrid, agentId ->
                         sendRemote(url, key, prompt, hybrid, agentId)
@@ -192,6 +193,41 @@ class MainActivity : ComponentActivity() {
                 throw error
             }
             record.getString("snapshot_id")
+        }
+
+
+    private suspend fun restoreLatestLocalMemorySnapshot(): List<Pair<String, String>> =
+        withContext(Dispatchers.IO) {
+            val directory = File(filesDir, "memory/snapshots")
+            val latest = directory.listFiles()
+                ?.filter { it.isFile && it.name.endsWith(".json") }
+                ?.maxByOrNull { it.lastModified() }
+                ?: throw IllegalStateException("No local encrypted memory snapshots were found.")
+
+            val record = JSONObject(latest.readText(Charsets.UTF_8))
+            val nonce = Base64.decode(record.getString("nonce"), Base64.URL_SAFE or Base64.NO_WRAP)
+            val ciphertext = Base64.decode(record.getString("ciphertext"), Base64.URL_SAFE or Base64.NO_WRAP)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, memoryEncryptionKey(), GCMParameterSpec(128, nonce))
+            val payload = JSONObject(String(cipher.doFinal(ciphertext), Charsets.UTF_8))
+            val messages = payload.getJSONArray("messages")
+            val restored = mutableListOf<Pair<String, String>>()
+            var pendingUser: String? = null
+            for (index in 0 until messages.length()) {
+                val message = messages.getJSONObject(index)
+                when (message.optString("role")) {
+                    "user" -> pendingUser = message.optString("content")
+                    "assistant" -> {
+                        val user = pendingUser
+                        if (user != null) {
+                            restored += user to message.optString("content")
+                            pendingUser = null
+                        }
+                    }
+                }
+            }
+            require(restored.isNotEmpty()) { "The encrypted snapshot contains no complete conversation turns." }
+            restored
         }
 
     private suspend fun syncMemorySnapshot(
@@ -404,6 +440,7 @@ private fun NexusScreen(
     onUnloadLocal: () -> Unit,
     onSendLocal: suspend (String) -> String,
     onSaveMemory: suspend (List<Pair<String, String>>) -> String,
+    onRestoreMemory: suspend () -> List<Pair<String, String>>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>) -> String,
     onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
@@ -638,6 +675,23 @@ private fun NexusScreen(
             Text("Answer", style = MaterialTheme.typography.titleMedium)
             Text(answer)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            answer = try {
+                                val restored = onRestoreMemory()
+                                conversation = restored
+                                "Restored ${restored.size} encrypted conversation turn(s) from this device."
+                            } catch (error: Exception) {
+                                "Could not restore local memory: ${error.message}"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Restore latest local memory") }
                 OutlinedButton(
                     enabled = !busy && conversation.isNotEmpty(),
                     onClick = {
