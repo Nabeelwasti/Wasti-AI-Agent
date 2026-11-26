@@ -4,10 +4,11 @@ Last updated: 2026-11-26.
 
 ## Verified in this session
 - One source repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent).
-- Twelve target model families are represented in the model registry; all checkpoint entries remain candidates.
+- Twelve target model families are represented in the model registry; initial licence screening is documented in `models/LICENSE_REVIEW.md`. All checkpoint entries remain candidates with no pinned revisions.
 - FastAPI orchestrator source includes bearer authentication, configured-agent discovery, OpenAI-compatible non-streaming chat, parallel Hybrid analysis, bounded peer-review rounds and synthesis.
 - Provider endpoints require HTTPS, except explicitly enabled loopback HTTP for local development.
-- Hugging Face snapshot tooling requires an immutable revision and creates per-file SHA-256 manifests.
+- Hugging Face snapshot tooling requires an immutable revision and creates per-file SHA-256 manifests; the all-12 downloader refuses to run until every revision is pinned.
+- TypeScript and Python SDK clients are included for future products.
 - Native Android Compose client source includes gateway settings, single/Hybrid requests and Android Keystore AES-GCM encryption for the API key. The key input is masked.
 - Cloudflare Worker `wasti-nexus-gateway` was uploaded successfully, its `workers.dev` subdomain was enabled, and its API key was stored as a Cloudflare secret.
 - Provisioned gateway URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
