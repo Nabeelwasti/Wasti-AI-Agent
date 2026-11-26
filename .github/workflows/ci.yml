@@ -58,7 +58,17 @@ jobs:
           python -m json.tool models/registry.json > /dev/null
           python -m json.tool memory/schemas/memory-record.schema.json > /dev/null
           python -m json.tool datasets/manifests/dataset-manifest.schema.json > /dev/null
-          python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('cloudflare/wrangler.toml').read_text())"
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          config = tomllib.loads(pathlib.Path("cloudflare/wrangler.toml").read_text())
+          limits = config.get("ratelimits", [])
+          binding = next((item for item in limits if item.get("name") == "NEXUS_RATE_LIMIT"), None)
+          assert binding is not None, "NEXUS_RATE_LIMIT binding is required in customer mode"
+          assert binding.get("simple") == {"limit": 60, "period": 60}, binding
+          assert str(binding.get("namespace_id", "")).isdigit(), binding
+          PY
 
   edge:
     name: Cloudflare Worker syntax
