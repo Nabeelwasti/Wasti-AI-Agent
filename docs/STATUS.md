@@ -8,7 +8,7 @@ Last updated: 2026-11-26.
 - Recent GitHub Contents API writes returned successful commit SHAs; no force-push or history rewrite was used.
 - Twelve model families are catalogued. Llama and Gemma have pinned immutable revisions; ten candidates remain unpinned.
 - Registry integrity tests have been added at `tests/test_registry.py`.
-- GitHub-backed memory record and dataset manifest schemas have been added. They define encrypted memory snapshots and dataset provenance/rights metadata; the live sync service is not yet implemented.
+- GitHub-backed memory record and dataset manifest schemas are present. The FastAPI orchestrator now has a personal-vault adapter with authenticated list/create/read endpoints, client-side AES-256-GCM payload validation, immutable per-snapshot files, and mocked transport tests. Android-side encryption, sync queue/retry, restore UX and full retrieval/indexing remain incomplete.
 - A root `.gitignore` now excludes secrets, local build outputs, model checkpoints, private memory exports and generated indexes.
 - The Cloudflare static web console source is in `cloudflare/public/index.html`; Wrangler is configured to serve static assets and preserve the deployed Worker name `wasti-nexus-gateway`.
 - Research references and runtime recommendations are recorded in `docs/RESEARCH.md`.
@@ -33,7 +33,7 @@ Last updated: 2026-11-26.
 ## Not complete / release blockers
 
 - Android currently remains a remote-only prototype. Native llama.cpp integration, local model manager, model-fit checks, offline routing and real-device tests are not complete.
-- The GitHub memory sync service, repository credential handling, conflict-safe batch writes, retrieval and rebuildable index pipeline are not implemented.
+- Android-side memory encryption and sync integration are not implemented. The server adapter requires a private GitHub repository and a fine-grained token configured only on the orchestrator host. It currently supports one personal vault, not customer multi-tenancy. Conflict recovery, pagination beyond the first 100 entries, restore UX, retrieval and rebuildable index pipeline remain incomplete.
 - Cloudflare web console source/config is committed but has not been redeployed or externally smoke-tested after these changes.
 - The Cloudflare gateway has no configured inference providers; online chat cannot generate answers until real providers are connected.
 - Android Gradle build, APK, signing and CI result remain unverified.
