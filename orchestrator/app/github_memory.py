@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import datetime, timezone
 import os
 import re
 from typing import Any
@@ -33,10 +34,17 @@ class GitHubMemoryStore:
         if not self.prefix or ".." in self.prefix.split("/"):
             raise GitHubMemoryError("NEXUS_MEMORY_PREFIX is invalid")
 
-    def _path(self, snapshot_id: str) -> str:
+    def _path(self, snapshot_id: str, created_at: Any) -> str:
         if not _SNAPSHOT_ID.fullmatch(snapshot_id):
             raise GitHubMemoryError("snapshot_id must be a UUID")
-        return f"{self.prefix}/{snapshot_id.lower()}.json"
+        try:
+            timestamp = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+            if timestamp.tzinfo is None:
+                raise ValueError("timestamp must include a timezone")
+            epoch_ms = int(timestamp.timestamp() * 1000)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise GitHubMemoryError("created_at must be a timezone-aware timestamp") from exc
+        return f"{self.prefix}/{epoch_ms}-{snapshot_id.lower()}.json"
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
@@ -61,7 +69,7 @@ class GitHubMemoryStore:
 
     async def save(self, record: dict[str, Any]) -> dict[str, Any]:
         snapshot_id = str(record.get("record_id", ""))
-        path = self._path(snapshot_id)
+        path = self._path(snapshot_id, record.get("created_at"))
         encoded = base64.b64encode(
             (json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
         ).decode("ascii")
@@ -86,7 +94,13 @@ class GitHubMemoryStore:
         }
 
     async def get(self, snapshot_id: str) -> dict[str, Any]:
-        path = self._path(snapshot_id)
+        if not _SNAPSHOT_ID.fullmatch(snapshot_id):
+            raise GitHubMemoryError("snapshot_id must be a UUID")
+        matches = await self.list(limit=100)
+        item = next((entry for entry in matches if entry["snapshot_id"] == snapshot_id.lower()), None)
+        if item is None:
+            raise GitHubMemoryError("Memory snapshot not found")
+        path = item["path"]
         url = f"/repos/{self.repository}/contents/{quote(path, safe='/')}"
         async with self._client() as client:
             await self._ensure_public(client)
@@ -123,9 +137,14 @@ class GitHubMemoryStore:
         items = []
         for item in payload:
             name = item.get("name", "") if isinstance(item, dict) else ""
-            match = re.fullmatch(r"([0-9a-fA-F-]{36})\.json", name)
+            match = re.fullmatch(r"(\d{13})-([0-9a-fA-F-]{36})\.json", name)
             if match and item.get("type") == "file":
-                items.append({"snapshot_id": match.group(1).lower(), "sha": item.get("sha")})
-            if len(items) >= safe_limit:
-                break
-        return items
+                items.append({
+                    "snapshot_id": match.group(2).lower(),
+                    "sha": item.get("sha"),
+                    "created_at": datetime.fromtimestamp(int(match.group(1)) / 1000, tz=timezone.utc).isoformat(),
+                    "path": f"{self.prefix}/{name}",
+                    "timestamp": int(match.group(1)),
+                })
+        items.sort(key=lambda entry: entry["timestamp"], reverse=True)
+        return [{key: value for key, value in item.items() if key != "timestamp"} for item in items[:safe_limit]]
