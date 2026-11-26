@@ -1,6 +1,6 @@
 # Verified implementation status
 
-Evidence snapshot: 2026-11-26. Latest fully tested application commit: `348201f11383c6fe3a533881d1d96339a6670459` (the documentation-only status refresh is merged separately).
+Evidence snapshot: 2026-11-26. Latest application change: PR #26 merged as `fae12f79135d1ee15dc856420669fab3370a7db3`. PR #25 selected Google Drive as the sole model archive; PR #26 added the Android SAF folder picker, verified Qwen Drive installer, twelve-family catalogue UI and local-first Auto routing.
 
 ## Executive status
 
@@ -28,16 +28,17 @@ WASTI NEXUS is an active, tested release candidate in one monorepo. It is **not 
 - Modes: Auto tries the HTTPS gateway and falls back to a loaded local model for network errors, missing online credentials and transient HTTP 408/429/5xx; 401/403 are not hidden by fallback. Online uses the gateway. Offline uses the local runtime without sending inference prompts to the gateway.
 - Local-only/fallback turns are excluded from later cloud conversation context.
 - Model management supports GGUF import, metadata validation, listing/selection, load/unload/removal, RAM/storage preflight and native-memory release.
-- The Qwen2.5-0.5B-Instruct Q4_K_M catalogue installer supports HTTP Range resume into app-private partial storage, restart from zero when the server ignores Range, bounded Content-Range validation, progress callbacks, SHA-256 verification, GGUF metadata validation and safe replacement. Retry is user-initiated after reopening; this is not a background WorkManager download.
+- Google Drive workspace access uses Android's Storage Access Framework folder picker. The owner selects one private Drive folder and NEXUS persists read access only to that folder; no AI API key, Google API key, OAuth client or service-account key is required for local model storage.
+- The Qwen2.5-0.5B-Instruct Q4_K_M Drive installer copies the exact 491,400,032-byte file into app-private temporary storage, verifies exact byte length and SHA-256, then installs it. SAF transfers restart from zero after interruption; HTTP Range resume is not claimed. The owner must upload the exact Qwen GGUF into the selected Drive folder.
 - JVM tests cover gateway fallback policy and model Content-Range parsing. CI build success does not certify UI, model runtime, speed, thermal behaviour or battery on a physical device.
-- **Not yet device-certified:** install/upgrade, one-tap download/resume on phone, airplane-mode generation, model unload/reload, RAM/thermal/battery/latency, and small-screen/keyboard visual QA.
+- **Not yet device-certified:** Google Drive provider access and large-file transfer on the target Redmi, interruption/retry, permission revocation/reconnect, checksum rejection, airplane-mode generation, model unload/reload, RAM/thermal/battery/latency, app upgrade and small-screen/keyboard visual QA.
 
 ## Model catalogue and licensing
 
 - Twelve requested families are research candidates: Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM.
-- This is **not** twelve verified downloadable local models. Only Qwen2.5-0.5B-Instruct Q4_K_M currently has a pinned source revision and expected SHA-256 for the in-app installer.
-- Other candidates still require exact checkpoint selection, immutable revision, checksum, GGUF/runtime compatibility, device-fit evidence and exact licence review. Some candidate terms are non-commercial or conditional; do not enable them for customer use without rights review.
-- No model weights are committed to Git or uploaded to Workers AI. Use an authorised distribution channel with immutable manifests and integrity checks if additional models are enabled.
+- This is **not** twelve verified downloadable local models. The Android catalogue displays all twelve families, but only Qwen2.5-0.5B-Instruct Q4_K_M currently has a pinned source revision, exact byte length and SHA-256 and is marked downloadable.
+- The other eleven entries remain pending exact checkpoint revision, checksum, licence, GGUF/runtime compatibility and device-fit evidence. The app refuses to download them until those gates are met.
+- Google Drive is the sole owner model archive. No model weights are committed to Git or stored in Cloudflare. Cloudflare Workers AI remains optional hosted inference only.
 - Manual import currently validates GGUF metadata; it does not establish publisher provenance or registry-hash identity for arbitrary imported files.
 
 ## Cloudflare gateway
@@ -65,12 +66,12 @@ Do not label this build a production-certified customer service until the follow
 
 1. **Authenticated live gateway:** create a dedicated chat-only client key (not the master key), configure its hash in Worker secret `NEXUS_CLIENT_KEYS_JSON`, configure the raw key as GitHub Actions secret `NEXUS_API_KEY`, then verify authenticated chat-completion through the deployed Worker for both configured models. The CI smoke test must run, not skip.
 2. **Customer security:** implement end-user authentication, short-lived client token exchange, tenant isolation at every data boundary, strict global quotas, abuse controls, monitoring and incident response before exposing customer-facing keys.
-3. **Device certification:** install the app on the target Android phone; test UI insets/keyboard/scrolling, Qwen download, interruption/resume, checksum rejection, airplane-mode generation, Auto fallback, model lifecycle, upgrade, RAM, thermal, latency and battery.
+3. **Device certification:** install the app on the target Android phone; connect the private Drive folder through the system picker; test Qwen file discovery/transfer, interruption and restart, checksum rejection, permission revocation/reconnect, airplane-mode generation, local-first Auto behaviour, model lifecycle, upgrade, RAM, thermal, latency and battery.
 4. **Permanent release signing:** the permanent owner keystore and four GitHub signing secrets have been successfully used once; the signed artifact from commit `4df9d4b` passed APK signature verification. Re-run the manual release workflow against the current `main` (the earlier artifact predates dependency updates), download the new signed APK, and test install/upgrade on the target phone. CI's ephemeral keystore validates the signing pipeline but is not the permanent owner key.
 5. **Memory verification:** complete live encrypted snapshot write/list/read/restore, cross-device recovery, backup/retention/deletion documentation and verify that no plaintext reaches Worker/GitHub.
-6. **Model archive:** pin and checksum each exact checkpoint, review all licence and redistribution terms, verify conversion/runtime compatibility and device fit, then enable only legally approved models. Do not present the twelve research candidates as ready-to-install models.
+6. **Model archive:** the private Google Drive workspace is selected in the Android app, but the owner must upload the exact Qwen file before the first live transfer can be tested. Pin and checksum each of the remaining eleven checkpoints, review all licence terms, verify conversion/runtime compatibility and device fit, then enable only approved models. Do not present the twelve families as twelve ready-to-install models.
 7. **Operational readiness:** add production monitoring, alerting, incident response, privacy/retention disclosures, service ownership and documented recovery procedures.
 
 ## Current honest conclusion
 
-The repository now contains a working native Android implementation, a tested resumable verified first-model installer, a refreshed chat UI, a two-model Cloudflare gateway implementation, and a reusable API/SDK foundation. The latest post-merge main CI run completed successfully for Android compilation/JVM tests, Python validation, Worker syntax/unit tests, deployed public health/protected-route checks and ephemeral CI signing validation. The permanent owner keystore has also successfully signed an earlier release artifact, but that artifact predates the latest dependency refresh. Authenticated deployed gateway generation was skipped because `NEXUS_API_KEY` is absent. Physical-device behaviour, latest-main permanent release signing, memory recovery verification and customer-grade tenant/data controls remain separate gates. This is a **release candidate, not a fully production-certified product**.
+The repository now includes a native Android app, a twelve-family catalogue, a scoped Google Drive folder picker, a verified Qwen Drive-to-device installer, local-first Auto routing, and an optional two-model Cloudflare inference gateway. PR #26's Android debug build, JVM tests and ephemeral release-signing verification passed in CI (run `45869848845`); Python validation and Worker tests also passed. This does not certify real Drive-provider transfers or phone performance. The owner must upload the exact Qwen GGUF to the private Drive workspace and select that folder in the app. The other eleven models remain unverified and unavailable. Latest-main permanent signed APK, physical-device testing, authenticated hosted inference, memory recovery and customer-grade security remain separate gates. This is an improved **release candidate, not yet fully production-certified**.
