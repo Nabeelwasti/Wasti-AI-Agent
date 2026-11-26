@@ -1,6 +1,6 @@
 # Extended model registry
 
-The canonical machine-readable catalogue is [models/extended-model-registry.json](../models/extended-model-registry.json). It contains 48 requested model families and tools with creator, licence status, capabilities, commercial-use gate, phone/server/cluster placement, hosting and activation requirements.
+The canonical machine-readable catalogue is [models/extended-model-registry.json](../models/extended-model-registry.json). It contains 50 requested model families and tools with creator, licence status, capabilities, commercial-use gate, phone/server/cluster placement, hosting and activation requirements.
 
 Android bundles the same catalogue as `nexus-model-registry.json` and displays it in Settings → Model Governance. The separate `nexus-model-catalog.json` remains the only archive-ready catalogue for the original twelve pinned GGUF artifacts.
 
