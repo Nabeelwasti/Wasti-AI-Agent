@@ -34,7 +34,7 @@ function configuredProviders(env) {
 function modelAllowed(model, env) {
   if (model.enabled === false) return false;
   const deploymentMode = String(env.NEXUS_DEPLOYMENT_MODE || "customer").toLowerCase();
-  const licenseStatus = String(model.license_status || "approved").toLowerCase();
+  const licenseStatus = String(model.license_status || "unknown").toLowerCase();
   if (["restricted", "revoked", "pending", "review_required", "unknown"].includes(licenseStatus)) return false;
   return deploymentMode !== "customer" ||
     (model.commercial_allowed === true && ["approved", "verified"].includes(licenseStatus));
@@ -51,6 +51,7 @@ function modelCatalog(env) {
         agent: model.agent || "generalist",
         capabilities: Array.isArray(model.capabilities) ? model.capabilities : ["chat"],
         license: model.license || "review-required",
+        license_status: model.license_status || "unknown",
         commercial_allowed: model.commercial_allowed === true,
         inference: "Self-hosted OpenAI-compatible endpoint; no Cloudflare AI inference",
       }))
