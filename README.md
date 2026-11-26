@@ -12,7 +12,7 @@ WASTI NEXUS is an offline-first Android assistant and a multi-model orchestratio
 - **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app currently supports manual GGUF import and load/unload; automatic model catalogue/download management is still being built.
 - **Online:** all configured and legally usable remote brains can be called through one universal endpoint.
 - **Hybrid:** independent model responses, bounded peer review and a synthesis model; actual participants and failures are reported.
-- **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and encrypted private memory snapshots.
+- **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository.
 - **Cloudflare:** web app static assets and API gateway only. No Cloudflare storage for memory, datasets or weights.
 - **Model flexibility:** all 12 families remain catalogued; install only compatible models on the phone and leave the rest available online.
 
@@ -45,7 +45,7 @@ Use a configured model ID for single-brain requests or `nexus-hybrid` for collec
 
 ## GitHub memory and training data
 
-GitHub is a versioned file repository, not a live vector database or training engine. Private personal/customer records must be encrypted before upload, stored in a private repository, scoped by tenant and committed in batches. Curated knowledge and training/evaluation datasets need provenance, licence, consent and PII review. Embeddings are derived indexes and can be rebuilt. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+GitHub is a versioned file repository, not a live vector database or training engine. Personal/customer records must be encrypted on-device before upload; this repository is public, so only ciphertext and non-sensitive metadata may be committed. Never commit plaintext or encryption keys. Batch snapshots and scope tenant records. Curated knowledge and training/evaluation datasets need provenance, licence, consent and PII review. Embeddings are derived indexes and can be rebuilt. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Models and licensing
 
