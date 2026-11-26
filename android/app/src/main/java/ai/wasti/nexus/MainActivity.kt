@@ -59,6 +59,7 @@ internal fun parseModelContentRange(value: String?): ModelContentRange? {
     val first = match.groupValues[1].toLongOrNull() ?: return null
     val last = match.groupValues[2].toLongOrNull() ?: return null
     val total = match.groupValues[3].toLongOrNull() ?: return null
+    if (first > last || last >= total) return null
     return ModelContentRange(first, last, total)
 }
 
@@ -824,6 +825,7 @@ private fun NexusScreen(
                     Button(
                         enabled = !busy,
                         onClick = {
+                            downloadProgress = 0f
                             busy = true
                             scope.launch {
                                 try {
