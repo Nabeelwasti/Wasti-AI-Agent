@@ -34,15 +34,15 @@ Last updated: 2026-11-26.
 
 - Worker: `wasti-nexus-gateway`; base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
 - Canonical source: `cloudflare/src/index.js`; config: `cloudflare/wrangler.toml`.
-- Latest deployment: `b62973fae642449ca661441fe081be82`, deployed 2026-11-26 at 13:18:51Z. The deployment contains the two-model catalogue, guarded Hybrid logic and updated web console.
+- Latest deployment: `fae22882-e831-4abb-b6d1-68bd30e60487`, version `833dd541-ba07-4b70-8784-71378f4d0ccf`, deployed 2026-11-26 at 13:19:49Z. The deployed Worker source matches `cloudflare/src/index.js` on main byte-for-byte. The `AI` and `NEXUS_RATE_LIMIT` bindings and existing master/GitHub secrets were preserved and verified.
 - Worker settings were checked after deployment: the `AI` binding, `NEXUS_RATE_LIMIT`, `NEXUS_API_KEY`, `NEXUS_GITHUB_TOKEN`, and expected plain-text variables remain configured. Secret values were not read or exposed.
 - Two first-party models are configured through Cloudflare Workers AI, without third-party provider API keys:
   - `nexus-gemma-4-26b-a4b` → `@cf/google/gemma-4-26b-a4b-it`, Apache-2.0.
   - `nexus-qwen-3.8-27b` → `@cf/qwen/qwen3.8-27b`, Apache-2.0.
-- Both model IDs generated responses in direct Cloudflare account-level inference tests. Qwen 3.8's direct test consumed 19.24 Neurons for a short prompt. Cloudflare Workers AI Free currently provides 10,000 Neurons/day; usage is metered and model-dependent, not unlimited.
+- Both model IDs generated responses in direct Cloudflare account-level inference tests (`NEXUS_LIVE_MODEL_OK` and `NEXUS_QWEN_LIVE_OK`). Qwen 3.8's short direct test consumed 16.62 Neurons. Cloudflare Workers AI Free currently provides 10,000 Neurons/day; usage is metered and model-dependent, not unlimited.
 - The Worker catalogue, single-model dispatch, two-model Hybrid dispatch and one-model Hybrid rejection have unit-test coverage. The latest Worker tests passed in run [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406). Its deployed gateway smoke check confirms the live catalogue advertises exactly Gemma and Qwen, and the protected model-list endpoint rejects unauthenticated requests with HTTP 401.
 - Hybrid mode now uses two distinct model IDs and is available in the Android app and web console after refreshing the model catalogue. The Worker rejects Hybrid if fewer than two distinct models are configured.
-- Public `/healthz` and model-catalogue checks pass. The authenticated live chat-generation smoke test is **not yet verified**: GitHub Actions skips it because the repository secret `NEXUS_API_KEY` is not configured. The Cloudflare account-level model test does not prove the deployed authenticated Worker route.
+- Public `/healthz`, exact two-model catalogue and unauthenticated-protection checks pass. The authenticated live chat-generation smoke test is **not yet verified**: GitHub Actions skips it because the repository secret `NEXUS_API_KEY` is not configured. The Cloudflare account-level model tests do not prove the deployed authenticated Worker route.
 - A per-location rate limit of 60 requests per 60 seconds per key is configured. It is approximate and not a strict global quota or billing meter.
 - `NEXUS_CLIENT_KEYS_JSON` is not populated with app-specific client keys. The source supports hashed 256-bit client keys with `models`/`chat` scopes and master-only memory access. Never expose the master key in public APKs or browser bundles.
 
