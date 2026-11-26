@@ -15,6 +15,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default=str(Path(__file__).with_name("registry.json")))
     parser.add_argument("--write", action="store_true", help="Write resolved SHAs into the registry")
+    parser.add_argument("--family", action="append", help="Limit pinning to a family ID; may be repeated")
     args = parser.parse_args()
 
     path = Path(args.registry)
@@ -23,8 +24,16 @@ def main() -> None:
     failed: list[tuple[str, str]] = []
     changed = False
 
+    families = data.get("families", [])
+    if args.family:
+        known = {item.get("id") for item in families}
+        unknown = sorted(set(args.family) - known)
+        if unknown:
+            raise SystemExit("Unknown family ID(s): " + ", ".join(unknown))
+        families = [item for item in families if item.get("id") in set(args.family)]
+
     targets = []
-    for family in data.get("families", []):
+    for family in families:
         targets.append((family, family.get("repo_id"), f"{family.get('id', '?')}/primary"))
         local = family.get("local_candidate")
         if isinstance(local, dict):
