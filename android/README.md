@@ -30,7 +30,7 @@ After the browser download completes, open NEXUS → **Offline → Import GGUF**
 
 ## Online inference
 
-Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online mode requests the shared NEXUS gateway. The deployed gateway currently exposes Gemma 4 26B A4B through Cloudflare Workers AI and passed an authenticated live chat-generation smoke test. The app can save and restore encrypted conversation snapshots locally, sync/restore ciphertext through the Worker once `NEXUS_GITHUB_TOKEN` is configured, and restore on another device using the same recovery passphrase. The passphrase is not stored or uploaded by NEXUS.
+Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online mode requests the shared NEXUS gateway. The deployed gateway currently exposes Gemma 4 26B A4B through Cloudflare Workers AI; the account-level model call and public gateway health/model-catalogue smoke test passed. An authenticated chat-completion request through the Worker itself has not yet been verified because the GitHub Actions `NEXUS_API_KEY` secret is not configured. The app can save and restore encrypted conversation snapshots locally and sync/restore ciphertext through the Worker using the configured GitHub token, but a live memory round-trip and cross-device recovery drill have not been verified. The passphrase is not stored or uploaded by NEXUS.
 
 ## Toolchain
 
