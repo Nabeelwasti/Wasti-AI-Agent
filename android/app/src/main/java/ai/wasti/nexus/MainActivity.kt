@@ -768,6 +768,7 @@ private fun NexusScreen(
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
     var localReady by remember { mutableStateOf(false) }
+    var loadedModelPath by remember { mutableStateOf("") }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
@@ -872,14 +873,33 @@ private fun NexusScreen(
                                             autoMode -> NexusMode.AUTO
                                             else -> NexusMode.ONLINE
                                         }
-                                        val snapshot = NexusRuntimeProbe.read(context, localModelPath, localReady)
+                                        val task = NexusRuntimePolicy.classify(submittedPrompt)
                                         val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
                                             (loopback || (key.length >= 32 && url.startsWith("https://"))) &&
                                             (!autoMode || loopback || remoteModels.contains("nexus-auto"))
-                                        val task = NexusRuntimePolicy.classify(submittedPrompt)
+                                        val beforeSelection = NexusRuntimeProbe.read(context, localModelPath, localReady && loadedModelPath == localModelPath)
+                                        val reclaimableBytes = if (localReady && loadedModelPath.isNotBlank()) {
+                                            (NexusRuntimePolicy.estimatedLocalWorkingSet(loadedModelPath).coerceAtMost(beforeSelection.totalRamBytes) * 3L) / 4L
+                                        } else 0L
+                                        val preferredLocalPath = if (mode == NexusMode.AUTO) {
+                                            NexusRuntimePolicy.chooseLocalModelPath(
+                                                task, installedModels, beforeSelection.availableRamBytes + reclaimableBytes, localModelPath
+                                            )
+                                        } else localModelPath
+                                        if (mode == NexusMode.AUTO && preferredLocalPath.isNotBlank() && preferredLocalPath != loadedModelPath) {
+                                            if (localReady) onUnloadLocal()
+                                            localReady = false
+                                            loadedModelPath = ""
+                                            localModelPath = preferredLocalPath
+                                            onSelectModel(preferredLocalPath)
+                                        }
+                                        val effectiveLocalPath = if (mode == NexusMode.AUTO) preferredLocalPath else localModelPath
+                                        val snapshot = NexusRuntimeProbe.read(
+                                            context, effectiveLocalPath, localReady && loadedModelPath == effectiveLocalPath
+                                        )
                                         val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
-                                            NexusRuntimePolicy.localCanHandle(task)
+                                            NexusRuntimePolicy.localServerCanHandle(task, remoteModels.first())
                                         val decision = NexusRuntimePolicy.decide(
                                             mode = mode,
                                             snapshot = snapshot,
@@ -890,14 +910,17 @@ private fun NexusScreen(
                                         val result = when (decision.route) {
                                             NexusRoute.LOCAL -> {
                                                 try {
-                                                    if (!localReady) {
-                                                        onLoadLocal(localModelPath)
+                                                    if (!localReady || loadedModelPath != effectiveLocalPath) {
+                                                        if (localReady) onUnloadLocal()
+                                                        onLoadLocal(effectiveLocalPath)
                                                         localReady = true
+                                                        loadedModelPath = effectiveLocalPath
                                                     }
                                                     streamingResponse = ""
                                                     onSendLocal(submittedPrompt) { token -> streamingResponse += token }
                                                 } catch (localError: Exception) {
                                                     localReady = false
+                                                    loadedModelPath = ""
                                                     if (mode != NexusMode.AUTO) throw localError
                                                     when {
                                                         localServerAvailable -> {
@@ -914,10 +937,16 @@ private fun NexusScreen(
                                                 }
                                             }
                                             NexusRoute.TERMUX -> {
+                                                if (localReady) onUnloadLocal()
+                                                localReady = false
+                                                loadedModelPath = ""
                                                 usedRemote = true
                                                 onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
                                             }
                                             NexusRoute.REMOTE -> {
+                                                if (localReady) onUnloadLocal()
+                                                localReady = false
+                                                loadedModelPath = ""
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
