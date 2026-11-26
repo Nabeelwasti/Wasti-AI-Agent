@@ -78,6 +78,6 @@ The gateway accepts OpenAI-compatible providers, but no provider API key or prov
 
 ## GitHub Actions cost strategy
 
-GitHub documents standard GitHub-hosted runner usage as free for public repositories. Private repositories instead consume plan-based included compute usage. NEXUS remains public as requested. Its CI workflow skips docs-only/memory-only/dataset-only changes, cancels superseded runs on the same ref, and uploads an APK artifact only for manual/tagged builds. GitHub Free artifact storage is limited, so APK artifacts have one-day retention.
+GitHub documents standard GitHub-hosted runner usage as free for public repositories. Private repositories instead consume plan-based included compute usage. NEXUS remains public as requested. Its CI workflow skips docs-only/memory-only/dataset-only changes, cancels superseded runs on the same ref, builds a debug APK on main and uploads it as a short-lived artifact. The current CI artifact retention is seven days; it is not a signed production release.
 
 Reference: https://docs.github.com/en/actions/concepts/billing-and-usage and https://docs.github.com/en/billing/concepts/product-billing/github-actions.
