@@ -34,6 +34,8 @@ Official llama.cpp Android docs show both an Android Studio binding and an NDK r
 
 ## Model fit and memory
 
+The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using the Q4_K_M file (about 491 MB according to the upstream Hugging Face model page). Its model card identifies Apache-2.0. Pin the exact repository revision and generate a SHA-256 manifest before installing it; do not infer an artifact checksum from the model-card size.
+
 - Storage free space is not the same as inference RAM.
 - Budget for weights + KV cache + compute buffers + tokenizer/runtime + Android OS and other apps.
 - With about 3 GB free RAM, initially test a small 0.5B–1B quantized model, 1K–2K context and one active model. These are conservative trial values, not a guarantee.
