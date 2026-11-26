@@ -13,6 +13,7 @@ LOCAL_BASE="${NEXUS_LOCAL_BASE_URL:-http://localhost:8088}"
 REMOTE_BASE="${NEXUS_REMOTE_BASE_URL:-}"
 BASE="${NEXUS_BASE_URL:-$LOCAL_BASE}"
 API_KEY="${NEXUS_API_KEY:-}"
+LOCAL_API_KEY="${NEXUS_LOCAL_API_KEY:-}"
 MODEL_PATH="${NEXUS_MODEL_PATH:-}"
 MODEL_ID="${NEXUS_MODEL_ID:-wasti-local}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/wasti-nexus"
@@ -20,21 +21,23 @@ PID_FILE="$STATE_DIR/llama-server.pid"
 LOG_FILE="$STATE_DIR/llama-server.log"
 mkdir -p "$STATE_DIR"
 if [[ -z "${NEXUS_MODEL_ID:-}" && -f "$STATE_DIR/model-id" ]]; then MODEL_ID="$(cat "$STATE_DIR/model-id")"; fi
+if [[ -z "$LOCAL_API_KEY" && -f "$STATE_DIR/local-token" ]]; then LOCAL_API_KEY="$(cat "$STATE_DIR/local-token")"; fi
 
 is_loopback() {
   [[ "$1" == http://localhost:* || "$1" == http://127.0.0.1:* ]]
 }
 require_key() {
-  if ! is_loopback "$BASE" && [[ -z "$API_KEY" ]]; then
-    echo "Set NEXUS_API_KEY in $CONFIG for a remote HTTPS server." >&2
-    exit 2
+  if is_loopback "$BASE"; then
+    [[ "$LOCAL_API_KEY" =~ ^[A-Za-z0-9_-]{40,}$ ]] || { echo "Run nexus server token and set the pairing token in app settings." >&2; exit 2; }
+  else
+    [[ "$API_KEY" =~ ^[A-Za-z0-9_-]{40,}$ ]] || { echo "Set NEXUS_API_KEY in $CONFIG for your remote HTTPS server." >&2; exit 2; }
   fi
 }
 request_json() {
   local endpoint="$1" payload="$2"
   require_key
   local args=(-H "Content-Type: application/json" -X POST "$BASE$endpoint" --data "$payload")
-  if [[ -n "$API_KEY" ]]; then args+=(-H "Authorization: Bearer $API_KEY"); fi
+  if is_loopback "$BASE"; then args+=(-H "Authorization: Bearer $LOCAL_API_KEY"); else args+=(-H "Authorization: Bearer $API_KEY"); fi
   curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 180 "${args[@]}"
 }
 usage() {
@@ -43,6 +46,7 @@ WASTI NEXUS self-hosted Termux companion
   nexus server install
   nexus server start [MODEL.gguf]
   nexus server status
+  nexus server token
   nexus server stop
   nexus health
   nexus models
@@ -68,6 +72,11 @@ server_start() {
     MODEL_ID="$(basename "$model" .gguf | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9._-')"
   fi
   printf '%s' "$MODEL_ID" > "$STATE_DIR/model-id"
+  if [[ ! -f "$STATE_DIR/local-token" ]]; then
+    python -c 'import secrets; print(secrets.token_urlsafe(48))' > "$STATE_DIR/local-token"
+    chmod 600 "$STATE_DIR/local-token"
+  fi
+  LOCAL_API_KEY="$(cat "$STATE_DIR/local-token")"
   command -v llama-server >/dev/null || { echo "Run: nexus server install"; exit 2; }
   if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     echo "NEXUS local server is already running (PID $(cat "$PID_FILE"))."
@@ -87,9 +96,10 @@ server_start() {
   ctx="${NEXUS_SERVER_CTX:-4096}"
   port="${NEXUS_SERVER_PORT:-8088}"
   [[ "$threads" =~ ^[1-9][0-9]*$ && "$ctx" =~ ^[0-9]+$ && "$port" =~ ^[0-9]+$ ]] || { echo "Invalid server resource configuration."; exit 2; }
-  nohup llama-server -m "$model" --alias "$MODEL_ID" --host 127.0.0.1 --port "$port" --ctx-size "$ctx" --threads "$threads" --parallel 1 --n-gpu-layers "${NEXUS_GPU_LAYERS:-0}" >"$LOG_FILE" 2>&1 &
+  nohup llama-server -m "$model" --alias "$MODEL_ID" --host 127.0.0.1 --port "$port" --ctx-size "$ctx" --threads "$threads" --parallel 1 --n-gpu-layers "${NEXUS_GPU_LAYERS:-0}" --api-key "$LOCAL_API_KEY" --no-webui >"$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
-  echo "Started loopback-only llama.cpp server (PID $(cat "$PID_FILE"))."
+  echo "Started authenticated loopback-only llama.cpp server (PID $(cat "$PID_FILE"))."
+  echo "Run nexus server token and enter the pairing token in the app settings."
   echo "Model: $model"
   echo "Threads: $threads · context: $ctx · parallel requests: 1 · GPU layers: ${NEXUS_GPU_LAYERS:-0}"
   echo "Waiting for model initialization…"
@@ -146,6 +156,10 @@ case "${1:-}" in
       install) server_install ;;
       start) shift 2; server_start "${1:-}" ;;
       status) server_status ;;
+      token)
+        [[ -f "$STATE_DIR/local-token" ]] || { echo "Start the server once to generate a pairing token."; exit 2; }
+        cat "$STATE_DIR/local-token"
+        ;;
       stop) server_stop ;;
       *) usage; exit 2 ;;
     esac
@@ -161,9 +175,12 @@ case "${1:-}" in
     ;;
   models)
     require_key
-    args=()
-    [[ -n "$API_KEY" ]] && args+=(-H "Authorization: Bearer $API_KEY")
-    curl --fail-with-body --silent --show-error "${args[@]}" "$BASE/v1/models"
+    require_key
+    if is_loopback "$BASE"; then
+      curl --fail-with-body --silent --show-error -H "Authorization: Bearer $LOCAL_API_KEY" "$BASE/v1/models"
+    else
+      curl --fail-with-body --silent --show-error -H "Authorization: Bearer $API_KEY" "$BASE/v1/models"
+    fi
     echo
     ;;
   chat)
