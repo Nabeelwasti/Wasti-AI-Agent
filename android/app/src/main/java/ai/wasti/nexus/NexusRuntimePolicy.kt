@@ -119,7 +119,7 @@ internal object NexusRuntimePolicy {
         }
         val ranked = when (task) {
             NexusTask.CODING -> listOf(
-                "qwen2.5-coder-1.5b", "qwen3-1.7b", "qwen3-0.6b", "deepseek-r1", "qwen2.5-1.5b",
+                "coder", "qwen3-1.7b", "qwen3-0.6b", "deepseek-r1", "qwen2.5-1.5b",
                 "granite", "olmo2"
             )
             NexusTask.REASONING -> listOf(
