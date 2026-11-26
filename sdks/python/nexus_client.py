@@ -37,7 +37,7 @@ class NexusClient:
         return self._request(f"/v1/memory/snapshots?limit={safe_limit}")
 
     def create_memory_snapshot(self, encrypted_snapshot: dict):
-        required = {"snapshot_id", "created_at", "key_id", "nonce", "ciphertext"}
+        required = {"snapshot_id", "created_at", "key_id", "kdf", "iterations", "salt", "nonce", "ciphertext"}
         if not isinstance(encrypted_snapshot, dict) or not required.issubset(encrypted_snapshot):
             raise ValueError("Pass a complete client-encrypted AES-256-GCM snapshot envelope")
         return self._request("/v1/memory/snapshots", encrypted_snapshot)
