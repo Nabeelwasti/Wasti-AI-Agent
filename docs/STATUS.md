@@ -28,7 +28,7 @@ Last updated: 2026-11-26.
 - The Worker verifies that the configured repository is public and accepts only PBKDF2/AES-256-GCM ciphertext envelopes. It writes directly to the GitHub Contents API; it does not use Cloudflare storage.
 - The Android app can save/restore local encrypted snapshots, sync ciphertext to the Worker and restore the newest GitHub snapshot on another device when the same user-controlled recovery passphrase is supplied.
 - Memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations, random 16-byte salt) plus AES-256-GCM. The user-controlled passphrase is portable across devices and is never uploaded; losing it makes snapshots unrecoverable.
-- The Worker requires a fine-grained GitHub token in the Cloudflare secret `NEXUS_GITHUB_TOKEN`. That secret is **not configured yet**. Therefore remote memory sync returns HTTP 503 until the owner adds it. No memory snapshots have been written.
+- The Worker secret list now confirms `NEXUS_GITHUB_TOKEN` is configured (secret value not read). This removes the missing-secret blocker; an authenticated encrypted snapshot write/read smoke test is still required. No memory snapshots have been written by this work.
 - `memory/README.md` and `datasets/README.md` define the public ciphertext-only and dataset-admission policies. No personal data, training corpus or model weights have been committed.
 
 ## Cloudflare gateway and online console
@@ -39,8 +39,8 @@ Last updated: 2026-11-26.
 - `/healthz`, OpenAI-compatible chat routes and encrypted GitHub memory routes are in the deployed Worker source.
 - The existing `NEXUS_API_KEY` secret was preserved during deployment.
 - Plain-text variables point the memory adapter at `Nabeelwasti/Wasti-AI-Agent`, branch `main`, under `memory/personal/encrypted`.
-- No Cloudflare KV, D1, R2, Durable Objects, Vectorize or model-weight storage is configured.
-- The GitHub memory token is not configured and no inference providers are configured. Consequently online chat cannot generate answers and remote memory sync is unavailable until those credentials/configurations are supplied.
+- Cloudflare Workers AI is bound as `env.AI`; no KV, D1, R2, Durable Objects, Vectorize or model-weight storage is configured.
+- First-party Workers AI inference is implemented and deployed with two Llama 3.2 model IDs; no third-party provider credentials are configured or required for this path. The GitHub token is configured, but memory round-trip is not yet smoke-tested.
 - Deployment was accepted by the Cloudflare control plane, but an external HTTP smoke test of the public workers.dev endpoint has not been verified in this environment.
 
 ## CI and verification

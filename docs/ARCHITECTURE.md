@@ -20,7 +20,7 @@ One OpenAI-compatible endpoint exposes `GET /v1/models` and `POST /v1/chat/compl
 - `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step;
 - a local model through the Android SDK/runtime, without sending the prompt to the server.
 
-The API never reports an unconfigured model as available or fabricates model participation. It exposes capability, availability, provider and licence metadata separately.
+The API never reports an unconfigured model as available or fabricates model participation. Native Workers AI model IDs are exposed only when the AI binding is present. It exposes capability, availability, provider and licence metadata separately.
 
 ### Online hosting
 
@@ -89,6 +89,6 @@ The app downloads only the user's selected model. Storage availability is necess
 - Android permissions and operating-system restrictions remain authoritative.
 - Local-only mode must guarantee no prompt/network egress for inference and memory retrieval.
 
-## Current implementation status
+## Termux integration\n\nThe repository includes a Termux CLI for the same online gateway (health, model listing, single chat and hybrid chat) and an Android text-share intent that opens the app with a prompt prefilled. This is a one-way handoff, not full bidirectional local inference control. A separately authenticated localhost bridge/foreground service is still required before Termux can directly invoke the app's private on-device inference engine or receive its response.\n\n## Current implementation status
 
 The Android source now includes Arm AI Chat/llama.cpp integration, manual GGUF import and a local chat path, alongside remote single/Hybrid routing. The APK has not yet built successfully in verified CI and no real-device offline inference test has passed. GitHub-backed memory client encryption/sync, full model catalogue/downloader and production tenant controls remain incomplete. Do not claim offline operation verified or production readiness until the build and device tests pass.
