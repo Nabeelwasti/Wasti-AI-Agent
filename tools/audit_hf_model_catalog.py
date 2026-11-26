@@ -158,7 +158,7 @@ def main() -> int:
         "notice": "The report verifies source manifests only; Android device runtime validation remains separate."
     }, sort_keys=True))
     print("WASTI_NEXUS_HF_MODEL_AUDIT_END")
-    return 0
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
