@@ -422,3 +422,70 @@ test("chat gateway rejects streaming before provider dispatch", async () => {
   );
   assert.equal(response.status, 400);
 });
+
+
+test("auto model is advertised and routes to a compatible self-hosted model", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const payload = JSON.parse(init.body);
+    calls.push({ url: String(input), model: payload.model });
+    return Response.json({ choices: [{ message: { content: "Auto-routed answer." } }] });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host",
+        base_url: "https://inference.example/v1",
+        api_key_env: "PRIVATE_HOST_KEY",
+        models: [
+          { id: "general-chat", upstream_model: "qwen-general", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] },
+          { id: "qwen-coder", upstream_model: "qwen-coder-1.5b", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "coding"] },
+        ],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
+    const ids = (await catalogue.json()).data.map(model => model.id);
+    assert.deepEqual(ids, ["general-chat", "qwen-coder", "nexus-auto"]);
+
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "nexus-auto",
+      nexus: { mode: "auto" },
+      messages: [{ role: "user", content: "Write Python code to sort a list." }],
+      stream: false,
+    }), configured);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.model, "nexus-auto");
+    assert.equal(data.nexus.mode, "auto");
+    assert.equal(data.nexus.task, "coding");
+    assert.equal(data.nexus.selected_model, "qwen-coder");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].model, "qwen-coder-1.5b");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("auto mode refuses unsupported modalities instead of pretending a text model can handle them", async () => {
+  const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "nexus-auto",
+    nexus: { mode: "auto" },
+    messages: [{ role: "user", content: "Generate image of a red car." }],
+    stream: false,
+  }), {
+    ...env,
+    NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+      id: "private-host",
+      base_url: "https://inference.example/v1",
+      api_key_env: "PRIVATE_HOST_KEY",
+      models: [{ id: "text-only", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+    }] }),
+    PRIVATE_HOST_KEY: "private-host-secret",
+  });
+  assert.equal(response.status, 400);
+  const data = await response.json();
+  assert.match(data.error.message, /does not have a verified runtime/);
+});
