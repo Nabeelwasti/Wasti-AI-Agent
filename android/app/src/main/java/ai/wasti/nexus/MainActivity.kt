@@ -862,7 +862,7 @@ private fun NexusScreen(
                             enabled = !busy
                         )
                         Button(
-                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
+                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
                                 busy = true
@@ -877,7 +877,8 @@ private fun NexusScreen(
                                         val snapshot = NexusRuntimeProbe.read(context, localModelPath, localReady)
                                         val loopback = isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
-                                            (loopback || (key.length >= 32 && url.startsWith("https://")))
+                                            (loopback || (key.length >= 32 && url.startsWith("https://"))) &&
+                                            (!autoMode || loopback || remoteModels.contains("nexus-auto"))
                                         val task = NexusRuntimePolicy.classify(submittedPrompt)
                                         val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
                                             NexusRuntimePolicy.localCanHandle(task)
