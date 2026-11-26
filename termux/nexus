@@ -8,63 +8,189 @@ if [[ -f "$CONFIG" ]]; then
   source "$CONFIG"
   set +a
 fi
-BASE="${NEXUS_BASE_URL:-https://wasti-nexus-gateway.wastinabeel99.workers.dev}"
-BASE="${BASE%/}"
+
+LOCAL_BASE="${NEXUS_LOCAL_BASE_URL:-http://localhost:8088}"
+REMOTE_BASE="${NEXUS_REMOTE_BASE_URL:-}"
+BASE="${NEXUS_BASE_URL:-$LOCAL_BASE}"
 API_KEY="${NEXUS_API_KEY:-}"
+MODEL_PATH="${NEXUS_MODEL_PATH:-}"
+MODEL_ID="${NEXUS_MODEL_ID:-wasti-local}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/wasti-nexus"
+PID_FILE="$STATE_DIR/llama-server.pid"
+LOG_FILE="$STATE_DIR/llama-server.log"
+mkdir -p "$STATE_DIR"
 
-usage() {
-  cat <<'EOF'
-WASTI NEXUS Termux
-  nexus health
-  nexus models
-  nexus chat MODEL "prompt"
-  nexus hybrid "prompt"
-  nexus open "prompt"
-EOF
+is_loopback() {
+  [[ "$1" == http://localhost:* || "$1" == http://127.0.0.1:* ]]
 }
-
 require_key() {
-  if [[ -z "$API_KEY" ]]; then
-    echo "Set NEXUS_API_KEY in ~/.config/wasti-nexus/env (chmod 600)." >&2
+  if ! is_loopback "$BASE" && [[ -z "$API_KEY" ]]; then
+    echo "Set NEXUS_API_KEY in $CONFIG for a remote HTTPS server." >&2
     exit 2
   fi
 }
-
 request_json() {
   local endpoint="$1" payload="$2"
   require_key
-  curl --fail-with-body --silent --show-error \
-    -H "Authorization: Bearer $API_KEY" \
-    -H "Content-Type: application/json" \
-    -X POST "$BASE$endpoint" --data "$payload"
+  local args=(-H "Content-Type: application/json" -X POST "$BASE$endpoint" --data "$payload")
+  if [[ -n "$API_KEY" ]]; then args+=(-H "Authorization: Bearer $API_KEY"); fi
+  curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 180 "${args[@]}"
+}
+usage() {
+  cat <<'EOF'
+WASTI NEXUS self-hosted Termux companion
+  nexus server install
+  nexus server start [MODEL.gguf]
+  nexus server status
+  nexus server stop
+  nexus health
+  nexus models
+  nexus chat [MODEL] "prompt"
+  nexus auto "prompt"
+  nexus hybrid "prompt"        (remote NEXUS orchestrator only)
+
+Default local server: http://localhost:8088
+The local server binds to loopback only and is never exposed to Wi-Fi/LAN.
+EOF
+}
+server_install() {
+  pkg update
+  pkg install -y llama-cpp curl python
+  command -v llama-server >/dev/null || { echo "llama-server was not installed by the Termux package."; exit 1; }
+  echo "Installed llama.cpp: $(llama-server --version 2>&1 | head -n 1)"
+}
+server_start() {
+  local model="${1:-$MODEL_PATH}"
+  [[ -n "$model" && -f "$model" ]] || { echo "Provide a valid GGUF path or set NEXUS_MODEL_PATH."; exit 2; }
+  [[ "${model,,}" == *.gguf ]] || { echo "Only GGUF models are supported by this llama.cpp server."; exit 2; }
+  command -v llama-server >/dev/null || { echo "Run: nexus server install"; exit 2; }
+  if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    echo "NEXUS local server is already running (PID $(cat "$PID_FILE"))."
+    exit 0
+  fi
+  local model_bytes available_bytes required_bytes threads ctx port
+  model_bytes="$(stat -c %s "$model")"
+  available_bytes="$(awk '/MemAvailable:/ {print $2 * 1024}' /proc/meminfo)"
+  required_bytes="$(python -c 'import sys; print(int(int(sys.argv[1])*2.5 + 1229*1024*1024))' "$model_bytes")"
+  if (( available_bytes < required_bytes )); then
+    echo "Not enough available RAM for a conservative model working-set estimate."
+    echo "Available: $((available_bytes/1024/1024)) MiB; estimated required: $((required_bytes/1024/1024)) MiB."
+    exit 3
+  fi
+  threads="${NEXUS_SERVER_THREADS:-$(nproc)}"
+  (( threads > 6 )) && threads=6
+  ctx="${NEXUS_SERVER_CTX:-4096}"
+  port="${NEXUS_SERVER_PORT:-8088}"
+  [[ "$threads" =~ ^[1-9][0-9]*$ && "$ctx" =~ ^[0-9]+$ && "$port" =~ ^[0-9]+$ ]] || { echo "Invalid server resource configuration."; exit 2; }
+  nohup llama-server -m "$model" --host 127.0.0.1 --port "$port" --ctx-size "$ctx" --threads "$threads" --parallel 1 --n-gpu-layers "${NEXUS_GPU_LAYERS:-0}" >"$LOG_FILE" 2>&1 &
+  echo $! > "$PID_FILE"
+  echo "Started loopback-only llama.cpp server (PID $(cat "$PID_FILE"))."
+  echo "Model: $model"
+  echo "Threads: $threads · context: $ctx · parallel requests: 1 · GPU layers: ${NEXUS_GPU_LAYERS:-0}"
+  echo "Waiting for model initialization…"
+  for _ in $(seq 1 60); do
+    if curl -fsS --max-time 2 "http://localhost:$port/health" >/dev/null 2>&1; then
+      echo "Ready: http://localhost:$port/v1"
+      exit 0
+    fi
+    if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      echo "llama-server exited during startup. Recent log:"
+      tail -n 50 "$LOG_FILE"
+      rm -f "$PID_FILE"
+      exit 1
+    fi
+    sleep 2
+  done
+  echo "Startup is taking longer than expected. Inspect: $LOG_FILE"
+  exit 1
+}
+server_status() {
+  local port="${NEXUS_SERVER_PORT:-8088}"
+  if curl -fsS --max-time 3 "http://localhost:$port/health"; then
+    echo
+  else
+    echo "NEXUS local inference server is not ready."
+    [[ -f "$LOG_FILE" ]] && tail -n 20 "$LOG_FILE"
+    exit 1
+  fi
+}
+server_stop() {
+  if [[ -f "$PID_FILE" ]]; then
+    local pid
+    pid="$(cat "$PID_FILE")"
+    if kill -0 "$pid" 2>/dev/null; then kill "$pid"; fi
+    rm -f "$PID_FILE"
+    echo "Stop signal sent to local inference server."
+  else
+    echo "No managed local server PID was found."
+  fi
+}
+chat() {
+  local model="$1"; shift
+  local prompt="$*"
+  local payload
+  payload="$(python -c 'import json,sys; print(json.dumps({"model":sys.argv[1],"messages":[{"role":"user","content":sys.argv[2]}],"stream":False}))' "$model" "$prompt")"
+  local result
+  result="$(request_json "/v1/chat/completions" "$payload")"
+  python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))' <<< "$result"
 }
 
 case "${1:-}" in
+  server)
+    case "${2:-}" in
+      install) server_install ;;
+      start) shift 2; server_start "${1:-}" ;;
+      status) server_status ;;
+      stop) server_stop ;;
+      *) usage; exit 2 ;;
+    esac
+    ;;
   health)
-    curl --fail-with-body --silent --show-error "$BASE/healthz"
+    if is_loopback "$BASE"; then
+      curl --fail-with-body --silent --show-error "$BASE/health"
+    else
+      require_key
+      curl --fail-with-body --silent --show-error -H "Authorization: Bearer $API_KEY" "$BASE/healthz"
+    fi
     echo
     ;;
   models)
     require_key
-    curl --fail-with-body --silent --show-error \
-      -H "Authorization: Bearer $API_KEY" "$BASE/v1/models"
+    args=()
+    [[ -n "$API_KEY" ]] && args+=(-H "Authorization: Bearer $API_KEY")
+    curl --fail-with-body --silent --show-error "${args[@]}" "$BASE/v1/models"
     echo
     ;;
   chat)
     [[ $# -ge 3 ]] || { usage; exit 2; }
-    model="$2"; shift 2
-    prompt="$*"
-    payload="$(python -c 'import json,sys; print(json.dumps({"model":sys.argv[1],"messages":[{"role":"user","content":sys.argv[2]}],"stream":False}))' "$model" "$prompt")"
-    result="$(request_json "/v1/chat/completions" "$payload")"
-    python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))' <<< "$result"
+    shift
+    model="$1"; shift
+    chat "$model" "$@"
     ;;
-  hybrid)
+  auto)
     [[ $# -ge 2 ]] || { usage; exit 2; }
     shift
     prompt="$*"
+    if curl -fsS --max-time 3 "$LOCAL_BASE/health" >/dev/null 2>&1; then
+      BASE="$LOCAL_BASE"
+      chat "$MODEL_ID" "$prompt"
+    elif [[ -n "$REMOTE_BASE" && -n "$API_KEY" ]]; then
+      BASE="$REMOTE_BASE"
+      payload="$(python -c 'import json,sys; print(json.dumps({"model":"nexus-auto","messages":[{"role":"user","content":sys.argv[1]}],"stream":False,"nexus":{"mode":"auto"}}))' "$prompt")"
+      request_json "/v1/chat/completions" "$payload" | python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))'
+    else
+      echo "No local Termux server is ready and no remote self-hosted endpoint is configured." >&2
+      exit 3
+    fi
+    ;;
+  hybrid)
+    [[ $# -ge 2 ]] || { usage; exit 2; }
+    [[ -n "$REMOTE_BASE" ]] || { echo "Hybrid mode requires NEXUS_REMOTE_BASE_URL for your self-hosted orchestrator."; exit 2; }
+    BASE="$REMOTE_BASE"
+    shift
+    prompt="$*"
     payload="$(python -c 'import json,sys; print(json.dumps({"model":"nexus-hybrid","messages":[{"role":"user","content":sys.argv[1]}],"stream":False,"nexus":{"mode":"hybrid","review_rounds":1}}))' "$prompt")"
-    result="$(request_json "/v1/chat/completions" "$payload")"
-    python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))' <<< "$result"
+    request_json "/v1/chat/completions" "$payload" | python -c 'import json,sys; d=json.load(sys.stdin); print(d.get("choices",[{}])[0].get("message",{}).get("content","No answer returned."))'
     ;;
   open)
     [[ $# -ge 2 ]] || { usage; exit 2; }
