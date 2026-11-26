@@ -498,7 +498,7 @@ async function memorySnapshots(request, env, headers, url) {
     }, 201, headers);
   }
 
-  const match = url.pathname.match(/^\\/v1\\/memory\\/snapshots\\/([0-9a-f-]{36})$/i);
+  const match = url.pathname.match(/^\/v1\/memory\/snapshots\/([0-9a-f-]{36})$/i);
   if (request.method === "GET" && match) {
     const snapshotId = match[1].toLowerCase();
     if (!SNAPSHOT_ID_PATTERN.test(snapshotId)) throw new GatewayError("snapshot_id must be a UUID", 400);
