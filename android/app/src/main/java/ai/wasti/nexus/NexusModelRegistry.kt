@@ -23,6 +23,13 @@ internal object NexusModelRegistry {
     fun loadNotices(context: Context): String =
         context.assets.open("nexus-third-party-model-notices.md").bufferedReader(Charsets.UTF_8).use { it.readText() }
 
+    fun loadLicenseTexts(context: Context): String {
+        val apache = context.assets.open("licenses/Apache-2.0.txt").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val mit = context.assets.open("licenses/MIT.txt").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        return "REFERENCE LICENCE TEXTS\\n\\nRetain each upstream checkpoint's own copyright holder, NOTICE file, usage policy and any additional terms. These standard texts do not replace those artifact-specific notices.\\n\\n" +
+            "APACHE LICENSE 2.0\\n\\n" + apache + "\\n\\nMIT LICENSE\\n\\n" + mit
+    }
+
     fun load(context: Context): List<NexusCapabilityModel> {
         val raw = context.assets.open("nexus-model-registry.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
         val root = JSONObject(raw)
