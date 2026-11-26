@@ -45,6 +45,17 @@ import javax.crypto.spec.GCMParameterSpec
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+private class GatewayHttpException(
+    val statusCode: Int,
+    message: String
+) : IllegalStateException(message)
+
+private fun shouldFallbackToLocal(error: Exception): Boolean {
+    if (error is java.io.IOException) return true
+    val status = (error as? GatewayHttpException)?.statusCode ?: return false
+    return status in setOf(408, 429, 500, 502, 503, 504)
+}
+
 class MainActivity : ComponentActivity() {
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -526,7 +537,7 @@ class MainActivity : ComponentActivity() {
             .build()
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("Gateway HTTP ${response.code}: $text")
+            if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
             JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
                 ?.optString("content")
                 ?: throw IllegalStateException("Gateway response did not contain an answer.")
@@ -578,6 +589,7 @@ private fun NexusScreen(
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(true) }
+    var autoMode by remember { mutableStateOf(true) }
     var offlineMode by remember { mutableStateOf(false) }
     var localReady by remember { mutableStateOf(false) }
     var agentId by remember { mutableStateOf("qwen") }
@@ -614,18 +626,23 @@ private fun NexusScreen(
             Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = !offlineMode,
-                    onClick = { offlineMode = false },
+                    selected = autoMode,
+                    onClick = { autoMode = true; offlineMode = false },
+                    label = { Text("Auto") }
+                )
+                FilterChip(
+                    selected = !autoMode && !offlineMode,
+                    onClick = { autoMode = false; offlineMode = false },
                     label = { Text("Online") }
                 )
                 FilterChip(
                     selected = offlineMode,
-                    onClick = { offlineMode = true },
-                    label = { Text("Offline — on device") }
+                    onClick = { autoMode = false; offlineMode = true },
+                    label = { Text("Offline") }
                 )
             }
 
-            if (offlineMode) {
+            if (offlineMode || autoMode) {
                 Text("LOCAL MODEL", style = MaterialTheme.typography.titleMedium)
                 OutlinedButton(
                     onClick = { modelMenuExpanded = true },
@@ -749,7 +766,8 @@ private fun NexusScreen(
                     "Only GGUF is supported by the current local runtime. Model loading checks available RAM, but real fit and speed still depend on your phone and the selected quantization.",
                     style = MaterialTheme.typography.bodySmall
                 )
-            } else {
+            }
+            if (!offlineMode) {
                 Text("ONLINE GATEWAY", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     url, { url = it }, Modifier.fillMaxWidth(),
@@ -842,12 +860,40 @@ private fun NexusScreen(
                 onClick = {
                     busy = true
                     scope.launch {
+                        var usedRemote = false
                         val result = try {
                             if (offlineMode) {
                                 onSendLocal(prompt)
                             } else {
                                 onSave(url, key)
-                                onSendRemote(url, key, remoteConversation, prompt, hybrid, agentId)
+                                try {
+                                    val onlineAnswer = onSendRemote(
+                                        url, key, remoteConversation, prompt, hybrid, agentId
+                                    )
+                                    usedRemote = true
+                                    onlineAnswer
+                                } catch (onlineError: Exception) {
+                                    val canUseLocal = autoMode &&
+                                        shouldFallbackToLocal(onlineError) &&
+                                        localModelPath.isNotBlank() &&
+                                        localModelPath in installedModels
+                                    if (!canUseLocal) throw onlineError
+
+                                    try {
+                                        if (!localReady) {
+                                            onLoadLocal(localModelPath)
+                                            localReady = true
+                                        }
+                                        val localAnswer = onSendLocal(prompt)
+                                        "Offline fallback used because the online brain was unavailable.\n\n$localAnswer"
+                                    } catch (localError: Exception) {
+                                        localReady = false
+                                        throw IllegalStateException(
+                                            "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
+                                            localError
+                                        )
+                                    }
+                                }
                             }
                         } catch (error: Exception) {
                             "Request failed: ${error.message}"
@@ -855,7 +901,9 @@ private fun NexusScreen(
                         answer = result
                         if (!result.startsWith("Request failed:")) {
                             conversation = conversation + (prompt to result)
-                            if (!offlineMode) {
+                            // Only send turns that actually used the online provider in later requests.
+                            // Explicit offline and automatic local-fallback turns stay on-device.
+                            if (usedRemote) {
                                 remoteConversation = remoteConversation + (prompt to result)
                             }
                         }
@@ -868,6 +916,7 @@ private fun NexusScreen(
                     when {
                         busy -> "Working…"
                         offlineMode -> "✦ RUN LOCALLY — NO INTERNET"
+                        autoMode -> "✦ AUTO — ONLINE WITH OFFLINE FALLBACK"
                         hybrid -> "✦ HYBRID ORCHESTRATION"
                         else -> "Send to online brain"
                     }
