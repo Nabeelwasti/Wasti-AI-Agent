@@ -1289,7 +1289,7 @@ private fun NexusScreen(
                 )
                 OutlinedTextField(
                     key, { key = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Remote server bearer key (not needed for localhost Termux)") },
+                    label = { Text("Termux pairing token / remote server bearer key") },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )
