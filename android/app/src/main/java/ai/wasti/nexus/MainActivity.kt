@@ -634,7 +634,7 @@ class MainActivity : ComponentActivity() {
             val root = url.trim().trimEnd('/')
             val local = NexusRuntimePolicy.isLoopbackHttp(root)
             require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
-            require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
+            require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
             val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
             val requestBuilder = Request.Builder().url("$apiRoot/models").get()
             if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
