@@ -30,10 +30,15 @@ function configuredProviders(env) {
   }
 }
 
+function modelAllowed(model, env) {
+  const deploymentMode = String(env.NEXUS_DEPLOYMENT_MODE || "customer").toLowerCase();
+  return deploymentMode !== "customer" || model.commercial_allowed === true;
+}
+
 function modelCatalog(env) {
   return configuredProviders(env).flatMap(provider =>
     provider.models
-      .filter(model => model && model.enabled === true && typeof model.id === "string")
+      .filter(model => model && model.enabled === true && typeof model.id === "string" && modelAllowed(model, env))
       .map(model => ({
         id: model.id,
         object: "model",
@@ -104,7 +109,7 @@ function validateMessages(body) {
 
 function findModel(env, modelId) {
   for (const provider of configuredProviders(env)) {
-    const model = provider.models.find(item => item && item.id === modelId && item.enabled === true);
+    const model = provider.models.find(item => item && item.id === modelId && item.enabled === true && modelAllowed(item, env));
     if (model) return { provider, model };
   }
   return null;
@@ -164,8 +169,23 @@ async function invoke(env, modelId, messages, options = {}) {
   }
 }
 
+function validateGenerationOptions(body) {
+  if (body.stream === true) throw new GatewayError("Streaming is not implemented; set stream=false", 400);
+  if (body.max_tokens !== undefined && (!Number.isInteger(body.max_tokens) || body.max_tokens < 1 || body.max_tokens > 8192)) {
+    throw new GatewayError("max_tokens must be an integer between 1 and 8192", 400);
+  }
+  if (body.temperature !== undefined && (typeof body.temperature !== "number" || body.temperature < 0 || body.temperature > 2)) {
+    throw new GatewayError("temperature must be a number between 0 and 2", 400);
+  }
+  const rounds = body.nexus?.review_rounds ?? body.review_rounds;
+  if (rounds !== undefined && (!Number.isInteger(rounds) || rounds < 0 || rounds > 2)) {
+    throw new GatewayError("review_rounds must be an integer between 0 and 2", 400);
+  }
+}
+
 async function single(request, env, headers) {
   const body = await parseJson(request);
+  validateGenerationOptions(body);
   if (body.model === "nexus-hybrid" || body.nexus?.mode === "hybrid") {
     return hybridBody(body, env, headers);
   }
@@ -190,7 +210,9 @@ async function single(request, env, headers) {
 }
 
 async function hybrid(request, env, headers) {
-  return hybridBody(await parseJson(request), env, headers);
+  const body = await parseJson(request);
+  validateGenerationOptions(body);
+  return hybridBody(body, env, headers);
 }
 
 async function hybridBody(body, env, headers) {
