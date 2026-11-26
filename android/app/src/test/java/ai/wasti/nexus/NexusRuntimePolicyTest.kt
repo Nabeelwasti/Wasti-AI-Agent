@@ -117,6 +117,14 @@ class NexusRuntimePolicyTest {
         }
     }
 
+    @Test fun routerAliasesCannotMasqueradeAsACompatibleLocalServerModel() {
+        assertFalse(NexusRuntimePolicy.hasCompatibleRemoteModel(listOf("nexus-auto", "nexus-hybrid"), NexusTask.CODING))
+        assertTrue(NexusRuntimePolicy.hasCompatibleRemoteModel(
+            listOf("nexus-auto", "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"),
+            NexusTask.CODING
+        ))
+    }
+
     @Test fun apiRootNormalizationHandlesTrailingAndVersionSlashes() {
         assertEquals("http://localhost:8088/v1", NexusRuntimePolicy.normalizeApiRoot("http://localhost:8088/"))
         assertEquals("https://gateway.example/v1", NexusRuntimePolicy.normalizeApiRoot("https://gateway.example/v1/"))
