@@ -396,10 +396,24 @@ class MainActivity : ComponentActivity() {
                 require(actualSha256 == expectedSha256) { "Model checksum verification failed. File rejected." }
             }
             temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
-            if (target.exists()) require(target.delete()) { "Could not safely replace the previous model file." }
-            require(temporary.renameTo(target)) { "Could not finalize the verified model download." }
-            prefs.edit().putString("local_model_path", target.absolutePath).apply()
-            target.absolutePath
+            // Preserve an existing installation until the verified replacement is finalized.
+            val backup = File(modelDirectory, "$fileName.previous-${UUID.randomUUID()}")
+            var previousMoved = false
+            try {
+                if (target.exists()) {
+                    require(target.renameTo(backup)) { "Could not safely preserve the previous model installation." }
+                    previousMoved = true
+                }
+                require(temporary.renameTo(target)) { "Could not finalize the verified model download." }
+                prefs.edit().putString("local_model_path", target.absolutePath).apply()
+                if (previousMoved) backup.delete()
+                target.absolutePath
+            } catch (installError: Exception) {
+                if (previousMoved && !target.exists()) {
+                    backup.renameTo(target)
+                }
+                throw installError
+            }
         } catch (error: Exception) {
             temporary.delete()
             throw error
