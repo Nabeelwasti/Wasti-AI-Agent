@@ -16,7 +16,7 @@ Research date: 2026-11-26. Public repositories are reference material, not depen
 - The library's documented baseline is minSdk 33, compileSdk 36 and Java 17; the Android project toolchain has been aligned to that baseline.
 - Why: GGUF support, native llama.cpp integration, Kotlin Flow token generation, and a maintained Android library rather than a hand-written JNI bridge.
 
-The NEXUS app source now includes GGUF metadata validation, multi-model import/selection/removal, native load/unload, local chat and device-encrypted memory snapshots. The dependency and app have not yet passed a verified CI build or real-device inference test. Do not claim offline support verified until those checks pass.
+The NEXUS app source now includes GGUF metadata validation, multi-model import/selection/removal, native load/unload, local chat and device-encrypted memory snapshots. Android debug assembly and JVM fallback-policy tests passed in CI run [45825548964](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45825548964) before that run was cancelled during the later release-signature step by a newer commit. A fresh full run is in progress after the workflow action upgrades. No real-device inference test has passed; do not claim device-certified offline support until it does.
 
 ### Additional implementation references
 
@@ -52,15 +52,15 @@ The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using
 
 Use the public Git repository for curated Markdown/JSON knowledge, dataset manifests, evaluation cases and client-encrypted memory snapshots. The Android client currently stores encrypted snapshot files in app-private storage; encrypted SQLite, retrieval indexing, embedding rebuilds and retention management are future work. Do not commit large, frequently rewritten vector indexes.
 
-The Android client derives a key from the user's passphrase with PBKDF2-HMAC-SHA256 (600,000 iterations and a random 16-byte salt) and encrypts with AES-256-GCM. The passphrase is never sent to the Worker. The deployed Worker writes encrypted snapshots directly through the GitHub Contents API using a server-side fine-grained token. The repository must remain public in this deployment mode. GitHub exposes ciphertext, file paths, timestamps, tags, commit history and other metadata to everyone; never store plaintext personal/customer memory or encryption keys. Batch snapshots, use immutable IDs, and keep the GitHub token out of Android/browser code. The token is not configured yet, so remote memory sync is currently unavailable.
+The Android client derives a key from the user's passphrase with PBKDF2-HMAC-SHA256 (600,000 iterations and a random 16-byte salt) and encrypts with AES-256-GCM. The passphrase is never sent to the Worker. The deployed Worker writes encrypted snapshots directly through the GitHub Contents API using a server-side fine-grained token. The repository must remain public in this deployment mode. GitHub exposes ciphertext, file paths, timestamps, tags, commit history and other metadata to everyone; never store plaintext personal/customer memory or encryption keys. Batch snapshots, use immutable IDs, and keep the GitHub token out of Android/browser code. The deployed Worker settings contain a `NEXUS_GITHUB_TOKEN` secret binding, but a live GitHub memory write/list/restore drill has not yet been verified end-to-end.
 
 ## Cloudflare role
 
-The Worker serves the online console from its embedded HTML response and provides API gateway/routing only. The Worker is not a GPU host. NEXUS does not use Cloudflare KV, D1, R2, Durable Objects, Vectorize or Workers Static Assets for memory, datasets or model weights. The canonical console HTML remains in `cloudflare/public/index.html`.
+The Worker serves the online console from its embedded HTML response and provides authenticated API routing plus first-party Workers AI inference through the `AI` binding. The Worker is not a custom GGUF host. NEXUS does not currently use Cloudflare KV, D1, R2, Durable Objects or Vectorize for memory or model weights. A separate R2 bucket is a possible future archive/download origin, but no NEXUS R2 bucket is provisioned. The canonical console HTML remains in `cloudflare/public/index.html`.
 
 ## GitHub repository constraints
 
-Keep the monorepo focused on code and small text/structured datasets. GitHub recommends keeping repositories manageable; regular Git objects have a 100 MB hard file limit, and Git LFS has plan-based per-file/storage/bandwidth limits. Do not use Git history as a 12-model checkpoint archive. Keep full weights in the user's private local archive or another explicitly selected storage location outside Cloudflare.
+Keep the monorepo focused on code and small text/structured datasets. GitHub recommends keeping repositories manageable; regular Git objects have a 100 MB hard file limit, and Git LFS has plan-based per-file/storage/bandwidth limits. Do not use Git history as a 12-model checkpoint archive. Keep full weights in the user's private local archive, an authorised GitHub Release asset under the per-file limit, or a separate R2 bucket configured specifically for redistributable downloads. Workers AI itself is not a custom GGUF storage service.
 
 References:
 - https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits
