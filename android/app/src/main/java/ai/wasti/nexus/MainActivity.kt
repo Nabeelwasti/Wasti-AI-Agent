@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
     private val alias = "wasti.nexus.gateway.key"
+    private val memoryAlias = "wasti.nexus.memory.key"
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
     private val localEngineDelegate = lazy { AiChat.getInferenceEngine(this) }
     private val localEngine: InferenceEngine by localEngineDelegate
@@ -76,6 +77,8 @@ class MainActivity : ComponentActivity() {
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt -> sendLocal(prompt) },
+                    onSaveMemory = { turns -> saveMemorySnapshot(turns) },
+                    onSyncMemory = { url, key, turns -> syncMemorySnapshot(url, key, turns) },
                     onSendRemote = { url, key, prompt, hybrid, agentId ->
                         sendRemote(url, key, prompt, hybrid, agentId)
                     }
@@ -122,6 +125,105 @@ class MainActivity : ComponentActivity() {
         String(cipher.doFinal(ciphertext))
     } catch (_: Exception) {
         ""
+    }
+
+    private fun memoryEncryptionKey(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(memoryAlias, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                memoryAlias,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build()
+        )
+        return generator.generateKey()
+    }
+
+    private fun createEncryptedMemorySnapshot(turns: List<Pair<String, String>>): JSONObject {
+        require(turns.isNotEmpty()) { "There is no conversation to save yet." }
+        val messages = JSONArray()
+        turns.takeLast(30).forEach { (user, assistant) ->
+            messages.put(JSONObject().put("role", "user").put("content", user))
+            messages.put(JSONObject().put("role", "assistant").put("content", assistant))
+        }
+        val plaintext = JSONObject()
+            .put("schema_version", "1.0")
+            .put("messages", messages)
+            .toString()
+            .toByteArray(Charsets.UTF_8)
+        require(plaintext.size <= 700 * 1024) { "Memory snapshot is too large. Save a shorter conversation." }
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, memoryEncryptionKey())
+        val nonce = Base64.encodeToString(
+            cipher.iv,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+        val ciphertext = Base64.encodeToString(
+            cipher.doFinal(plaintext),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+        return JSONObject()
+            .put("snapshot_id", UUID.randomUUID().toString())
+            .put("created_at", java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).toString())
+            .put("key_id", "android-keystore-memory-v1")
+            .put("nonce", nonce)
+            .put("ciphertext", ciphertext)
+            .put("content_type", "conversation-summary")
+            .put("tags", JSONArray().put("wasti-nexus").put("android"))
+    }
+
+    private suspend fun saveMemorySnapshot(turns: List<Pair<String, String>>): String =
+        withContext(Dispatchers.IO) {
+            val record = createEncryptedMemorySnapshot(turns)
+            val directory = File(filesDir, "memory/snapshots").apply { mkdirs() }
+            val target = File(directory, record.getString("snapshot_id") + ".json")
+            val temporary = File(directory, target.name + ".tmp")
+            try {
+                temporary.writeText(record.toString(), Charsets.UTF_8)
+                require(temporary.renameTo(target)) { "Could not atomically save the encrypted memory snapshot." }
+            } catch (error: Exception) {
+                temporary.delete()
+                throw error
+            }
+            record.getString("snapshot_id")
+        }
+
+    private suspend fun syncMemorySnapshot(
+        url: String,
+        key: String,
+        turns: List<Pair<String, String>>
+    ): String = withContext(Dispatchers.IO) {
+        val record = createEncryptedMemorySnapshot(turns)
+        val directory = File(filesDir, "memory/snapshots").apply { mkdirs() }
+        val target = File(directory, record.getString("snapshot_id") + ".json")
+        val temporary = File(directory, target.name + ".tmp")
+        temporary.writeText(record.toString(), Charsets.UTF_8)
+        require(temporary.renameTo(target)) { "Encrypted snapshot was saved locally but could not be finalized." }
+
+        val root = url.trim().trimEnd('/')
+        require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
+        require(key.length >= 32) { "API key must be at least 32 characters." }
+        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val request = Request.Builder()
+            .url("$apiRoot/memory/snapshots")
+            .header("Authorization", "Bearer $key")
+            .post(record.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException(
+                    "Snapshot saved locally. GitHub sync returned HTTP ${response.code}: $body"
+                )
+            }
+            "Encrypted snapshot ${record.getString("snapshot_id")} saved locally and synced to GitHub."
+        }
     }
 
     private fun installedModels(): List<String> =
@@ -301,6 +403,8 @@ private fun NexusScreen(
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: () -> Unit,
     onSendLocal: suspend (String) -> String,
+    onSaveMemory: suspend (List<Pair<String, String>>) -> String,
+    onSyncMemory: suspend (String, String, List<Pair<String, String>>) -> String,
     onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
@@ -312,6 +416,7 @@ private fun NexusScreen(
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
+    var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(true) }
     var offlineMode by remember { mutableStateOf(false) }
@@ -500,7 +605,7 @@ private fun NexusScreen(
                 onClick = {
                     busy = true
                     scope.launch {
-                        answer = try {
+                        val result = try {
                             if (offlineMode) {
                                 onSendLocal(prompt)
                             } else {
@@ -509,9 +614,12 @@ private fun NexusScreen(
                             }
                         } catch (error: Exception) {
                             "Request failed: ${error.message}"
-                        } finally {
-                            busy = false
                         }
+                        answer = result
+                        if (!result.startsWith("Request failed:")) {
+                            conversation = conversation + (prompt to result)
+                        }
+                        busy = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -529,6 +637,42 @@ private fun NexusScreen(
             HorizontalDivider()
             Text("Answer", style = MaterialTheme.typography.titleMedium)
             Text(answer)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    enabled = !busy && conversation.isNotEmpty(),
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            answer = try {
+                                "Encrypted memory snapshot saved locally: ${onSaveMemory(conversation)}"
+                            } catch (error: Exception) {
+                                "Could not save encrypted memory: ${error.message}"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Save encrypted memory") }
+                OutlinedButton(
+                    enabled = !busy && conversation.isNotEmpty() && !offlineMode,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            answer = try {
+                                onSyncMemory(url, key, conversation)
+                            } catch (error: Exception) {
+                                error.message ?: "Memory sync failed."
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Sync to GitHub") }
+            }
+            Text(
+                "Memory is encrypted on this device before saving or syncing. Its Android Keystore key is device-bound; a recovery-key feature is required before moving memory to another phone.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
