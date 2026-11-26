@@ -1,11 +1,18 @@
 package ai.wasti.nexus
 
+import android.app.ActivityManager
+import android.content.Context
+import android.net.Uri
 import android.os.Bundle
+import android.os.StatFs
+import android.provider.OpenableColumns
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,7 +21,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.arm.aichat.AiChat
+import com.arm.aichat.InferenceEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,47 +33,76 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
-    private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS).build()
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .build()
     private val alias = "wasti.nexus.gateway.key"
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
+    private val localEngine: InferenceEngine by lazy { AiChat.getInferenceEngine(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme {
-            NexusScreen(
-                initialUrl = prefs.getString("url", "") ?: "",
-                initialKey = decryptSecret(),
-                onSave = { url, key -> prefs.edit().putString("url", url).apply(); encryptSecret(key) },
-                onSend = { url, key, prompt, hybrid, agentId -> send(url, key, prompt, hybrid, agentId) }
-            )
-        } }
+        setContent {
+            MaterialTheme {
+                NexusScreen(
+                    initialUrl = prefs.getString("url", "") ?: "",
+                    initialKey = decryptSecret(),
+                    initialModelPath = prefs.getString("local_model_path", "") ?: "",
+                    onSave = { url, key ->
+                        prefs.edit().putString("url", url).apply()
+                        encryptSecret(key)
+                    },
+                    onImportModel = { uri -> importModel(uri) },
+                    onLoadLocal = { path -> loadLocalModel(path) },
+                    onUnloadLocal = { unloadLocalModel() },
+                    onSendLocal = { prompt -> sendLocal(prompt) },
+                    onSendRemote = { url, key, prompt, hybrid, agentId ->
+                        sendRemote(url, key, prompt, hybrid, agentId)
+                    }
+                )
+            }
+        }
     }
 
     private fun encryptionKey(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setRandomizedEncryptionRequired(true).build())
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                alias,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build()
+        )
         return generator.generateKey()
     }
 
     private fun encryptSecret(value: String) {
-        if (value.isBlank()) { prefs.edit().remove("key_iv").remove("key_ciphertext").apply(); return }
+        if (value.isBlank()) {
+            prefs.edit().remove("key_iv").remove("key_ciphertext").apply()
+            return
+        }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey())
-        prefs.edit().putString("key_iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString("key_ciphertext", Base64.encodeToString(cipher.doFinal(value.toByteArray()), Base64.NO_WRAP)).apply()
+        prefs.edit()
+            .putString("key_iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .putString("key_ciphertext", Base64.encodeToString(cipher.doFinal(value.toByteArray()), Base64.NO_WRAP))
+            .apply()
     }
 
     private fun decryptSecret(): String = try {
@@ -72,26 +111,134 @@ class MainActivity : ComponentActivity() {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, encryptionKey(), GCMParameterSpec(128, iv))
         String(cipher.doFinal(ciphertext))
-    } catch (_: Exception) { "" }
+    } catch (_: Exception) {
+        ""
+    }
 
-    private suspend fun send(url: String, key: String, prompt: String, hybrid: Boolean, agentId: String): String = withContext(Dispatchers.IO) {
+    private suspend fun importModel(uri: Uri): String = withContext(Dispatchers.IO) {
+        val name = contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) null
+            else {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                val displayName = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else -1L
+                displayName to size
+            }
+        } ?: (null to -1L)
+
+        val displayName = name.first ?: throw IllegalArgumentException("Could not read the selected file name.")
+        require(displayName.endsWith(".gguf", ignoreCase = true)) {
+            "Choose a GGUF model file. Other model formats are not supported by this runtime yet."
+        }
+        val declaredSize = name.second
+        val maxModelBytes = 8L * 1024L * 1024L * 1024L
+        require(declaredSize <= maxModelBytes || declaredSize < 0) {
+            "This model file is larger than the current 8 GB import limit."
+        }
+        val freeBytes = StatFs(filesDir.absolutePath).availableBytes
+        require(declaredSize < 0 || freeBytes > declaredSize + 1024L * 1024L * 1024L) {
+            "Not enough free storage. Keep at least 1 GB free after importing a model."
+        }
+
+        val modelDirectory = File(filesDir, "models").apply { mkdirs() }
+        val target = File(modelDirectory, "${UUID.randomUUID()}.gguf")
+        try {
+            val input = contentResolver.openInputStream(uri)
+                ?: throw IllegalArgumentException("Android could not open the selected model.")
+            input.use { source ->
+                target.outputStream().buffered().use { destination ->
+                    val buffer = ByteArray(1024 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= maxModelBytes) { "Model exceeds the 8 GB import limit." }
+                        destination.write(buffer, 0, count)
+                    }
+                }
+            }
+            require(target.length() > 1024L * 1024L) { "The selected file is too small to be a valid GGUF model." }
+            prefs.edit().putString("local_model_path", target.absolutePath).apply()
+            target.absolutePath
+        } catch (error: Exception) {
+            target.delete()
+            throw error
+        }
+    }
+
+    private suspend fun loadLocalModel(path: String) = withContext(Dispatchers.IO) {
+        val model = File(path)
+        require(model.isFile && model.extension.equals("gguf", ignoreCase = true)) {
+            "Select a valid installed GGUF model first."
+        }
+        val memory = ActivityManager.MemoryInfo()
+        (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memory)
+        val estimatedNeed = (model.length() * 1.6).toLong() + 700L * 1024L * 1024L
+        require(!memory.lowMemory && memory.availMem >= estimatedNeed) {
+            "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
+        }
+        try {
+            localEngine.loadModel(model.absolutePath)
+        } catch (error: OutOfMemoryError) {
+            localEngine.cleanUp()
+            throw IllegalStateException("Android ran out of memory while loading this model. Try a smaller GGUF quantization.", error)
+        }
+    }
+
+    private fun unloadLocalModel() {
+        localEngine.cleanUp()
+    }
+
+    private suspend fun sendLocal(prompt: String): String = withContext(Dispatchers.IO) {
+        val output = StringBuilder()
+        localEngine.sendUserPrompt(prompt).collect { token -> output.append(token) }
+        output.toString().ifBlank { "The local model returned an empty response." }
+    }
+
+    private suspend fun sendRemote(
+        url: String,
+        key: String,
+        prompt: String,
+        hybrid: Boolean,
+        agentId: String
+    ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "API key must be at least 32 characters." }
         val messages = JSONArray().put(JSONObject().put("role", "user").put("content", prompt))
-        val payload = JSONObject().put("model", if (hybrid) "nexus-hybrid" else agentId)
-            .put("messages", messages).put("stream", false)
-        if (hybrid) payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
-        val apiRoot = if (root.endsWith("/v1")) root else root + "/v1"
-        val request = Request.Builder().url(apiRoot + "/chat/completions")
-            .header("Authorization", "Bearer " + key)
-            .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
+        val payload = JSONObject()
+            .put("model", if (hybrid) "nexus-hybrid" else agentId)
+            .put("messages", messages)
+            .put("stream", false)
+        if (hybrid) {
+            payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
+        }
+        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val request = Request.Builder()
+            .url("$apiRoot/chat/completions")
+            .header("Authorization", "Bearer $key")
+            .post(payload.toString().toRequestBody("application/json".toMediaType()))
+            .build()
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("Gateway HTTP " + response.code + ": " + text)
-            JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
+            if (!response.isSuccessful) throw IllegalStateException("Gateway HTTP ${response.code}: $text")
+            JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                ?.optString("content")
                 ?: throw IllegalStateException("Gateway response did not contain an answer.")
         }
+    }
+
+    override fun onDestroy() {
+        runCatching { localEngine.destroy() }
+        super.onDestroy()
     }
 }
 
@@ -100,40 +247,173 @@ class MainActivity : ComponentActivity() {
 private fun NexusScreen(
     initialUrl: String,
     initialKey: String,
+    initialModelPath: String,
     onSave: (String, String) -> Unit,
-    onSend: suspend (String, String, String, Boolean, String) -> String
+    onImportModel: suspend (Uri) -> String,
+    onLoadLocal: suspend (String) -> Unit,
+    onUnloadLocal: () -> Unit,
+    onSendLocal: suspend (String) -> String,
+    onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
+    var localModelPath by remember { mutableStateOf(initialModelPath) }
     var prompt by remember { mutableStateOf("") }
-    var answer by remember { mutableStateOf("Connect a NEXUS gateway or install an offline model to begin.") }
+    var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(true) }
+    var offlineMode by remember { mutableStateOf(false) }
+    var localReady by remember { mutableStateOf(false) }
     var agentId by remember { mutableStateOf("qwen") }
     val scope = rememberCoroutineScope()
-    Scaffold(topBar = { TopAppBar(title = { Text("WASTI NEXUS") }) }) { inset ->
-        Column(Modifier.fillMaxSize().padding(inset).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
-            OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("Gateway HTTPS URL") }, singleLine = true)
-            OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("Gateway API key") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-            Button(onClick = { onSave(url, key); answer = "Connection settings saved. API key encrypted with Android Keystore." }, modifier = Modifier.fillMaxWidth()) { Text("Save connection") }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid — all brains") })
-                FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
-            }
-            if (!hybrid) {
-                OutlinedTextField(agentId, { agentId = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true)
-            }
-            OutlinedTextField(prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp), label = { Text("Your prompt") })
-            Button(enabled = !busy && prompt.isNotBlank(), onClick = {
-                onSave(url, key); busy = true
-                scope.launch {
-                    answer = try { onSend(url, key, prompt, hybrid, agentId) }
-                    catch (e: Exception) { "Request failed: " + e.message }
-                    finally { busy = false }
+    val modelPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                busy = true
+                try {
+                    onUnloadLocal()
+                    localReady = false
+                    localModelPath = onImportModel(uri)
+                    answer = "Model copied into NEXUS private storage. Load it before starting offline chat."
+                } catch (error: Exception) {
+                    answer = "Model import failed: ${error.message}"
+                } finally {
+                    busy = false
                 }
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "Working…" else if (hybrid) "✦ HYBRID — ALL BRAINS" else "Send") }
+            }
+        }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("WASTI NEXUS") }) }) { inset ->
+        Column(
+            Modifier.fillMaxSize().padding(inset).padding(16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !offlineMode,
+                    onClick = { offlineMode = false },
+                    label = { Text("Online") }
+                )
+                FilterChip(
+                    selected = offlineMode,
+                    onClick = { offlineMode = true },
+                    label = { Text("Offline — on device") }
+                )
+            }
+
+            if (offlineMode) {
+                Text("LOCAL MODEL", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    localModelPath.substringAfterLast('/').ifBlank { "No GGUF model selected" },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        enabled = !busy,
+                        onClick = { modelPicker.launch(arrayOf("*/*")) }
+                    ) { Text("Import GGUF") }
+                    Button(
+                        enabled = !busy && localModelPath.isNotBlank() && !localReady,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                answer = try {
+                                    onLoadLocal(localModelPath)
+                                    localReady = true
+                                    "Local model loaded. You can chat without internet."
+                                } catch (error: Exception) {
+                                    localReady = false
+                                    "Could not load local model: ${error.message}"
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        }
+                    ) { Text("Load model") }
+                }
+                if (localReady) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = {
+                            onUnloadLocal()
+                            localReady = false
+                            answer = "Local model unloaded and native memory released."
+                        }
+                    ) { Text("Unload model") }
+                }
+                Text(
+                    "Only GGUF is supported by the current local runtime. Model loading checks available RAM, but real fit and speed still depend on your phone and the selected quantization.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Text("ONLINE GATEWAY", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    url, { url = it }, Modifier.fillMaxWidth(),
+                    label = { Text("Gateway HTTPS URL") }, singleLine = true
+                )
+                OutlinedTextField(
+                    key, { key = it }, Modifier.fillMaxWidth(),
+                    label = { Text("Gateway API key") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true
+                )
+                Button(
+                    onClick = {
+                        onSave(url, key)
+                        answer = "Connection settings saved. API key encrypted with Android Keystore."
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save connection") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid — all brains") })
+                    FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
+                }
+                if (!hybrid) {
+                    OutlinedTextField(
+                        agentId, { agentId = it }, Modifier.fillMaxWidth(),
+                        label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                label = { Text("Your prompt") }
+            )
+            Button(
+                enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        answer = try {
+                            if (offlineMode) {
+                                onSendLocal(prompt)
+                            } else {
+                                onSave(url, key)
+                                onSendRemote(url, key, prompt, hybrid, agentId)
+                            }
+                        } catch (error: Exception) {
+                            "Request failed: ${error.message}"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    when {
+                        busy -> "Working…"
+                        offlineMode -> "✦ RUN LOCALLY — NO INTERNET"
+                        hybrid -> "✦ HYBRID — ALL BRAINS"
+                        else -> "Send to online brain"
+                    }
+                )
+            }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             HorizontalDivider()
             Text("Answer", style = MaterialTheme.typography.titleMedium)
