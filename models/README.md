@@ -81,7 +81,7 @@ The Android app must never download all 12 models automatically. It will expose 
 
 With approximately 3 GB free RAM, start with one small quantized model in the 0.5B–1B class and a conservative 1K–2K context. This is a cautious starting point, not a guarantee: Android system pressure, chipset, thermal state and model architecture change the real limit. The app must benchmark before recommending larger models and must unload the active model before switching.
 
-All other configured models remain candidates for online routing only when a currently available lawful provider is configured. The deployed NEXUS gateway currently exposes Gemma 4 26B A4B through Workers AI; the twelve-family local registry is not the same as twelve live cloud endpoints. Free availability, quotas and provider terms vary; do not promise unlimited free inference.
+All other configured models remain candidates for online routing only when a currently available lawful provider is configured. The deployed NEXUS gateway currently exposes Gemma 4 26B A4B and Qwen 3.8 27B through Workers AI; the twelve-family local registry is not the same as twelve live cloud endpoints. Free availability, quotas and provider terms vary; do not promise unlimited free inference.
 
 ## Where files belong
 
