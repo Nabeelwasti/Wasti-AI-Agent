@@ -4,16 +4,16 @@
 
 WASTI NEXUS is an offline-first Android assistant and a multi-model orchestration platform for future apps. The Android app can run selected compatible models locally; the same app can route to remote models when online. Other products can connect to one OpenAI-compatible API.
 
-> Status: active foundation, not production-ready. The Android source now includes Arm AI Chat/llama.cpp local GGUF inference and remote routing, but the APK build and real-device offline test are still unverified. The Cloudflare gateway now has a first-party Workers AI binding for keyless model inference; real production smoke tests and quota checks remain.
+> Status: active release candidate; not yet certified production-ready. CI has built the Android debug APK and tested a signed release build using an ephemeral CI-only key. The deployed Cloudflare gateway has passed a live authenticated chat-generation smoke test. Physical-device offline inference, a stable owner-controlled signing key, customer tenant isolation and operational readiness remain release gates.
 
 ## Fixed architecture
 
 - **One repository:** Android, API, model registry, dataset/memory schemas, SDKs, deployment and tests.
-- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, validation, multi-model listing/selection, load/unload and removal. Automatic in-app model downloads and cross-device memory recovery remain future work. Local and same-device GitHub snapshot restore are implemented in source.
-- **Online:** the gateway can call Cloudflare-hosted open-weight models through its native Workers AI binding without a third-party model API key. Optional external providers remain supported.
+- **Offline:** selected GGUF models run natively on Android through Arm AI Chat backed by llama.cpp. No Cloudflare/API dependency for local chat. The app supports manual GGUF import, metadata validation, multi-model listing/selection, load/unload and removal. In-app model-catalogue downloads with resumable progress are not implemented yet; use the guarded acquisition tools and import the verified file. Local and cross-device encrypted snapshot restore are implemented in source, but the live recovery drill remains unverified.
+- **Online:** the deployed gateway calls Cloudflare-hosted open-weight models through its native Workers AI binding without a third-party model API key. The current configured model is `@cf/google/gemma-4-26b-a4b-it`. A separate NEXUS bearer key protects the gateway; do not expose a master key in a public app. Cloudflare Workers AI Free includes 10,000 Neurons/day, not unlimited inference; some models may require Paid.
 - **Hybrid:** independent model responses, bounded peer review and a synthesis model; actual participants and failures are reported.
 - **GitHub:** versioned source, curated knowledge, dataset manifests, small evaluation/training files and client-encrypted memory snapshots in the public repository. Android can save snapshots locally and send ciphertext to the gateway; remote sync is blocked until the GitHub Worker token is configured.
-- **Cloudflare:** Worker-hosted web console and API gateway only. No Cloudflare storage for memory, datasets or weights.
+- **Cloudflare:** Worker-hosted web console and API gateway. Model weights are not uploaded to Workers AI. If model distribution is later enabled, use a separate R2 bucket or authorised GitHub Release assets; keep customer data and personal memory out of public object storage.
 - **Model flexibility:** all 12 families remain catalogued; install only compatible models on the phone and leave the rest available online.
 
 ## Device constraints
@@ -36,7 +36,7 @@ tests/         Cross-component tests
 
 ## Universal brain API
 
-Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (universal brain API; Workers AI binding is configured for first-party inference).
+Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (deployed universal brain API; authenticated live generation smoke test passed in CI run [45824565915](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824565915)).
 
 - `GET /v1/models`
 - `POST /v1/chat/completions`
