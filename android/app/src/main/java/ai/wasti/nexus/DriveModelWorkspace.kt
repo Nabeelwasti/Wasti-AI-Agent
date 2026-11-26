@@ -216,12 +216,6 @@ internal object DriveModelWorkspace {
         }
 
         val totalBytes = ready.sumOf { requireNotNull(it.sizeBytes) }
-        val maxFileBytes = ready.maxOf { requireNotNull(it.sizeBytes) }
-        val availableCache = StatFs(context.cacheDir.absolutePath).availableBytes
-        require(availableCache >= maxFileBytes + MIN_FREE_RESERVE_BYTES) {
-            "Not enough temporary phone storage for the largest model. Free at least ${(maxFileBytes + MIN_FREE_RESERVE_BYTES) / 1_073_741_824.0} GB and retry."
-        }
-
         var completedBytes = 0L
         var archivedCount = 0
         for (model in ready) {
@@ -252,10 +246,9 @@ internal object DriveModelWorkspace {
             "More than one file named ${model.fileName} exists in the selected Drive folder. Remove duplicates first."
         }
         val existing = existingMatches.singleOrNull()
-        if (existing != null && existing.isFile && existing.length() == expectedSize) {
-            // Installation independently checks the complete SHA-256 before
-            // the model is used. Avoid re-uploading a same-sized archive.
-            onProgress(expectedSize, expectedSize)
+        if (existing != null && existing.isFile && verifyDriveDocument(context, existing, model) { checked ->
+                onProgress(checked, expectedSize)
+            }) {
             return
         }
         if (existing != null) {
@@ -391,6 +384,35 @@ internal object DriveModelWorkspace {
             connection.disconnect()
         }
     }
+
+
+    private suspend fun verifyDriveDocument(
+        context: Context,
+        document: DocumentFile,
+        model: WorkspaceModel,
+        onProgress: (Long) -> Unit
+    ): Boolean {
+        val expectedSize = requireNotNull(model.sizeBytes)
+        val digest = MessageDigest.getInstance("SHA-256")
+        var checked = 0L
+        val input = context.contentResolver.openInputStream(document.uri) ?: return false
+        input.use { stream ->
+            val buffer = ByteArray(256 * 1024)
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val count = stream.read(buffer)
+                if (count < 0) break
+                if (count == 0) continue
+                checked += count
+                if (checked > expectedSize) return false
+                digest.update(buffer, 0, count)
+                onProgress(checked)
+            }
+        }
+        val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+        return checked == expectedSize && actualHash.equals(model.sha256, ignoreCase = true)
+    }
+
 
     private fun findFiles(root: DocumentFile, name: String, maxVisited: Int): List<DocumentFile> {
         val matches = ArrayList<DocumentFile>()
