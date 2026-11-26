@@ -100,10 +100,55 @@ function corsHeaders(request, env) {
   return headers;
 }
 
-function authorized(request, env) {
-  const expected = env.NEXUS_API_KEY || "";
-  return expected.length >= 32 &&
-    request.headers.get("Authorization") === `Bearer ${expected}`;
+function constantTimeEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+function requiredScope(pathname) {
+  if (pathname === "/v1/models") return "models";
+  if (pathname.startsWith("/v1/chat/") || pathname.startsWith("/v1/hybrid/")) return "chat";
+  if (pathname.startsWith("/v1/memory/")) return "memory";
+  return "unknown";
+}
+
+async function authorizeRequest(request, env, pathname) {
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer ([A-Za-z0-9._~-]{32,})$/);
+  if (!match) return { ok: false, status: 401 };
+  const presented = match[1];
+
+  const master = env.NEXUS_API_KEY || "";
+  if (master.length >= 32 && constantTimeEqual(presented, master)) {
+    return { ok: true, role: "master", scopes: ["models", "chat", "memory", "admin"] };
+  }
+
+  let configured;
+  try {
+    configured = JSON.parse(env.NEXUS_CLIENT_KEYS_JSON || '{"keys":[]}');
+  } catch {
+    return { ok: false, status: 503 };
+  }
+  const keys = Array.isArray(configured.keys) ? configured.keys : [];
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(presented));
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  const scope = requiredScope(pathname);
+  let recognized = false;
+  for (const entry of keys) {
+    if (!entry || entry.enabled === false || typeof entry.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/i.test(entry.sha256)) continue;
+    if (!constantTimeEqual(hash, entry.sha256.toLowerCase())) continue;
+    recognized = true;
+    const scopes = Array.isArray(entry.scopes) ? entry.scopes : [];
+    if (scopes.includes(scope)) {
+      return { ok: true, role: "client", client_id: String(entry.id || "unnamed"), scopes };
+    }
+  }
+  return { ok: false, status: recognized ? 403 : 401 };
 }
 
 async function parseJson(request, maxChars = MAX_REQUEST_CHARS) {
@@ -647,8 +692,17 @@ export default {
       }, 200, headers);
     }
 
-    if (url.pathname.startsWith("/v1/") && !authorized(request, env)) {
-      return json({ error: { message: "Unauthorized" } }, 401, headers);
+    if (url.pathname.startsWith("/v1/")) {
+      const authorization = await authorizeRequest(request, env, url.pathname);
+      if (!authorization.ok) {
+        const status = authorization.status || 401;
+        return json({
+          error: {
+            message: status === 403 ? "This API key does not have permission for this resource." :
+              status === 503 ? "Gateway client-key configuration is invalid." : "Unauthorized",
+          },
+        }, status, headers);
+      }
     }
 
     try {
