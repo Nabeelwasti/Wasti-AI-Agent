@@ -7,7 +7,7 @@ TASK_PATTERNS = (
     ("image_generation", ("generate image", "create image", "draw", "illustration", "flux")),
     ("speech_to_text", ("transcribe", "speech to text", "voice note", "audio transcription")),
     ("text_to_speech", ("read aloud", "text to speech", "speak this", "voice output")),
-    ("vision", ("analyze image", "what is in this picture", "image input", "photo", "visual inspection")),
+    ("vision", ("analyze image", "this image", "attached image", "image of", "what is in this picture", "image input", "photo", "visual inspection")),
     ("coding", ("write code", "debug", "program", "python", "kotlin", "javascript", "compile", "stack trace")),
     ("fine_tuning", ("fine tune", "fine-tune", "lora", "qlora", "train an adapter", "dataset")),
     ("reasoning", ("compare", "evaluate", "plan", "strategy", "analyze", "research", "reason")),
