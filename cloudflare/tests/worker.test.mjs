@@ -46,6 +46,7 @@ test("health route is public and does not expose provider secrets", async () => 
   const data = await response.json();
   assert.equal(data.service, "wasti-nexus-gateway");
   assert.equal(data.configured_models, 0);
+  assert.deepEqual(data.model_ids, []);
   assert.equal(JSON.stringify(data).includes(token), false);
 });
 
@@ -60,6 +61,10 @@ test("Workers AI binding provides first-party brains without third-party provide
       },
     },
   };
+  const health = await worker.fetch(new Request("https://nexus.example/healthz"), configured);
+  const healthData = await health.json();
+  assert.equal(healthData.configured_models, 1);
+  assert.deepEqual(healthData.model_ids, ["nexus-gemma-4-26b-a4b"]);
   const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
   assert.equal(catalogue.status, 200);
   const catalogueData = await catalogue.json();
