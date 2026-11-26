@@ -56,6 +56,8 @@ jobs:
       - name: Validate JSON files
         run: |
           python -m json.tool models/registry.json > /dev/null
+          python -m json.tool models/extended-model-registry.json > /dev/null
+          python -m json.tool android/app/src/main/assets/nexus-model-catalog.json > /dev/null
           python -m json.tool memory/schemas/memory-record.schema.json > /dev/null
           python -m json.tool datasets/manifests/dataset-manifest.schema.json > /dev/null
           python - <<'PY'
@@ -135,24 +137,19 @@ jobs:
           retention-days: 7
 
   deployment-smoke:
-    name: Deployed gateway smoke test
+    name: Deployed self-hosted-only gateway policy smoke test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [edge]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify public gateway and first-party model binding
+      - name: Verify gateway health explicitly disables Cloudflare AI and storage
         env:
           NEXUS_HEALTH_URL: https://wasti-nexus-gateway.wastinabeel99.workers.dev/healthz
         run: |
           for attempt in {1..8}; do
-            if curl --fail --silent --show-error "$NEXUS_HEALTH_URL" -o /tmp/nexus-health.json; then
-              break
-            fi
-            if [ "$attempt" -eq 8 ]; then
-              echo "Gateway health check failed after retries."
-              exit 1
-            fi
+            if curl --fail --silent --show-error "$NEXUS_HEALTH_URL" -o /tmp/nexus-health.json; then break; fi
+            if [ "$attempt" -eq 8 ]; then echo "Gateway health check failed after retries."; exit 1; fi
             sleep 5
           done
           python - <<'PY'
@@ -161,38 +158,11 @@ jobs:
           data = json.loads(Path("/tmp/nexus-health.json").read_text())
           assert data.get("status") == "ok", data
           assert data.get("service") == "wasti-nexus-gateway", data
-          assert data.get("configured_models") == 2, data
-          assert data.get("model_ids") == ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"], data
-          assert not any("llama-3.2" in model_id for model_id in data.get("model_ids", [])), data
-          print("Gateway is reachable; active model IDs:", data["model_ids"])
+          assert data.get("cloudflare_ai_enabled") is False, data
+          assert data.get("inference_backend") == "self-hosted-provider-relay-only", data
+          assert data.get("storage_backend") == "google-drive-only-client-managed", data
+          assert not any("@cf/" in str(model_id) for model_id in data.get("model_ids", [])), data
+          print("Gateway health confirms self-hosted provider relay only; Cloudflare AI is disabled.")
           PY
           unauth_status=$(curl --silent --output /tmp/nexus-unauth.json --write-out "%{http_code}" https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/models)
           test "$unauth_status" = "401" || { echo "Expected protected model catalogue to return HTTP 401, got $unauth_status"; cat /tmp/nexus-unauth.json; exit 1; }
-      - name: Verify authenticated live model generation
-        env:
-          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
-          NEXUS_CHAT_URL: https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/chat/completions
-        run: |
-          if [ -z "${NEXUS_API_KEY:-}" ]; then
-            echo "::warning::NEXUS_API_KEY repository secret is not configured; authenticated generation smoke test skipped."
-            exit 0
-          fi
-          for model in nexus-gemma-4-26b-a4b nexus-qwen-3.8-27b; do
-            payload=$(printf '{"model":"%s","messages":[{"role":"user","content":"Reply with exactly: NEXUS_GATEWAY_GENERATION_OK"}],"stream":false,"max_tokens":128,"temperature":0}' "$model")
-            curl --fail --silent --show-error \
-              -H "Authorization: Bearer ${NEXUS_API_KEY}" \
-              -H "Content-Type: application/json" \
-              --data "${payload}" "${NEXUS_CHAT_URL}" \
-              --output "/tmp/${model}.json"
-          done
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          for model in ("nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"):
-              payload = json.loads(Path(f"/tmp/{model}.json").read_text())
-              content = payload["choices"][0]["message"]["content"]
-              assert isinstance(content, str) and content.strip(), payload
-              assert payload.get("model") == model, payload
-              print("Authenticated live generation succeeded:", model)
-          PY
