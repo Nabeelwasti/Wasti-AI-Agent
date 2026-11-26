@@ -86,7 +86,7 @@ All twelve families are intended to be part of the owner's local model library, 
 ## Where files belong
 
 - GitHub repository: source, model registry, manifest metadata, checksums, licence notices and reproducible scripts; never model weights or credentials.
-- Owner's Google Drive: the private `WASTI-NEXUS-MODEL-WORKSPACE` archive for approved GGUF checkpoints, notices and checksum manifests. Private access is intended to use Google OAuth, not public share links.
+- Owner's Google Drive: the private `WASTI-NEXUS-MODEL-WORKSPACE` archive for approved GGUF checkpoints, notices and checksum manifests. Private access uses the Android Storage Access Framework folder picker, not public share links or API keys.
 - Android private app storage: only the user-selected, compatible, checksum-verified quantized models and encrypted personal memory.
 - Cloudflare Workers AI: optional online inference fallback only. It is not model storage and must not be used to host custom GGUF weights. No Cloudflare storage product is part of the NEXUS model archive.
 
