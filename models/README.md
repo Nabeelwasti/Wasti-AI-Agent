@@ -16,7 +16,7 @@ This directory tracks all 12 target model families, exact candidate GGUF reposit
 1. Review the exact checkpoint, model card and licence.
 2. For gated repositories, sign in to Hugging Face and accept the publisher's terms yourself.
 3. Install dependencies with `python -m pip install -r models/requirements.txt`.
-4. Set `HF_TOKEN` in your local shell or credential store; never commit it.
+4. For public Qwen GGUF files, no Hugging Face token is required. Set `HF_TOKEN` only when the selected upstream repository is gated and you have personally accepted its terms; never commit the token.
 5. Run `python models/pin_revisions.py` as a dry run, review the output, then run `python models/pin_revisions.py --write`.
 6. Review the registry diff and run `python models/download_all.py --family qwen --dry-run`.
 7. Download only the selected local GGUF candidate with `python models/download_all.py --family qwen --output /path/to/nexus-local-models`.
