@@ -49,6 +49,11 @@ def agents_config() -> dict[str, dict[str, Any]]:
     return data
 
 
+def model_allowed(config: dict[str, Any]) -> bool:
+    deployment_mode = os.getenv("NEXUS_DEPLOYMENT_MODE", "customer").strip().lower()
+    return deployment_mode != "customer" or config.get("commercial_allowed") is True
+
+
 def authenticate(authorization: str | None = Header(default=None)) -> None:
     expected = os.getenv("NEXUS_API_KEY", "").strip()
     if not expected or expected == "replace-with-a-long-random-secret":
@@ -123,7 +128,7 @@ async def require_agents(ids: list[str], cfg: dict[str, dict[str, Any]]) -> list
     selected = selected[:max_agents]
     if not selected:
         raise HTTPException(status_code=503, detail="No AI agents are configured")
-    missing = [agent_id for agent_id in selected if agent_id not in cfg]
+    missing = [agent_id for agent_id in selected if agent_id not in cfg or not model_allowed(cfg[agent_id])]
     if missing:
         raise HTTPException(
             status_code=400,
@@ -143,7 +148,7 @@ async def list_agents():
     return {
         "data": [
             {"id": key, "model": value.get("model"), "configured": bool(value.get("base_url"))}
-            for key, value in cfg.items()
+            for key, value in cfg.items() if model_allowed(value)
         ]
     }
 
@@ -153,7 +158,7 @@ async def list_models():
     cfg = agents_config()
     data = [
         {"id": key, "object": "model", "owned_by": "configured-provider", "name": value.get("model")}
-        for key, value in cfg.items()
+        for key, value in cfg.items() if model_allowed(value)
     ]
     data.append(
         {"id": "nexus-hybrid", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS Hybrid collective"}
@@ -176,8 +181,8 @@ async def chat_completions(req: ChatRequest):
 
     if req.nexus.mode == "single" and req.model != "nexus-hybrid":
         agent_id = req.model
-        if agent_id not in cfg:
-            raise HTTPException(status_code=404, detail=f"Model or agent '{agent_id}' is not configured")
+        if agent_id not in cfg or not model_allowed(cfg[agent_id]):
+            raise HTTPException(status_code=404, detail=f"Model or agent '{agent_id}' is not configured or not cleared for this deployment mode")
         try:
             result = await call_agent(agent_id, cfg[agent_id], user_messages, req.temperature, req.max_tokens)
         except (httpx.HTTPError, ValueError, KeyError) as exc:
@@ -271,8 +276,8 @@ async def chat_completions(req: ChatRequest):
             break
 
     synthesis_agent = req.nexus.synthesis_agent or os.getenv("NEXUS_SYNTHESIS_AGENT", "").strip() or None
-    if synthesis_agent and synthesis_agent not in cfg:
-        raise HTTPException(status_code=400, detail=f"Synthesis agent '{synthesis_agent}' is not configured")
+    if synthesis_agent and (synthesis_agent not in cfg or not model_allowed(cfg[synthesis_agent])):
+        raise HTTPException(status_code=400, detail=f"Synthesis agent '{synthesis_agent}' is not configured or not cleared for this deployment mode")
 
     if synthesis_agent:
         specialist_text = "\n\n".join(
