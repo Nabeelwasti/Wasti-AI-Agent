@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-27  
 **Main baseline:** `6663705bd917264fac2dee5b9ec41e76722cb003` (PR #30 merged)  
-**Android release baseline:** `0.4.0` (`versionCode 4`)  
+**Android release baseline:** `0.4.0` (`versionCode 4`); this PR targets `0.5.0` (`versionCode 5`)  
 **Current work:** `feat/nexus-self-hosted-runtime-policy-model-governance` — not merged until its own CI passes  
 **State:** release candidate; physical-device validation remains required
 
