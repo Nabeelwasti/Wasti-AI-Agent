@@ -1,48 +1,94 @@
-# Architecture
+# WASTI NEXUS architecture
 
-## System shape
+## Product shape
 
-NEXUS is a monorepo with separable deployable components:
+One repository, one app identity and one reusable brain API. Runtime components may deploy separately, but source, configuration, tests, documentation and SDKs stay in this monorepo.
 
-1. **Android client** — Kotlin/Compose UI, local model runtime, encrypted local data, Android capability adapters.
-2. **Orchestrator API** — OpenAI-compatible HTTP facade, model/agent registry, routing, bounded Hybrid workflow and audit events.
-3. **Model archive tooling** — pinned checkpoint manifests, license evidence, download/verification utilities. Weights are never committed to Git.
-4. **Optional Cloudflare edge adapter** — forwards authenticated requests to a protected orchestrator origin or future Workers AI bindings. It is not required for offline operation.
-5. **Storage adapters** — local encrypted database, optional remote metadata/sync, separately encrypted backup objects.
+### Android client
 
-## Hybrid request lifecycle
+- Kotlin/Jetpack Compose application.
+- Local inference through the official `llama.cpp` Android binding/runtime for compatible GGUF checkpoints.
+- Model catalogue, download manager, integrity verification, install/uninstall, runtime selection and memory-aware model loading.
+- Encrypted local memory and conversation history.
+- Network-aware routing: local model first when offline or when the user selects local-only; remote provider routing when online and permitted.
+- The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
 
-1. Validate request size, authentication, tenant, mode and agent allowlist.
-2. Resolve configured agents. Unconfigured agents are excluded and reported, never simulated.
-3. Dispatch independent analysis concurrently with bounded fan-out and timeouts.
-4. Optionally run a bounded peer-review round over collected findings.
-5. Synthesize using a configured synthesis backend. If unavailable, return a deterministic structured aggregation with an explicit notice rather than claim an LLM synthesis occurred.
-6. Return final answer plus participation, errors, latency and trace metadata.
+### Universal brain API
 
-## API contract
+One OpenAI-compatible endpoint exposes `GET /v1/models` and `POST /v1/chat/completions`. Apps choose:
+- a specific configured remote model ID;
+- `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step;
+- a local model through the Android SDK/runtime, without sending the prompt to the server.
 
-- `GET /healthz` — liveness.
-- `GET /v1/models` — configured agent/model catalog.
-- `POST /v1/chat/completions` — OpenAI-compatible chat request with optional `nexus` extension.
-- `GET /v1/agents` — configured agent status (no secrets).
+The API never reports an unconfigured model as available or fabricates model participation. It exposes capability, availability, provider and licence metadata separately.
 
-## Provider configuration
+### Online hosting
 
-Set `NEXUS_AGENTS_JSON` to a JSON object mapping public agent IDs to provider configuration. Example:
+Cloudflare Workers Static Assets host the web app files; the Worker handles authenticated API routing. The Worker is not an inference host and does not store memory, training data or model weights. Remote inference runs only on configured lawful provider endpoints. Keep provider credentials server-side.
 
-```json
-{
-  "qwen": {"base_url":"http://127.0.0.1:8001/v1","model":"Qwen2.5-1.5B-Instruct","api_key_env":"QWEN_API_KEY"},
-  "llama": {"base_url":"http://127.0.0.1:8002/v1","model":"Llama-3.2-1B-Instruct","api_key_env":"LLAMA_API_KEY"}
-}
+## Request routing
+
+1. Determine connectivity and user policy.
+2. If offline or local-only, select an installed compatible local model. If none is installed, explain that online-only brains are unavailable rather than pretending to answer.
+3. If online and remote routing is allowed, resolve the requested model against the live catalogue.
+4. For Hybrid, fan out only to configured, licensed and healthy providers. Return a truthful participant/failure list.
+5. Synthesize with a configured synthesis model. If synthesis fails, return a structured partial result and explicitly label it as unsynthesized; do not silently claim a collective answer.
+6. Keep local and remote memory scopes separate unless the user explicitly enables sync.
+
+## Memory and training-data storage on GitHub
+
+GitHub is the versioned file source of truth for curated knowledge, small evaluation sets, training-data manifests and optional encrypted personal-memory snapshots. It is not a vector database, transactional database or training engine.
+
+Suggested repository layout:
+
+```
+memory/
+  README.md
+  schemas/
+    memory-record.schema.json
+    dataset-manifest.schema.json
+  personal/                 # encrypted blobs only; private repository
+  projects/
+  tenants/                  # strict tenant-scoped paths; no cross-tenant reads
+  knowledge/                # curated, non-sensitive Markdown/JSON
+datasets/
+  eval/
+  training/
+  manifests/
 ```
 
-Each endpoint must implement OpenAI-compatible `POST /chat/completions`. A local vLLM, llama.cpp server or trusted hosted provider can be connected. The orchestrator does not download or execute arbitrary models from a prompt.
+Rules:
+- The repository containing personal memory must be private. Never store secrets, API keys, raw credentials or unencrypted sensitive data in Git.
+- Encrypt personal/customer records on the client before upload; keep encryption keys outside GitHub.
+- Use tenant-scoped paths and enforce authorization before any retrieval.
+- Batch writes into immutable time-bucketed files; avoid a commit per token or message.
+- Store embeddings as rebuildable derived artifacts, not the only copy of knowledge. Build a local on-device index for offline retrieval; online services can rebuild an index from the versioned files.
+- Use GitHub App credentials or a narrowly scoped fine-grained token only on a trusted server. Never ship a repository write token in an Android APK or browser JavaScript.
+- Use commit SHA + file path as provenance. Fetch pinned revisions for reproducible dataset builds.
+- Training data must have provenance, consent/rights, licence, PII review, quality labels and a deletion/withdrawal process. A dataset commit does not itself train a model.
+- For frequent, high-volume or multi-user memory writes, GitHub API limits and Git history growth make this design unsuitable as a transactional store. Keep local encrypted memory primary and sync curated/batched snapshots.
 
-## Online endpoint
+## Model catalogue and lifecycle
 
-Deploy the orchestrator to a host you control and place TLS + authentication in front of it. Your apps use one base URL, for example `https://ai-api.example.com/v1`. A custom domain and actual deployment are separate operational steps; this repository does not claim a live endpoint until deployment and smoke tests succeed.
+All 12 families stay in the registry. Each exact checkpoint needs:
+- immutable upstream revision;
+- exact licence/model-card evidence and allowed-use flags;
+- supported runtime/format and quantization;
+- artifact size and SHA-256;
+- tested device/RAM profile;
+- download, install, validation and rollback status.
 
-## Data boundaries
+The app downloads only the user's selected model. Storage availability is necessary but not sufficient: the peak resident memory includes weights, runtime buffers, KV cache, tokenizer and Android process overhead. On a phone with 3 GB free RAM, begin conservatively with a small 0.5B–1B quantized model and low context, then benchmark on the actual device before enabling larger choices.
 
-Personal, project and customer data use distinct tenant and vault scopes. Retrieval must enforce tenant filters before context reaches a model. Provider calls disclose data to the configured provider; deployments must document this and support local-only routing.
+## Security boundaries
+
+- Separate personal, project and customer memory.
+- Keep master API and GitHub credentials on trusted servers.
+- Apply TLS, tenant authorization, quotas, request limits, audit trails and provider disclosure notices.
+- Treat retrieved documents and peer model outputs as untrusted data, not instructions.
+- Android permissions and operating-system restrictions remain authoritative.
+- Local-only mode must guarantee no prompt/network egress for inference and memory retrieval.
+
+## Current implementation status
+
+The repository currently contains a remote-only Android prototype and an edge gateway shell. Local inference, GitHub-backed memory sync, model lifecycle UI and production tenant controls are not yet complete. Do not claim offline operation or production readiness until device builds and end-to-end tests pass.
