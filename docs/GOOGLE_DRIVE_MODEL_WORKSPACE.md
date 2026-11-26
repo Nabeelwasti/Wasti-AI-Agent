@@ -53,7 +53,7 @@ Each future downloadable entry must include stable model ID, family, exact filen
 
 ## Current implementation state
 
-The Android app now includes a scoped Drive folder picker, persisted folder read permission, a twelve-model branded catalogue UI, a verified Qwen Drive copy path, exact length/SHA-256 checks and local install/load. The WASTI NEXUS collection preserves every upstream model's name, creator, source and licence; it does not claim that NEXUS trained these models. The other eleven catalogue entries are deliberately pending until their exact GGUF artifact, immutable revision, byte length, licence and checksum are validated. See [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md) for the curated list and sources.
+The Android app includes a scoped Drive folder picker, persisted folder read permission, a twelve-model branded catalogue UI, and a verified Drive-to-device copy path. All twelve entries now have exact GGUF filenames, immutable revisions, byte lengths and SHA-256 values pinned. The WASTI NEXUS collection preserves each upstream model's name, creator, source and licence; it does not claim NEXUS trained these models. See [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md) for the curated list and sources. Physical-device runtime validation remains outstanding.
 
 The owner still needs to create the folder and upload the exact Qwen GGUF file. This repository connection cannot upload binaries into the owner's Drive. A real Drive-provider transfer, cancellation, permission revocation and airplane-mode install drill must be performed on the target Redmi before this feature is called device-certified.
 
