@@ -51,6 +51,18 @@ internal class GatewayHttpException(
     message: String
 ) : IllegalStateException(message)
 
+internal data class ModelContentRange(val first: Long, val last: Long, val total: Long)
+
+internal fun parseModelContentRange(value: String?): ModelContentRange? {
+    val match = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$", RegexOption.IGNORE_CASE)
+        .matchEntire(value?.trim().orEmpty()) ?: return null
+    val first = match.groupValues[1].toLongOrNull() ?: return null
+    val last = match.groupValues[2].toLongOrNull() ?: return null
+    val total = match.groupValues[3].toLongOrNull() ?: return null
+    if (first > last || last >= total) return null
+    return ModelContentRange(first, last, total)
+}
+
 internal fun shouldFallbackToLocal(error: Exception): Boolean {
     if (error is java.io.IOException) return true
     if (error is IllegalArgumentException) {
@@ -92,7 +104,7 @@ class MainActivity : ComponentActivity() {
                         encryptSecret(key)
                     },
                     onImportModel = { uri -> importModel(uri) },
-                    onDownloadModel = { downloadFirstLocalModel() },
+                    onDownloadModel = { onProgress -> downloadFirstLocalModel(onProgress) },
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt -> sendLocal(prompt) },
@@ -357,45 +369,98 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Downloads the pinned public Qwen 0.5B GGUF candidate without a provider/API key. */
-    private suspend fun downloadFirstLocalModel(): String = withContext(Dispatchers.IO) {
+    /** Resumable, checksum-pinned Qwen download. Partial bytes are retained after network interruption. */
+    private suspend fun downloadFirstLocalModel(
+        onProgress: suspend (Long, Long) -> Unit
+    ): String = withContext(Dispatchers.IO) {
         val revision = "12145bd1d629190a4d44254073650877954d02c9"
         val fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
         val expectedSha256 = "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
         val url = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/$revision/$fileName?download=true"
-        val request = Request.Builder().url(url).get().build()
         val downloadClient = http.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build()
         val modelDirectory = File(filesDir, "models").apply { mkdirs() }
         val target = File(modelDirectory, fileName)
         val temporary = File(modelDirectory, "$fileName.part")
+        val maxBytes = 800_000_000L
+        val reserveBytes = 1024L * 1024L * 1024L
         try {
-            downloadClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IllegalStateException("Model download failed with HTTP ${response.code}.")
+            var offset = temporary.length()
+            if (offset !in 0..maxBytes) {
+                temporary.delete()
+                offset = 0L
+            }
+            val requestBuilder = Request.Builder().url(url).get()
+            if (offset > 0L) requestBuilder.header("Range", "bytes=$offset-")
+            downloadClient.newCall(requestBuilder.build()).execute().use { response ->
                 val body = response.body ?: throw IllegalStateException("The model host returned an empty response.")
-                val expectedLength = body.contentLength()
-                require(expectedLength in 1..800_000_000L) { "Unexpected model size. Download stopped for safety." }
+                val append = offset > 0L && response.code == 206
+                val totalLength: Long
+                if (append) {
+                    val range = parseModelContentRange(response.header("Content-Range"))
+                        ?: throw IllegalStateException("The model host returned an invalid resume range.")
+                    require(range.first == offset && range.last >= range.first && range.total in 1..maxBytes) {
+                        "The model host returned a mismatched resume range. The partial file must be checked before retrying."
+                    }
+                    totalLength = range.total
+                } else {
+                    if (offset > 0L) temporary.delete()
+                    require(response.code == 200) { "Model download failed with HTTP ${response.code}." }
+                    totalLength = body.contentLength()
+                    require(totalLength in 1..maxBytes) { "Unexpected model size. Download stopped for safety." }
+                }
+                val remaining = totalLength - if (append) offset else 0L
+                require(remaining > 0L && remaining <= maxBytes) { "Invalid remaining model download size." }
                 val freeBytes = StatFs(filesDir.absolutePath).availableBytes
-                require(freeBytes >= expectedLength + 1024L * 1024L * 1024L) { "Not enough free storage. Keep at least 1 GB free after installation." }
-                val digest = MessageDigest.getInstance("SHA-256")
-                var total = 0L
+                require(freeBytes >= remaining + reserveBytes) {
+                    "Not enough free storage. Keep at least 1 GB free after installation."
+                }
+                var written = if (append) offset else 0L
+                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
                 body.byteStream().use { input ->
-                    temporary.outputStream().buffered().use { output ->
+                    java.io.RandomAccessFile(temporary, "rw").use { output ->
+                        output.seek(written)
                         val buffer = ByteArray(1024 * 1024)
+                        var lastReported = written
                         while (true) {
                             val count = input.read(buffer)
                             if (count < 0) break
-                            total += count
-                            require(total <= expectedLength && total <= 800_000_000L) { "Downloaded file exceeded its advertised size." }
-                            digest.update(buffer, 0, count)
+                            written += count
+                            require(written <= totalLength && written <= maxBytes) {
+                                "Downloaded file exceeded the verified size limit."
+                            }
                             output.write(buffer, 0, count)
+                            if (written - lastReported >= 4L * 1024L * 1024L) {
+                                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
+                                lastReported = written
+                            }
                         }
                     }
                 }
-                require(total == expectedLength) { "Model download was incomplete. Please retry." }
-                val actualSha256 = digest.digest().joinToString("") { "%02x".format(it) }
-                require(actualSha256 == expectedSha256) { "Model checksum verification failed. File rejected." }
+                require(written == totalLength) {
+                    "Model download is incomplete. The partial file is saved; retry to resume."
+                }
+                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
             }
-            temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            val digest = MessageDigest.getInstance("SHA-256")
+            temporary.inputStream().buffered().use { input ->
+                val buffer = ByteArray(1024 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            val actualSha256 = digest.digest().joinToString("") { "%02x".format(it) }
+            if (actualSha256 != expectedSha256) {
+                temporary.delete()
+                throw IllegalStateException("Model checksum verification failed. The partial file was deleted.")
+            }
+            try {
+                temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            } catch (metadataError: Exception) {
+                temporary.delete()
+                throw IllegalStateException("Downloaded file failed GGUF metadata validation and was rejected.", metadataError)
+            }
             // Preserve an existing installation until the verified replacement is finalized.
             val backup = File(modelDirectory, "$fileName.previous-${UUID.randomUUID()}")
             var previousMoved = false
@@ -409,16 +474,16 @@ class MainActivity : ComponentActivity() {
                 if (previousMoved) backup.delete()
                 target.absolutePath
             } catch (installError: Exception) {
-                if (previousMoved && !target.exists()) {
-                    backup.renameTo(target)
-                }
+                if (previousMoved && !target.exists()) backup.renameTo(target)
                 throw installError
             }
         } catch (error: Exception) {
-            temporary.delete()
+            // Keep a bounded .part file on transient IO failures so the next tap can resume.
+            if (error.message?.contains("checksum verification failed", ignoreCase = true) == true) temporary.delete()
             throw error
         }
     }
+
     private fun installedModels(): List<String> =
         File(filesDir, "models").listFiles()
             ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) && it.length() > 1024L * 1024L }
@@ -634,7 +699,7 @@ private fun NexusScreen(
     onFreeStorage: () -> Long,
     onSave: (String, String) -> Unit,
     onImportModel: suspend (Uri) -> String,
-    onDownloadModel: suspend () -> String,
+    onDownloadModel: suspend (suspend (Long, Long) -> Unit) -> String,
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: suspend () -> Unit,
     onSendLocal: suspend (String) -> String,
@@ -658,6 +723,7 @@ private fun NexusScreen(
     var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
@@ -759,10 +825,13 @@ private fun NexusScreen(
                     Button(
                         enabled = !busy,
                         onClick = {
+                            downloadProgress = 0f
                             busy = true
                             scope.launch {
                                 try {
-                                    val downloadedPath = onDownloadModel()
+                                    val downloadedPath = onDownloadModel { received, total ->
+                                        downloadProgress = if (total > 0L) received.toFloat() / total.toFloat() else 0f
+                                    }
                                     installedModels = onListModels()
                                     localModelPath = downloadedPath
                                     onSelectModel(downloadedPath)
@@ -778,7 +847,11 @@ private fun NexusScreen(
                                 }
                             }
                         }
-                    ) { Text("Download & install Qwen 0.5B · ~491 MB") }
+                    ) { Text("Download / resume Qwen 0.5B · ~491 MB") }
+                    if (busy && downloadProgress > 0f) {
+                        LinearProgressIndicator(progress = { downloadProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                        Text("Verified download: ${(downloadProgress * 100).toInt()}% · Network interruptions can be resumed by tapping again.", style = MaterialTheme.typography.bodySmall)
+                    }
                     OutlinedButton(
                         enabled = !busy,
                         onClick = { modelPicker.launch(arrayOf("*/*")) }
