@@ -3,6 +3,9 @@ export type EncryptedMemorySnapshot = {
   snapshot_id: string;
   created_at: string;
   key_id: string;
+  kdf: "PBKDF2-HMAC-SHA256";
+  iterations: 600000;
+  salt: string;
   nonce: string;
   ciphertext: string;
   content_type?: "conversation-summary" | "fact" | "preference" | "project-note" | "knowledge-reference";
