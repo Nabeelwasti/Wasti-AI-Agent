@@ -10,8 +10,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 export NEXUS_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 export NEXUS_ALLOW_LOCAL_HTTP=1  # loopback development only
-export NEXUS_AGENTS_JSON='{"qwen":{"base_url":"http://127.0.0.1:8001/v1","model":"Qwen2.5-1.5B-Instruct"}}'
+export NEXUS_AGENTS_JSON='{"qwen":{"base_url":"http://127.0.0.1:8001/v1","model":"Qwen2.5-1.5B-Instruct","commercial_allowed":true}}'
 export NEXUS_SYNTHESIS_AGENT=qwen
+export NEXUS_DEPLOYMENT_MODE=personal  # use only when your use is non-commercial/private
 uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
