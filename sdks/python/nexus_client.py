@@ -32,6 +32,22 @@ class NexusClient:
         return self._request("/v1/chat/completions",
                              {"model": model, "messages": messages, "stream": False})
 
+    def memory_snapshots(self, limit: int = 100):
+        safe_limit = max(1, min(100, int(limit)))
+        return self._request(f"/v1/memory/snapshots?limit={safe_limit}")
+
+    def create_memory_snapshot(self, encrypted_snapshot: dict):
+        required = {"snapshot_id", "created_at", "key_id", "nonce", "ciphertext"}
+        if not isinstance(encrypted_snapshot, dict) or not required.issubset(encrypted_snapshot):
+            raise ValueError("Pass a complete client-encrypted AES-256-GCM snapshot envelope")
+        return self._request("/v1/memory/snapshots", encrypted_snapshot)
+
+    def memory_snapshot(self, snapshot_id: str):
+        import re
+        if not re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}", snapshot_id):
+            raise ValueError("Invalid memory snapshot UUID")
+        return self._request("/v1/memory/snapshots/" + snapshot_id)
+
     def hybrid(self, messages: list[dict], agents=None, synthesis_agent=None, review_rounds=1):
         return self._request("/v1/chat/completions", {
             "model": "nexus-hybrid", "messages": messages, "stream": False,
