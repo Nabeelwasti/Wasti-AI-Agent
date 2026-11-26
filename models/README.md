@@ -85,10 +85,10 @@ All other configured models remain candidates for online routing only when a cur
 
 ## Where files belong
 
-- GitHub repository: source, model registry, manifests, checksums, small versioned evaluation/training datasets, licence notices and reproducible scripts.
-- Private local archive: full upstream checkpoints and large quantized files that exceed repository limits.
-- Android private app storage: only the user-selected compatible quantized models and encrypted personal memory.
-- Cloudflare Workers AI: online inference only; it does not accept arbitrary custom GGUF uploads. A separate R2 bucket may be used as an optional model-file archive/distribution origin, subject to licence and privacy checks. R2 is not currently provisioned for NEXUS.
+- GitHub repository: source, model registry, manifest metadata, checksums, licence notices and reproducible scripts; never model weights or credentials.
+- Owner's Google Drive: the private `WASTI-NEXUS-MODEL-WORKSPACE` archive for approved GGUF checkpoints, notices and checksum manifests. Private access is intended to use Google OAuth, not public share links.
+- Android private app storage: only the user-selected, compatible, checksum-verified quantized models and encrypted personal memory.
+- Cloudflare Workers AI: optional online inference fallback only. It is not model storage and must not be used to host custom GGUF weights. No Cloudflare storage product is part of the NEXUS model archive.
 
 GitHub is version control, not a high-throughput database or training runtime. This deployment intentionally stores only client-encrypted memory snapshots in the public repository. GitHub exposes ciphertext and metadata publicly; never place plaintext customer/personal data or secrets here. Batch writes and respect API/rate limits.
 
