@@ -51,3 +51,15 @@ def test_noncommercial_candidates_are_not_approved_for_redistribution():
     by_id = {item["id"]: item for item in load_registry()}
     assert by_id["command-r"]["redistribution"] == "not-approved"
     assert by_id["stablelm"]["redistribution"] == "not-approved"
+
+def test_small_local_gguf_candidate_is_registered_with_explicit_metadata():
+    qwen = next(item for item in load_registry() if item["id"] == "qwen")
+    candidate = qwen["local_candidate"]
+    assert candidate["repo_id"] == "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+    assert candidate["file_name"].endswith(".gguf")
+    assert candidate["quantization"] == "Q4_K_M"
+    assert candidate["estimated_size_bytes"] > 0
+    assert candidate["license_id"] == "Apache-2.0"
+    assert candidate["download_status"] == "not-downloaded"
+    if candidate.get("revision"):
+        assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"])
