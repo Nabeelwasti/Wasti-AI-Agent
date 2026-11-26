@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wasti-nexus.local/schemas/memory-record.schema.json",
+  "title": "WASTI NEXUS encrypted memory record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_id", "tenant_scope", "created_at", "cipher"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_id": { "type": "string", "minLength": 8, "maxLength": 128 },
+    "tenant_scope": { "type": "string", "pattern": "^(personal|project:[A-Za-z0-9_-]+|tenant:[A-Za-z0-9_-]+)$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "content_type": { "type": "string", "enum": ["conversation-summary", "fact", "preference", "project-note", "knowledge-reference"] },
+    "source_ref": { "type": "string", "maxLength": 512 },
+    "tags": { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxItems": 32 },
+    "cipher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "nonce", "ciphertext"],
+      "properties": {
+        "algorithm": { "const": "AES-256-GCM" },
+        "key_id": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "nonce": { "type": "string", "pattern": "^[A-Za-z0-9_-]{16,64}$" },
+        "ciphertext": { "type": "string", "minLength": 1, "maxLength": 1048576 }
+      }
+    },
+    "tombstone": { "type": "boolean", "default": false }
+  }
+}
