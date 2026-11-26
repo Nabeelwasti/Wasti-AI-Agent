@@ -26,4 +26,6 @@ This repository is public. The only permitted personal-memory payload is **clien
 - `POST /v1/memory/snapshots`
 - `GET /v1/memory/snapshots/{uuid}`
 
+The API lists newest snapshots first and supports same-device restore. Android Keystore keys are device-bound; cross-device restore remains disabled until a user-controlled recovery-key flow is implemented.
+
 The Cloudflare Worker forwards directly to GitHub's Contents API. It does not use KV, D1, R2, Durable Objects or Vectorize.
