@@ -117,6 +117,12 @@ class NexusRuntimePolicyTest {
         }
     }
 
+    @Test fun routerAliasesDoNotCountAsIndependentRemoteBrains() {
+        assertEquals(0, NexusRuntimePolicy.configuredRemoteBrainCount(emptyList()))
+        assertEquals(1, NexusRuntimePolicy.configuredRemoteBrainCount(listOf("qwen", "nexus-auto")))
+        assertEquals(2, NexusRuntimePolicy.configuredRemoteBrainCount(listOf("qwen", "llama", "nexus-auto", "nexus-hybrid")))
+    }
+
     @Test fun localReasoningAndCodingRoutesRequireAppropriateModelFamilies() {
         assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.REASONING, "DeepSeek-R1-Distill-Qwen-1.5B-Q3_K_M.gguf"))
         assertTrue(NexusRuntimePolicy.localCanHandle(NexusTask.REASONING, "Qwen3-1.7B-Q3_K_M.gguf"))
