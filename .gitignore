@@ -48,6 +48,7 @@ vector-index/
 # Local memory exports and generated datasets
 memory/local/
 memory/exports/
+memory/personal/
 datasets/private/
 datasets/generated/
 
