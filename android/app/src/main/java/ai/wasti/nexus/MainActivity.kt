@@ -700,7 +700,6 @@ class MainActivity : ComponentActivity() {
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
         if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
         val request = requestBuilder.build()
-            .build()
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
