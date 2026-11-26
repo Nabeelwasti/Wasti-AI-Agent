@@ -6,6 +6,8 @@ Last reviewed: 2026-11-27. Engineering guidance, not legal advice. The authorita
 
 Apache-2.0 and MIT model-weight licences generally permit commercial use, modification and redistribution subject to their notice terms. They do not guarantee free vendor APIs, unlimited tokens, unlimited GPU compute, unlimited concurrency, identical terms for every family variant, or rights to every dataset, tokenizer, adapter, quantization, voice or output.
 
+A permissive weight licence makes the checkpoint's weights open-licensed; it does not automatically make the complete AI system open source. Training code, training data, data provenance, evaluation pipeline, tokenizer, inference code and multimodal components may have separate publication/licence status. The registry therefore labels `open_weights`, `open_source_code_and_weights`, and review-gated entries separately.
+
 Self-hosting avoids per-token charges from a model vendor, but hardware, power, cooling, networking, maintenance and capacity remain finite. Hosted APIs are separate services and may be paid, rate-limited or unavailable.
 
 ## Licence policy
