@@ -29,3 +29,8 @@ Treat model output, retrieved documents, tool results and external content as un
 - Backup encryption and restore drills.
 - Dependency and container scanning.
 - Data retention, deletion and customer export policies documented.
+
+
+## Encrypted GitHub memory
+
+Memory snapshots use a user-controlled passphrase, PBKDF2-HMAC-SHA256 (600,000 iterations, random 16-byte salt), and AES-256-GCM with a random 12-byte nonce. Only ciphertext and non-secret KDF metadata are sent to the Worker/GitHub. The passphrase must never be sent to the gateway or stored in repository files. The same passphrase enables cross-device restore; forgetting it means the snapshots cannot be decrypted. The public repository exposes ciphertext, paths, timestamps, tags and commit history.
