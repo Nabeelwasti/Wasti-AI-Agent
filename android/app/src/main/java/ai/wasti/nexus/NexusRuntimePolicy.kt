@@ -31,6 +31,11 @@ internal data class NexusRuntimeSnapshot(
 internal data class NexusRouteDecision(val route: NexusRoute, val task: NexusTask, val reason: String)
 
 internal object NexusRuntimePolicy {
+    fun isLoopbackHttp(root: String): Boolean = runCatching {
+        val uri = java.net.URI(root)
+        uri.scheme == "http" && uri.host?.lowercase() == "localhost"
+    }.getOrDefault(false)
+
     private const val GIB = 1024L * 1024L * 1024L
     private const val LOCAL_RESERVE_BYTES = 1_229L * 1024L * 1024L
     private const val SEVERE_THERMAL_STATUS = 3
