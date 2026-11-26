@@ -56,7 +56,7 @@ def model_allowed(config: dict[str, Any]) -> bool:
 
 def authenticate(authorization: str | None = Header(default=None)) -> None:
     expected = os.getenv("NEXUS_API_KEY", "").strip()
-    if not expected or expected == "replace-with-a-long-random-secret":
+    if len(expected) < 32 or expected == "replace-with-a-long-random-secret":
         raise HTTPException(status_code=503, detail="API is not configured: set a strong NEXUS_API_KEY")
     supplied = authorization.removeprefix("Bearer ").strip() if authorization else ""
     if not hmac.compare_digest(supplied, expected):
