@@ -448,7 +448,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun unloadLocalModel() {
+    private suspend fun unloadLocalModel() = withContext(Dispatchers.Default) {
         localEngine.cleanUp()
     }
 
@@ -535,7 +535,7 @@ private fun NexusScreen(
     onSave: (String, String) -> Unit,
     onImportModel: suspend (Uri) -> String,
     onLoadLocal: suspend (String) -> Unit,
-    onUnloadLocal: () -> Unit,
+    onUnloadLocal: suspend () -> Unit,
     onSendLocal: suspend (String) -> String,
     onSaveMemory: suspend (List<Pair<String, String>>, String) -> String,
     onRestoreMemory: suspend (String) -> List<Pair<String, String>>,
@@ -620,12 +620,21 @@ private fun NexusScreen(
                         DropdownMenuItem(
                             text = { Text(modelPath.substringAfterLast('/')) },
                             onClick = {
-                                if (localReady) onUnloadLocal()
-                                localReady = false
-                                localModelPath = modelPath
-                                onSelectModel(modelPath)
                                 modelMenuExpanded = false
-                                answer = "Selected model. Load it to start offline inference."
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        if (localReady) onUnloadLocal()
+                                        localReady = false
+                                        localModelPath = modelPath
+                                        onSelectModel(modelPath)
+                                        answer = "Selected model. Load it to start offline inference."
+                                    } catch (error: Exception) {
+                                        answer = "Could not switch model: ${error.message}"
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
                             }
                         )
                     }
@@ -671,19 +680,24 @@ private fun NexusScreen(
                         text = { Text("This deletes the selected GGUF file from this app's private storage. The original file is not affected.") },
                         confirmButton = {
                             TextButton(onClick = {
-                                if (localReady) onUnloadLocal()
-                                localReady = false
-                                try {
-                                    onDeleteModel(localModelPath)
-                                    installedModels = onListModels()
-                                    localModelPath = installedModels.firstOrNull().orEmpty()
-                                    onSelectModel(localModelPath)
-                                    freeStorageBytes = onFreeStorage()
-                                    answer = "Model removed from this device."
-                                } catch (error: Exception) {
-                                    answer = "Could not remove model: ${error.message}"
-                                }
                                 confirmDeleteModel = false
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        if (localReady) onUnloadLocal()
+                                        localReady = false
+                                        onDeleteModel(localModelPath)
+                                        installedModels = onListModels()
+                                        localModelPath = installedModels.firstOrNull().orEmpty()
+                                        onSelectModel(localModelPath)
+                                        freeStorageBytes = onFreeStorage()
+                                        answer = "Model removed from this device."
+                                    } catch (error: Exception) {
+                                        answer = "Could not remove model: ${error.message}"
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
                             }) { Text("Delete") }
                         },
                         dismissButton = {
@@ -695,9 +709,18 @@ private fun NexusScreen(
                     OutlinedButton(
                         enabled = !busy,
                         onClick = {
-                            onUnloadLocal()
-                            localReady = false
-                            answer = "Local model unloaded and native memory released."
+                            busy = true
+                            scope.launch {
+                                try {
+                                    onUnloadLocal()
+                                    localReady = false
+                                    answer = "Local model unloaded and native memory released."
+                                } catch (error: Exception) {
+                                    answer = "Could not unload local model: ${error.message}"
+                                } finally {
+                                    busy = false
+                                }
+                            }
                         }
                     ) { Text("Unload model") }
                 }
