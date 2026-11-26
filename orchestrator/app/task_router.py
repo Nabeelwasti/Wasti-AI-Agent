@@ -20,13 +20,31 @@ TASK_CAPABILITIES = {
     "reasoning": {"reasoning"}, "general": {"chat"},
 }
 
+def _flatten_content(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        kind = str(value.get("type", "")).lower()
+        if kind in {"image", "image_url"} or "image_url" in value:
+            return " [attached image] "
+        if kind in {"audio", "input_audio", "audio_url"} or "audio" in value:
+            return " [attached audio] "
+        return " " + " ".join(_flatten_content(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return " ".join(_flatten_content(item) for item in value)
+    return ""
+
 def classify_task(messages: list[dict[str, Any]]) -> str:
-    text = " ".join(str(m.get("content", "")) for m in messages if m.get("role") in {"user", "system"}).lower()
+    content_values = [m.get("content", "") for m in messages if m.get("role") in {"user", "system"}]
+    text = " ".join(_flatten_content(value) for value in content_values).lower()
+    if "[attached image]" in text:
+        return "vision"
+    if "[attached audio]" in text:
+        return "speech_to_text"
     for task, phrases in TASK_PATTERNS:
-        if any(re.search(r"(?<!\w)" + re.escape(p) + r"(?!\w)", text) for p in phrases):
+        if any(re.search(r"(?<!\\w)" + re.escape(p) + r"(?!\\w)", text) for p in phrases):
             return task
     return "general"
-
 def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]], allowed: Callable[[dict[str, Any]], bool]) -> tuple[str, list[str]]:
     task = classify_task(messages)
     required = TASK_CAPABILITIES[task]
