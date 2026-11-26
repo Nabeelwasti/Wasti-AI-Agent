@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hmac
 import json
 import os
@@ -55,10 +56,18 @@ class MemorySnapshotInput(BaseModel):
         if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("created_at must include a timezone")
         try:
-            raw = self.ciphertext.encode("ascii")
-            base64.urlsafe_b64decode(raw + b"=" * (-len(raw) % 4))
+            nonce_bytes = base64.b64decode(
+                self.nonce.encode("ascii") + b"=" * (-len(self.nonce) % 4),
+                altchars=b"-_", validate=True,
+            )
+            cipher_bytes = base64.b64decode(
+                self.ciphertext.encode("ascii") + b"=" * (-len(self.ciphertext) % 4),
+                altchars=b"-_", validate=True,
+            )
+            if len(nonce_bytes) != 12 or len(cipher_bytes) < 16:
+                raise ValueError("AES-GCM requires a 12-byte nonce and an authentication tag")
         except (UnicodeEncodeError, ValueError) as exc:
-            raise ValueError("ciphertext must be base64url encoded") from exc
+            raise ValueError("nonce/ciphertext must be valid base64url AES-256-GCM data") from exc
         return {
             "schema_version": "1.0",
             "record_id": str(self.snapshot_id).lower(),
