@@ -853,41 +853,36 @@ private fun NexusScreen(
                                 scope.launch {
                                     var usedRemote = false
                                     try {
-                                        val result = if (offlineMode) {
-                                            streamingResponse = ""
-                                            onSendLocal(submittedPrompt) { token -> streamingResponse += token }
-                                        } else {
-                                            onSave(url, key)
+                                        val localFirst = offlineMode || (
+                                            autoMode &&
+                                                localModelPath.isNotBlank() &&
+                                                localModelPath in installedModels
+                                            )
+                                        val result = if (localFirst) {
                                             try {
-                                                val onlineAnswer = onSendRemote(
+                                                if (!localReady) {
+                                                    onLoadLocal(localModelPath)
+                                                    localReady = true
+                                                }
+                                                streamingResponse = ""
+                                                onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                            } catch (localError: Exception) {
+                                                localReady = false
+                                                if (offlineMode || !autoMode) throw localError
+                                                onSave(url, key)
+                                                val remoteAnswer = onSendRemote(
                                                     url, key, remoteConversation, submittedPrompt, hybrid, agentId
                                                 )
                                                 usedRemote = true
-                                                onlineAnswer
-                                            } catch (onlineError: Exception) {
-                                                val canUseLocal = autoMode &&
-                                                    shouldFallbackToLocal(onlineError) &&
-                                                    localModelPath.isNotBlank() &&
-                                                    localModelPath in installedModels
-                                                if (!canUseLocal) throw onlineError
-                                                try {
-                                                    if (!localReady) {
-                                                        onLoadLocal(localModelPath)
-                                                        localReady = true
-                                                    }
-                                                    val fallbackNotice = "Offline fallback used because the online brain was unavailable.\n\n"
-                                                    streamingResponse = fallbackNotice
-                                                    fallbackNotice + onSendLocal(submittedPrompt) { token ->
-                                                        streamingResponse += token
-                                                    }
-                                                } catch (localError: Exception) {
-                                                    localReady = false
-                                                    throw IllegalStateException(
-                                                        "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
-                                                        localError
-                                                    )
-                                                }
+                                                remoteAnswer
                                             }
+                                        } else {
+                                            onSave(url, key)
+                                            val remoteAnswer = onSendRemote(
+                                                url, key, remoteConversation, submittedPrompt, hybrid, agentId
+                                            )
+                                            usedRemote = true
+                                            remoteAnswer
                                         }
                                         conversation = conversation + (submittedPrompt to result)
                                         streamingResponse = ""
