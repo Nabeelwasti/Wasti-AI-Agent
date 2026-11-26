@@ -2,25 +2,39 @@
 
 Last updated: 2026-11-26.
 
-## Verified in this session
-- One source repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent).
-- Twelve target model families are represented in the model registry; initial licence screening is documented in `models/LICENSE_REVIEW.md`. All checkpoint entries remain candidates; immutable revisions are pinned for Llama and Gemma, while the other ten still require exact revision verification.
-- FastAPI orchestrator source includes bearer authentication, configured-agent discovery, OpenAI-compatible non-streaming chat, parallel Hybrid analysis, bounded peer-review rounds and synthesis.
-- Provider endpoints require HTTPS, except explicitly enabled loopback HTTP for local development.
-- Hugging Face snapshot tooling requires an immutable revision and creates per-file SHA-256 manifests; the all-12 downloader refuses to run until every revision is pinned.
-- TypeScript and Python SDK clients are included for future products.
-- Native Android Compose client source includes gateway settings, single/Hybrid requests and Android Keystore AES-GCM encryption for the API key. The key input is masked.
-- Cloudflare Worker `wasti-nexus-gateway` was uploaded successfully, its `workers.dev` subdomain was enabled, and its API key was stored as a Cloudflare secret.
-- Provisioned gateway URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
-- Worker source and deployment configuration are kept in this same GitHub repository.
+## Repository and source
 
-## Not yet verified or not complete
-- External HTTP smoke test of the public Worker URL could not be performed from this execution environment.
-- No provider/model backend is configured in the Worker; the gateway currently reports zero model providers. Protected model requests cannot generate answers yet.
-- No actual model checkpoint has been downloaded into the user's archive.
-- No exact checkpoint has completed licence review or been approved for redistribution.
-- Android Gradle build, CI result, release APK and signing have not been verified.
-- Android local inference, offline chat, model manager, broader permission center, agent activity display and customer workspace isolation remain incomplete.
-- Production rate limiting, tenant identity, quotas, audit persistence, data retention, monitoring, penetration testing and restore drills remain release gates.
+- Single repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent).
+- Twelve model families are catalogued. Llama and Gemma have pinned immutable revisions; ten candidates remain unpinned.
+- Initial licence screening is documented. No weights have been downloaded or approved for redistribution.
+- FastAPI orchestrator source, Cloudflare Worker gateway source, SDKs and native Android Compose client are present.
+- Cloudflare Worker deployment was previously confirmed in the Cloudflare control plane. Public HTTP smoke test is still outstanding.
 
-A deployed gateway shell is not the same as a functioning model service. Do not describe this product as production-ready until all release gates pass.
+## Verified defects found during this audit
+
+- CI invokes `pytest -q tests/test_registry.py`, but that file did not exist. This guaranteed a CI failure. A registry integrity test file has now been added.
+- `models/README.md` incorrectly claimed no revisions were pinned, despite Llama and Gemma already having pinned SHAs. The instructions/status have been corrected.
+- The Android app source is remote-only. There is no local inference engine, model downloader or offline inference path yet.
+- The model archive downloader is separate from the Android device model manager. Full upstream weights are not in Git.
+- `cloudflare/wrangler.toml` names the Worker `wasti-nexus-edge`, while the previously deployed Worker is documented as `wasti-nexus-gateway`. Treat a deployment rename as a breaking change; reconcile the name before any deployment.
+- Android build and GitHub Actions execution have not been verified. The latest inspected commit had no reported combined status checks; this does not prove the workflow passed or even ran.
+
+## Architecture decisions now fixed
+
+- One monorepo only.
+- Android supports both local inference and remote inference; local operation must not depend on Cloudflare.
+- Only device-compatible selected models are installed. Other licensed/configured models remain online-only.
+- GitHub stores source-controlled memory/knowledge/dataset files; private personal/customer records must be encrypted and tenant-scoped.
+- Cloudflare hosts web assets and the API gateway only. No Cloudflare object storage for memory, datasets or model weights.
+- The universal API uses OpenAI-compatible endpoints and truthful single/Hybrid model availability.
+
+## Not complete / release blockers
+
+- The Android client still needs llama.cpp native integration, local model manager, model-fit checks, offline routing and device tests.
+- GitHub memory sync service, schemas, encrypted record format and retrieval/index pipeline remain to be implemented.
+- The Cloudflare gateway has no configured inference providers; online chat cannot generate answers until real providers are connected.
+- The Android Gradle build, APK, signing and CI result remain unverified.
+- Model download, checksum validation, runtime-load tests and device benchmarks remain outstanding.
+- Production auth, tenant isolation, quotas, rate limits, audit persistence, monitoring, privacy/retention controls, restore drills and security testing remain release gates.
+
+A source push is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not complete until an installed model answers a prompt with networking disabled.
