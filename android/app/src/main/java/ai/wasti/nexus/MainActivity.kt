@@ -414,7 +414,7 @@ class MainActivity : ComponentActivity() {
                     "Not enough free storage. Keep at least 1 GB free after installation."
                 }
                 var written = if (append) offset else 0L
-                withContext(Dispatchers.Main) { withContext(Dispatchers.Main) { withContext(Dispatchers.Main) { onProgress(written, totalLength) } } }
+                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
                 body.byteStream().use { input ->
                     java.io.RandomAccessFile(temporary, "rw").use { output ->
                         output.seek(written)
@@ -429,7 +429,7 @@ class MainActivity : ComponentActivity() {
                             }
                             output.write(buffer, 0, count)
                             if (written - lastReported >= 4L * 1024L * 1024L) {
-                                onProgress(written, totalLength)
+                                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
                                 lastReported = written
                             }
                         }
@@ -438,7 +438,7 @@ class MainActivity : ComponentActivity() {
                 require(written == totalLength) {
                     "Model download is incomplete. The partial file is saved; retry to resume."
                 }
-                onProgress(written, totalLength)
+                withContext(Dispatchers.Main) { onProgress(written, totalLength) }
             }
             val digest = MessageDigest.getInstance("SHA-256")
             temporary.inputStream().buffered().use { input ->
@@ -454,7 +454,12 @@ class MainActivity : ComponentActivity() {
                 temporary.delete()
                 throw IllegalStateException("Model checksum verification failed. The partial file was deleted.")
             }
-            temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            try {
+                temporary.inputStream().use { GgufMetadataReader.create().readStructuredMetadata(it) }
+            } catch (metadataError: Exception) {
+                temporary.delete()
+                throw IllegalStateException("Downloaded file failed GGUF metadata validation and was rejected.", metadataError)
+            }
             // Preserve an existing installation until the verified replacement is finalized.
             val backup = File(modelDirectory, "$fileName.previous-${UUID.randomUUID()}")
             var previousMoved = false
