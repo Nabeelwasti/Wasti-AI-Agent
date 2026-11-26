@@ -13,7 +13,7 @@ Last updated: 2026-11-26.
 - A root `.gitignore` now excludes secrets, local build outputs, model checkpoints, private memory exports and generated indexes.
 - The Cloudflare static web console source is in `cloudflare/public/index.html`; Wrangler is configured to serve static assets and preserve the deployed Worker name `wasti-nexus-gateway`.
 - Android now includes Arm AI Chat (`com.arm:ai-chat:0.1.0`) backed by llama.cpp, GGUF file import into app-private storage, RAM preflight, model load/unload and local token generation source code.
-- A Qwen2.5-0.5B Q4_K_M GGUF local candidate (about 398 MB, Apache-2.0) is registered. A family-scoped revision pinning flow and single-file downloader have been added.
+- A Qwen2.5-0.5B Q4_K_M GGUF local candidate (about 491 MB, Apache-2.0) is registered. A family-scoped revision pinning flow and single-file downloader have been added.
 - Research references and runtime recommendations are recorded in `docs/RESEARCH.md`.
 
 ## Verified defects found and changes made
