@@ -18,9 +18,9 @@ The deployed Worker has a first-party Cloudflare Workers AI binding and currentl
 - Authenticated hybrid route: `POST /v1/hybrid/chat/completions`
 - Encrypted personal-memory snapshot routes under `/v1/memory/snapshots`
 
-Current built-in model ID: `nexus-gemma-4-26b-a4b`, backed by `@cf/google/gemma-4-26b-a4b-it`. The model is invoked through the Cloudflare AI binding; no third-party model-provider API token is needed. The NEXUS bearer key is gateway authentication, not a model-provider key.
+Current built-in model IDs: `nexus-gemma-4-26b-a4b` backed by `@cf/google/gemma-4-26b-a4b-it`, and `nexus-qwen-3.8-27b` backed by `@cf/qwen/qwen3.8-27b`. Both are Apache-2.0 open-weight models and were tested directly through the Cloudflare account AI API. They are invoked through the Cloudflare AI binding; no third-party model-provider API token is needed. The NEXUS bearer key is gateway authentication, not a model-provider key.
 
-The Worker has passed the public health/model-catalogue smoke test. The Cloudflare account-level Gemma model test also generated a response. The GitHub Actions authenticated chat-route smoke test is currently skipped because the repository secret `NEXUS_API_KEY` is not configured. Do not mark authenticated route verification as passed until that secret is added and the test visibly executes.
+The Worker has passed the public health/model-catalogue smoke test. The Cloudflare account-level Gemma and Qwen model tests both generated responses. The GitHub Actions authenticated chat-route smoke test is currently skipped because the repository secret `NEXUS_API_KEY` is not configured. Do not mark authenticated route verification as passed until that secret is added and the test visibly executes.
 
 ## Configure GitHub Actions verification
 
