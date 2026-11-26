@@ -788,7 +788,6 @@ private fun NexusScreen(
                             }
                         }
                     ) { Text("Load model") }
-                }
                 if (localModelPath.isNotBlank()) {
                     OutlinedButton(
                         enabled = !busy,
