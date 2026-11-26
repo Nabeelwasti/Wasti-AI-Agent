@@ -2,59 +2,69 @@
 
 Last updated: 2026-11-26.
 
-## Repository and delivery
+## Repository and CI
 
 - Canonical repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
-- One monorepo contains the Android app, model registry/acquisition scripts, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
+- One monorepo contains the Android client, model registry, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
+- GitHub Actions now uses Node 24-compatible action releases. Dependabot is enabled for GitHub Actions, Gradle, Python and npm dependencies.
+- Latest full CI run: [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406), commit `f648a5112c696f8b3da0a37dc155c517a993dded`. It was queued at this status update. It runs Python tests, Worker tests, Android debug assembly, Android JVM unit tests, ephemeral release signing verification and live public gateway checks.
+- Earlier run [45827619035](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827619035) passed Python/source checks, Cloudflare Worker tests and the deployed gateway smoke test; its Android job was still running when the newer run was queued. Do not treat it as a complete end-to-end pass.
+- The most recent downloadable debug APK before these changes is from run [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029). It is a debug build, not an owner-signed production APK.
 - No model weights, provider credentials, GitHub tokens or personal plaintext memory are committed.
-- Latest debug APK artifact: `wasti-nexus-debug-apk`, 20,378,967 bytes, SHA-256 `ee3e326f0d02ef05269dfd14e896f24bdc994e481617b157c851b41c7a14aa64`, from run [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029). It expires on 2026-12-03. This is a CI debug artifact, not a production-signed APK.
-- The complete PR CI passed on commit `5f1327491fc2679377eef61de46df390dec577ad` (run [45823646137](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823646137)). Post-merge main CI [45823876505](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823876505) passed Python/Worker checks, Android `assembleDebug`, APK artifact upload and the deployed gateway health/model-catalogue smoke test. The latest main CI [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029) also passed Python/Worker checks, health smoke and Android `assembleDebug`; the authenticated inference smoke was skipped because the GitHub Actions `NEXUS_API_KEY` secret is not configured. These are **debug** builds, not signed production releases.
 
 ## Android client
 
 - Kotlin/Jetpack Compose app; package `ai.wasti.nexus`; min SDK 33, target SDK 36.
-- Arm AI Chat `com.arm:ai-chat:0.1.0` supplies the GGUF/llama.cpp inference integration.
-- Source supports manual GGUF import into app-private storage, one active local model, load/unload, chat, and removal. Auto mode attempts online inference first and falls back to local inference for network failures, missing online credentials, HTTP 408/429/5xx transient failures, provided a compatible local model is installed. Authentication/permission errors do not silently fall back. Turns answered locally are excluded from subsequent cloud conversation history.
-- A Qwen2.5-0.5B Q4_K_M candidate is pinned to an immutable repository revision and SHA-256 in `models/registry.json`.
-- No GGUF model has been downloaded to the target phone in this work. No real-device install, offline generation, RAM/thermal/battery benchmark, or Android upgrade test has been recorded. The app still has no built-in resumable model catalogue downloader; the current acquisition path is a browser download or the optional guarded developer script followed by import.
-- Therefore local inference is implemented in source but **not yet device-certified**.
+- Arm AI Chat `com.arm:ai-chat:0.1.0` provides the native GGUF/llama.cpp inference integration inside the Android app process. Termux is not required for runtime or local inference.
+- The app defaults to Auto mode and has the deployed NEXUS gateway URL preconfigured. It attempts online inference first, then falls back to an installed local model on network errors, missing online credentials and transient HTTP 408/429/5xx failures. Authentication/permission errors remain visible.
+- Local-fallback turns are excluded from subsequent cloud conversation history. Explicit Offline mode does not send inference prompts to the gateway.
+- Manual GGUF import, metadata validation, model listing/selection, load/unload and removal are implemented. A resumable in-app model catalogue downloader and registry SHA-256 verification for manually imported files are not implemented.
+- JVM tests cover network/quota fallback, auth/permission non-fallback and missing online credentials. The latest full Android build/test run is pending at this status update.
+- No GGUF model has been loaded on the target phone in this work. Real-device install, offline generation, RAM/thermal/battery measurements and upgrade testing remain unverified. Local inference is implemented in source but not device-certified.
 
-## Model registry
+## Model catalogue and licensing
 
-- Twelve requested model families are represented in the registry.
-- The registry deliberately distinguishes model families, candidate checkpoints, licence status, download status and device fit. It does not imply all twelve checkpoints are free for commercial use or suitable for the user's phone.
-- Qwen 0.5B is the first conservative local candidate. Other models require immutable revision, exact artifact hash, runtime compatibility, licence review and device-fit verification before being labelled production-ready.
-- Model weights are not stored in GitHub. Selected downloads are SHA-256 checked where a trusted expected hash is registered.
+- Twelve requested families are catalogued as research candidates: Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM.
+- This is not twelve verified downloadable models. Only the Qwen2.5-0.5B-Instruct Q4_K_M local candidate has a pinned upstream revision and expected SHA-256. Other local candidates need exact checkpoint, immutable revision, checksum, runtime/device fit and licence evidence.
+- Candidate licences are not all permissive for commercial use. Command R and StableLM candidates are non-commercial; all exact checkpoint terms must be reviewed before customer use.
+- No GGUF weights are stored in Git history or uploaded to Workers AI. Model distribution may later use authorised GitHub Release assets under the per-file size limit or a dedicated R2 bucket. No NEXUS R2 bucket is provisioned.
+- The Android browser can download the Qwen candidate from its publisher or ModelScope page; the ModelScope page is an alternative source, not yet checksum-verified by the registry. The app's import flow currently validates GGUF metadata but does not compare the imported file against the registry hash.
 
-## Cloudflare gateway
+## Cloudflare online gateway
 
-- Worker name: `wasti-nexus-gateway`; public endpoint: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
-- Worker source of record: `cloudflare/src/index.js`; Wrangler config: `cloudflare/wrangler.toml`.
-- The Worker has an `AI` binding and a protected OpenAI-compatible API.
-- **Critical upstream lifecycle finding:** Cloudflare deprecated both previous built-in model IDs, `@cf/meta/llama-3.2-1b-instruct` and `@cf/meta/llama-3.2-3b-instruct`, effective 2026-11-20. The prior successful CI only checked the binding/catalogue count and therefore did not detect that the upstream models no longer generated responses.
-- The merged repair replaces those retired IDs with `@cf/google/gemma-4-26b-a4b-it`, exposes its Apache-2.0 licence, context and published token pricing metadata, and tests dispatch to that exact ID.
-- The merged gateway also adds hashed per-application API keys with `models`/`chat` scopes; the master key alone can access the personal memory endpoints. A Cloudflare Rate Limiting binding is configured at 60 requests per 60 seconds per key per location. Cloudflare describes this as approximate/local, not strict global quotas. Public apps must not embed these long-lived bearer keys; a backend auth/token-exchange layer is still required.
-- The updated model was called successfully through the authenticated Cloudflare account API, returning `NEXUS_LIVE_MODEL_OK`. The current Worker source was deployed on 2026-11-26 at 12:53:33Z as version `85373829-cbf2-4b13-89e1-b9407ba624cc`; the `AI` binding, existing `NEXUS_API_KEY`/`NEXUS_GITHUB_TOKEN` secrets, plain-text variables and `NEXUS_RATE_LIMIT` binding were verified after upload. The deployed Worker source was compared with `cloudflare/src/index.js` and matched byte-for-byte. GitHub Actions confirmed the public health endpoint advertises `nexus-gemma-4-26b-a4b`. The authenticated Worker chat-completion smoke test is currently skipped because the GitHub repository secret `NEXUS_API_KEY` is absent; the account-level model test does not substitute for that route test. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
-- The existing `NEXUS_API_KEY` and `NEXUS_GITHUB_TOKEN` bindings were observed as configured secrets; secret values were not read or exposed.
+- Worker: `wasti-nexus-gateway`; base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
+- Canonical source: `cloudflare/src/index.js`; config: `cloudflare/wrangler.toml`.
+- Latest deployment: `b62973fae642449ca661441fe081be82`, deployed 2026-11-26 at 13:18:51Z. The deployment contains the two-model catalogue, guarded Hybrid logic and updated web console.
+- Worker settings were checked after deployment: the `AI` binding, `NEXUS_RATE_LIMIT`, `NEXUS_API_KEY`, `NEXUS_GITHUB_TOKEN`, and expected plain-text variables remain configured. Secret values were not read or exposed.
+- Two first-party models are configured through Cloudflare Workers AI, without third-party provider API keys:
+  - `nexus-gemma-4-26b-a4b` → `@cf/google/gemma-4-26b-a4b-it`, Apache-2.0.
+  - `nexus-qwen-3.8-27b` → `@cf/qwen/qwen3.8-27b`, Apache-2.0.
+- Both model IDs generated responses in direct Cloudflare account-level inference tests. Qwen 3.8's direct test consumed 19.24 Neurons for a short prompt. Cloudflare Workers AI Free currently provides 10,000 Neurons/day; usage is metered and model-dependent, not unlimited.
+- The Worker catalogue, single-model dispatch, two-model Hybrid dispatch and one-model Hybrid rejection have unit-test coverage. The latest Worker tests passed in run [45827619035](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827619035). The new deployed two-model catalogue check is in run [45827982406](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45827982406), which was queued at this update.
+- Hybrid mode now uses two distinct model IDs and is available in the Android app and web console after refreshing the model catalogue. The Worker rejects Hybrid if fewer than two distinct models are configured.
+- Public `/healthz` and model-catalogue checks pass. The authenticated live chat-generation smoke test is **not yet verified**: GitHub Actions skips it because the repository secret `NEXUS_API_KEY` is not configured. The Cloudflare account-level model test does not prove the deployed authenticated Worker route.
+- A per-location rate limit of 60 requests per 60 seconds per key is configured. It is approximate and not a strict global quota or billing meter.
+- `NEXUS_CLIENT_KEYS_JSON` is not populated with app-specific client keys. The source supports hashed 256-bit client keys with `models`/`chat` scopes and master-only memory access. Never expose the master key in public APKs or browser bundles.
 
-## Memory
+## Memory and customer data
 
-- Android-side snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM with a user-controlled recovery passphrase.
-- Worker routes accept encrypted envelopes and store ciphertext in the public GitHub repository. The passphrase is not sent to the Worker.
-- GitHub-backed memory write/read has unit-test coverage with mocked GitHub responses, but no authenticated live round-trip or cross-device recovery drill is recorded.
-- Because the repository is public, paths and metadata are visible. Only client-encrypted ciphertext may be stored there. GitHub is an archive/sync layer, not a transactional multi-tenant database.
+- Android-side memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM with a user-controlled recovery passphrase.
+- The Worker accepts encrypted envelopes and stores ciphertext in the public GitHub repository. The passphrase is not sent to the Worker.
+- The Worker settings contain a `NEXUS_GITHUB_TOKEN` secret binding and the expected memory repository variables. Worker unit tests mock GitHub; no live memory write/list/read or cross-device recovery drill has been recorded.
+- The GitHub repository is public. Paths and metadata are visible; only client-encrypted ciphertext and non-sensitive metadata may be stored there.
+- This is one personal vault, not a tenant-isolated customer memory service. Do not store customer memory there.
 
-## Security and production release gates
+## Production release gates
 
-The project must not be advertised as a fully production-ready multi-customer service until all of the following have evidence:
+WASTI NEXUS must **not** be certified as a fully production-ready multi-customer product until these items have evidence:
 
-1. Run an authenticated real chat-completion request through the deployed Worker. The optional GitHub Actions step is currently skipped because the repository secret `NEXUS_API_KEY` is not configured; the account-level model test and public health check do not prove the authenticated Worker route.
-2. Configure `NEXUS_CLIENT_KEYS_JSON` with unique per-application keys. The merged source includes a 256-bit key generator, SHA-256 hash validation, `models`/`chat` scopes and master-only memory access; the secret is not yet populated with app-specific client keys. The approximate per-location rate limiter is not a strict quota; add Durable Objects or an external metering service for strict global limits, plus user authentication and short-lived tokens for public apps.
-3. Add tenant isolation and authorization for memory and any future customer data. The current GitHub memory path is a single personal vault, not a customer memory service.
-4. Complete privacy/retention disclosures, abuse controls, monitoring/alerting, backup/restore drills and operational incident procedures.
-5. Install the APK on the target Android device, test with networking disabled, validate at least one GGUF model's actual generation, and record RAM, thermal, latency and battery results.
-6. Resolve all twelve candidate model revisions, expected artifact checksums, licences and redistribution/use restrictions before presenting the full catalogue as verified.
-7. Configure the four protected release-signing secrets and run the new `.github/workflows/release.yml` workflow. CI is being extended to create a disposable test keystore and validate release assembly/signature verification; this does not replace the owner's permanent release keystore. The first attempt found and fixed an `apksigner` PATH issue, and the corrected run is still being verified. No production keystore was provided or tested; verify the signed APK signature and install/upgrade behaviour before publishing a versioned release.
-8. Run dependency, secret, static-analysis and supply-chain checks and keep all CI jobs green on the exact release commit.
+1. Add the existing Cloudflare Worker master key as the GitHub Actions repository secret `NEXUS_API_KEY` (Settings → Secrets and variables → Actions). Then verify that the authenticated live chat smoke test actually runs and returns non-empty responses from both configured model IDs. A skipped test is not a pass.
+2. Configure unique server-side client keys in `NEXUS_CLIENT_KEYS_JSON`; add end-user authentication, short-lived token exchange, tenant isolation and strict global quotas before customer deployments.
+3. Complete the in-app resumable model downloader, signed/immutable model manifest and SHA-256 verification for downloaded/imported files, then test cancellation/retry/storage handling.
+4. Download and load at least one compatible GGUF on the target phone. Test airplane-mode generation, Auto fallback, model unload, app restart/upgrade, memory usage, thermal behaviour, latency and battery.
+5. Create and securely back up a permanent owner-controlled Android release keystore, configure the four protected secrets in [RELEASE.md](RELEASE.md), build the signed APK and verify installation/upgrade on the target device. CI's disposable keystore only validates the build/signing pipeline.
+6. Complete a live encrypted-memory write/read/restore drill and document backup, retention and deletion behaviour.
+7. Review exact licences and provenance for each of the twelve candidate model families before enabling customer use; do not equate an open-weight checkpoint with unrestricted commercial rights.
+8. Add production monitoring, incident response, abuse controls, privacy/retention disclosures and operational ownership.
 
-A passing unit test proves only the tested behaviour. A successful APK assembly is not a signed release. A healthy Worker is not proof of successful inference. A source-level local runtime is not proof of offline inference on a physical device.
+The current implementation is a strong, tested release candidate with a deployed two-model online gateway and native offline inference source. It is **not yet fully production-certified** because the authenticated route test, device certification, permanent signing key, model download/integrity flow and customer data controls remain open.
