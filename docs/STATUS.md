@@ -33,7 +33,8 @@ Last updated: 2026-11-26.
 
 ## Cloudflare gateway and online console
 
-- Worker `wasti-nexus-gateway` has been redeployed through the Cloudflare API.
+- Worker `wasti-nexus-gateway` has been redeployed through the Cloudflare API after the route error-handling fix (deployment tag `28847c762f5f4e72a906cddbafc5fa81`).
+- The Worker awaits chat route handlers so validation/provider errors reach the central HTTP error mapper instead of escaping as unhandled promise rejections.
 - The Worker serves the web console at `/` from its embedded HTML response. The canonical HTML source remains `cloudflare/public/index.html`.
 - `/healthz`, OpenAI-compatible chat routes and encrypted GitHub memory routes are in the deployed Worker source.
 - The existing `NEXUS_API_KEY` secret was preserved during deployment.
@@ -44,17 +45,19 @@ Last updated: 2026-11-26.
 
 ## CI and verification
 
-- CI now has Python tests/source validation, Worker JavaScript syntax/unit tests and Android debug-build jobs.
+- The consolidated `WASTI NEXUS CI` workflow runs Python tests/source validation, Cloudflare Worker syntax/unit tests and Android debug APK assembly.
+- The duplicate Android-only workflow was removed; the consolidated workflow is the single source of CI verification.
 - CI skips documentation-only, memory-only and dataset-only changes; it runs for code, tests, registry and workflow changes.
-- The latest GitHub combined commit-status lookup returned no status entries, and no workflow run result was available. CI is therefore **unverified**, not passed.
-- The Android APK has not been built successfully in a verified CI run. No real-device offline inference test has passed.
+- Latest full CI run passed on 2026-11-26 for commit `f41266fbe1a3689810174b6c042ccb2fd510463b`: Python tests, registry/schema checks, Python compilation, JSON/TOML validation, Worker syntax/unit tests and Android `assembleDebug`.
+- The APK was assembled successfully, but the push-triggered run did not upload an artifact. Manual/tagged runs upload it with one-day retention.
+- No real-device installation, offline inference, thermal, battery or memory benchmark has been performed.
 
 ## Release blockers
 
 1. Add the GitHub fine-grained token as Worker secret `NEXUS_GITHUB_TOKEN` (Contents read/write only for this repository).
 2. Configure at least one inference provider and its API secret. Free providers have request/token caps and changing model availability; there is no unlimited free online inference.
-3. Run CI and fix any failing Python, Worker or Android job.
-4. Build/install the APK and test Qwen GGUF on the Redmi with networking disabled; benchmark RAM, context, speed, heat and battery.
+3. Keep the consolidated CI workflow green for every code change.
+4. Install the built APK on the Redmi and test Qwen GGUF with networking disabled; benchmark RAM, context, speed, heat and battery.
 5. Implement memory indexing/retrieval, sync retry/conflict handling and restore/backup drills before treating GitHub as a durable personal memory system.
 6. Complete customer authentication, tenant isolation, quotas, rate limits, monitoring, retention and legal model-licence review before commercial release.
 
