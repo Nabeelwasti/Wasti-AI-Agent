@@ -768,7 +768,7 @@ private fun NexusScreen(
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
     var localModelPath by remember {
-        mutableStateOf(initialModelPath.takeIf { it in initialModels } ?: initialModels.firstOrNull().orEmpty())
+        mutableStateOf(initialModelPath.takeIf { it in initialModels } ?: initialModels.minByOrNull { File(it).length() }.orEmpty())
     }
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
