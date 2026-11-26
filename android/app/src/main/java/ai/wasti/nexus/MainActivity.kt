@@ -62,6 +62,12 @@ class MainActivity : ComponentActivity() {
                     initialUrl = prefs.getString("url", "") ?: "",
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
+                    initialModels = installedModels(),
+                    initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
+                    onListModels = { installedModels() },
+                    onSelectModel = { path -> prefs.edit().putString("local_model_path", path).apply() },
+                    onDeleteModel = { path -> deleteModel(path) },
+                    onFreeStorage = { StatFs(filesDir.absolutePath).availableBytes },
                     onSave = { url, key ->
                         prefs.edit().putString("url", url).apply()
                         encryptSecret(key)
@@ -118,6 +124,25 @@ class MainActivity : ComponentActivity() {
         ""
     }
 
+    private fun installedModels(): List<String> =
+        File(filesDir, "models").listFiles()
+            ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) && it.length() > 1024L * 1024L }
+            ?.sortedBy { it.name.lowercase() }
+            ?.map { it.absolutePath }
+            ?: emptyList()
+
+    private fun deleteModel(path: String) {
+        val directory = File(filesDir, "models").canonicalFile
+        val target = File(path).canonicalFile
+        require(target.parentFile == directory && target.extension.equals("gguf", ignoreCase = true)) {
+            "Refusing to delete a file outside NEXUS model storage."
+        }
+        require(prefs.getString("local_model_path", "") != path) {
+            "Select another model before deleting the currently selected model."
+        }
+        require(target.delete()) { "Could not delete the selected model file." }
+    }
+
     private suspend fun importModel(uri: Uri): String = withContext(Dispatchers.IO) {
         val name = contentResolver.query(
             uri,
@@ -151,7 +176,8 @@ class MainActivity : ComponentActivity() {
         }
 
         val modelDirectory = File(filesDir, "models").apply { mkdirs() }
-        val target = File(modelDirectory, "${UUID.randomUUID()}.gguf")
+        val safeName = displayName.substringAfterLast('/').replace(Regex("[^A-Za-z0-9._-]"), "_").take(80)
+        val target = File(modelDirectory, "${UUID.randomUUID()}-$safeName")
         try {
             val input = contentResolver.openInputStream(uri)
                 ?: throw IllegalArgumentException("Android could not open the selected model.")
@@ -180,7 +206,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun loadLocalModel(path: String) = withContext(Dispatchers.IO) {
+    private suspend fun loadLocalModel(path: String) = withContext(Dispatchers.Default) {
         val model = File(path)
         require(model.isFile && model.extension.equals("gguf", ignoreCase = true)) {
             "Select a valid installed GGUF model first."
@@ -216,7 +242,7 @@ class MainActivity : ComponentActivity() {
         localEngine.cleanUp()
     }
 
-    private suspend fun sendLocal(prompt: String): String = withContext(Dispatchers.IO) {
+    private suspend fun sendLocal(prompt: String): String = withContext(Dispatchers.Default) {
         val output = StringBuilder()
         localEngine.sendUserPrompt(prompt).collect { token -> output.append(token) }
         output.toString().ifBlank { "The local model returned an empty response." }
@@ -267,6 +293,12 @@ private fun NexusScreen(
     initialUrl: String,
     initialKey: String,
     initialModelPath: String,
+    initialModels: List<String>,
+    initialFreeStorageBytes: Long,
+    onListModels: () -> List<String>,
+    onSelectModel: (String) -> Unit,
+    onDeleteModel: (String) -> Unit,
+    onFreeStorage: () -> Long,
     onSave: (String, String) -> Unit,
     onImportModel: suspend (Uri) -> String,
     onLoadLocal: suspend (String) -> Unit,
@@ -277,6 +309,10 @@ private fun NexusScreen(
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
     var localModelPath by remember { mutableStateOf(initialModelPath) }
+    var installedModels by remember { mutableStateOf(initialModels) }
+    var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
+    var modelMenuExpanded by remember { mutableStateOf(false) }
+    var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
     var busy by remember { mutableStateOf(false) }
@@ -295,7 +331,9 @@ private fun NexusScreen(
                     if (localReady) onUnloadLocal()
                     localReady = false
                     localModelPath = onImportModel(uri)
-                    answer = "Model copied into NEXUS private storage. Load it before starting offline chat."
+                    installedModels = onListModels()
+                    freeStorageBytes = onFreeStorage()
+                    answer = "Model imported and GGUF metadata validated. Load it before starting offline chat."
                 } catch (error: Exception) {
                     answer = "Model import failed: ${error.message}"
                 } finally {
@@ -326,9 +364,33 @@ private fun NexusScreen(
 
             if (offlineMode) {
                 Text("LOCAL MODEL", style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(
+                    onClick = { modelMenuExpanded = true },
+                    enabled = installedModels.isNotEmpty() && !busy
+                ) {
+                    Text(localModelPath.substringAfterLast('/').ifBlank { "Choose an installed GGUF model" })
+                }
+                DropdownMenu(
+                    expanded = modelMenuExpanded,
+                    onDismissRequest = { modelMenuExpanded = false }
+                ) {
+                    installedModels.forEach { modelPath ->
+                        DropdownMenuItem(
+                            text = { Text(modelPath.substringAfterLast('/')) },
+                            onClick = {
+                                if (localReady) onUnloadLocal()
+                                localReady = false
+                                localModelPath = modelPath
+                                onSelectModel(modelPath)
+                                modelMenuExpanded = false
+                                answer = "Selected model. Load it to start offline inference."
+                            }
+                        )
+                    }
+                }
                 Text(
-                    localModelPath.substringAfterLast('/').ifBlank { "No GGUF model selected" },
-                    style = MaterialTheme.typography.bodyMedium
+                    "Installed: ${installedModels.size} model(s) · Free storage: ${"%.1f".format(freeStorageBytes / (1024.0 * 1024.0 * 1024.0))} GB",
+                    style = MaterialTheme.typography.bodySmall
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
@@ -353,6 +415,39 @@ private fun NexusScreen(
                             }
                         }
                     ) { Text("Load model") }
+                }
+                if (localModelPath.isNotBlank()) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { confirmDeleteModel = true }
+                    ) { Text("Remove selected model") }
+                }
+                if (confirmDeleteModel) {
+                    AlertDialog(
+                        onDismissRequest = { confirmDeleteModel = false },
+                        title = { Text("Remove downloaded model?") },
+                        text = { Text("This deletes the selected GGUF file from NEXUS private storage. The original file is not affected.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                if (localReady) onUnloadLocal()
+                                localReady = false
+                                try {
+                                    onDeleteModel(localModelPath)
+                                    installedModels = onListModels()
+                                    localModelPath = installedModels.firstOrNull().orEmpty()
+                                    onSelectModel(localModelPath)
+                                    freeStorageBytes = onFreeStorage()
+                                    answer = "Model removed from this device."
+                                } catch (error: Exception) {
+                                    answer = "Could not remove model: ${error.message}"
+                                }
+                                confirmDeleteModel = false
+                            }) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { confirmDeleteModel = false }) { Text("Cancel") }
+                        }
+                    )
                 }
                 if (localReady) {
                     OutlinedButton(
