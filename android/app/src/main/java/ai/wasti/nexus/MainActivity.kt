@@ -316,7 +316,7 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val listRequest = Request.Builder()
             .url("$apiRoot/memory/snapshots?limit=1")
             .header("Authorization", "Bearer $key")
@@ -371,7 +371,7 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "API key must be at least 32 characters." }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val request = Request.Builder()
             .url("$apiRoot/memory/snapshots")
             .header("Authorization", "Bearer $key")
@@ -654,7 +654,7 @@ class MainActivity : ComponentActivity() {
             val local = NexusRuntimePolicy.isLoopbackHttp(root)
             require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
             require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
-            val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+            val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
             val requestBuilder = Request.Builder().url("$apiRoot/models").get()
             if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
             val request = requestBuilder.build()
@@ -707,7 +707,7 @@ class MainActivity : ComponentActivity() {
         if (hybrid) {
             payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
         }
-        val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+        val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
         val requestBuilder = Request.Builder()
             .url("$apiRoot/chat/completions")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
