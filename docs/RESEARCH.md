@@ -52,7 +52,7 @@ The first registered phone candidate is `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, using
 
 Use the public Git repository for curated Markdown/JSON knowledge, dataset manifests, evaluation cases and client-encrypted memory snapshots. The Android client currently stores encrypted snapshot files in app-private storage; encrypted SQLite, retrieval indexing, embedding rebuilds and retention management are future work. Do not commit large, frequently rewritten vector indexes.
 
-The deployed Worker writes encrypted snapshots directly through the GitHub Contents API using a server-side fine-grained token. The repository must remain public in this deployment mode. GitHub exposes ciphertext, file paths, timestamps, tags, commit history and other metadata to everyone; never store plaintext personal/customer memory or encryption keys. Batch snapshots, use immutable IDs, and keep the GitHub token out of Android/browser code. The token is not configured yet, so remote memory sync is currently unavailable.
+The Android client derives a key from the user's passphrase with PBKDF2-HMAC-SHA256 (600,000 iterations and a random 16-byte salt) and encrypts with AES-256-GCM. The passphrase is never sent to the Worker. The deployed Worker writes encrypted snapshots directly through the GitHub Contents API using a server-side fine-grained token. The repository must remain public in this deployment mode. GitHub exposes ciphertext, file paths, timestamps, tags, commit history and other metadata to everyone; never store plaintext personal/customer memory or encryption keys. Batch snapshots, use immutable IDs, and keep the GitHub token out of Android/browser code. The token is not configured yet, so remote memory sync is currently unavailable.
 
 ## Cloudflare role
 
