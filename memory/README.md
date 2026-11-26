@@ -1,36 +1,29 @@
-# NEXUS memory and knowledge files
+# NEXUS memory storage
 
-GitHub is the versioned file source for curated knowledge, small datasets and optional encrypted memory snapshots. It is not the live memory database or inference/training engine.
+This repository is public. The only permitted personal-memory payload is **client-encrypted AES-256-GCM ciphertext**. GitHub exposes file contents, commit history, paths and metadata to everyone.
 
-## Storage tiers
+## Layout
 
-1. Android private app storage: encrypted SQLite is the fast offline working memory and local conversation store.
-2. GitHub private repository: batched encrypted snapshots and versioned curated knowledge/dataset files.
-3. Retrieval: local index for offline use; online index can be rebuilt from the same committed source files.
+- `schemas/`: versioned record contracts.
+- `personal/encrypted/`: immutable ciphertext snapshots written by the Worker.
+- `project/`: only non-sensitive, intentionally public project knowledge may be added here.
+- `exports/`: no plaintext personal/customer exports. Keep recovery material outside this public repository.
 
-## Privacy and access
+## Rules
 
-- Keep personal and customer data in private repositories only.
-- Encrypt personal/customer memory on the device before upload. Encryption keys never enter Git.
-- Use separate tenant namespaces and verify tenant authorization before reading files.
-- GitHub App credentials or a narrowly scoped fine-grained token are server-side secrets only.
-- Never embed a GitHub write token in an APK, frontend JavaScript or SDK distributed to customers.
-- Never commit passwords, API keys, auth tokens, private keys or unencrypted sensitive records.
-- Use batch snapshots and commit SHA provenance. Do not make one commit per chat message.
-- Respect GitHub API limits and resolve concurrent-write conflicts; use a local queue when offline or rate-limited.
+1. Encrypt on the trusted client before any network request. The Worker must never receive plaintext.
+2. Use AES-256-GCM with a fresh random 12-byte nonce for every encryption under a given key.
+3. Keep encryption keys outside GitHub and Cloudflare. Never upload keys, passphrases, API keys, GitHub tokens or recovery codes.
+4. Batch related memory entries into one bounded snapshot to reduce commits and API calls.
+5. Keep local encrypted snapshots so Offline mode continues to work without internet.
+6. Public paths, timestamps, tags, record counts and commit history are metadata; keep them non-sensitive.
+7. The current vault is single-user. Do not use it for customer records or multi-tenant data.
+8. Before enabling cross-device restore, implement a user-controlled recovery-key/passphrase flow. Android Keystore keys alone are device-bound.
 
-## Suggested paths
+## API
 
-```
-memory/
-  schemas/
-  personal/encrypted/
-  projects/<project-id>/
-  tenants/<tenant-id>/encrypted/
-datasets/
-  training/
-  eval/
-  manifests/
-```
+- `GET /v1/memory/snapshots`
+- `POST /v1/memory/snapshots`
+- `GET /v1/memory/snapshots/{uuid}`
 
-Personal memory sync is optional. Local-only mode must work without GitHub credentials or network access.
+The Cloudflare Worker forwards directly to GitHub's Contents API. It does not use KV, D1, R2, Durable Objects or Vectorize.
