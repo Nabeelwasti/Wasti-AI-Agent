@@ -1404,13 +1404,15 @@ private fun NexusScreen(
                         scope.launch {
                             answer = try {
                                 onSave(url, key)
-                                remoteModels = onFetchModels(url, key)
-                                if (agentId !in remoteModels) agentId = remoteModels.firstOrNull().orEmpty()
-                                if (configuredRemoteModelCount < 2) hybrid = false
-                                if (configuredRemoteModelCount < 2) {
-                                    "Loaded ${configuredRemoteModelCount} configured online brain(s). Hybrid stays disabled until two distinct models are configured."
+                                val fetchedModels = onFetchModels(url, key)
+                                remoteModels = fetchedModels
+                                if (agentId !in fetchedModels) agentId = fetchedModels.firstOrNull().orEmpty()
+                                val fetchedBrainCount = fetchedModels.count { it != "nexus-auto" && it != "nexus-hybrid" }
+                                if (fetchedBrainCount < 2) hybrid = false
+                                if (fetchedBrainCount < 2) {
+                                    "Loaded $fetchedBrainCount configured online brain(s). Hybrid stays disabled until two distinct models are configured."
                                 } else {
-                                    "Loaded ${configuredRemoteModelCount} configured online brain(s). Hybrid orchestration is available."
+                                    "Loaded $fetchedBrainCount configured online brain(s). Hybrid orchestration is available."
                                 }
                             } catch (error: Exception) {
                                 "Could not load online brains: ${error.message}"
