@@ -33,6 +33,7 @@ def test_local_http_requires_explicit_development_switch(monkeypatch):
 def test_customer_mode_requires_commercial_license_clearance(monkeypatch):
     monkeypatch.setenv("NEXUS_DEPLOYMENT_MODE", "customer")
     assert main.model_allowed({"commercial_allowed": True, "license_status": "verified"})
+    assert not main.model_allowed({"commercial_allowed": True})
     assert not main.model_allowed({"commercial_allowed": False, "license_status": "verified"})
     monkeypatch.setenv("NEXUS_DEPLOYMENT_MODE", "personal")
     assert main.model_allowed({"commercial_allowed": False, "license_status": "verified"})
@@ -42,7 +43,7 @@ def test_hybrid_collective_runs_peer_review(monkeypatch):
     monkeypatch.setenv("NEXUS_SYNTHESIS_AGENT", "qwen")
     monkeypatch.setattr(main, "agents_config", lambda: {
         "qwen": {"base_url": "https://qwen.example/v1", "model": "qwen-test", "commercial_allowed": True, "license_status": "verified"},
-        "llama": {"base_url": "https://llama.example/v1", "model": "llama-test", "commercial_allowed": True},
+        "llama": {"base_url": "https://llama.example/v1", "model": "llama-test", "commercial_allowed": True, "license_status": "verified"},
     })
 
     async def fake_call_agent(agent_id, config, messages, temperature, max_tokens):
