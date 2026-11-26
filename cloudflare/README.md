@@ -29,7 +29,7 @@ Snapshot filenames use a reverse-timestamp prefix so GitHub's lexicographic dire
 
 ## GitHub memory integration
 
-The Worker writes encrypted memory files directly through the GitHub Contents API. It does not use Cloudflare storage. The configured repository must remain public in this deployment mode; the Worker verifies visibility before every operation. Only AES-256-GCM ciphertext and non-sensitive metadata are accepted. GitHub exposes those ciphertext files and metadata publicly, so plaintext personal/customer information and encryption keys must never be committed.
+The Worker writes encrypted memory files directly through the GitHub Contents API. It does not use Cloudflare storage. The configured repository must remain public in this deployment mode; the Worker verifies visibility before every operation. Only PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte salt) plus AES-256-GCM ciphertext (12-byte nonce) and non-sensitive metadata are accepted. The user recovery passphrase never reaches the Worker. GitHub exposes those ciphertext files and metadata publicly, so plaintext personal/customer information and encryption keys must never be committed.
 
 Configure the Worker variables in `wrangler.toml` (`NEXUS_MEMORY_REPOSITORY`, branch and prefix), then add a fine-grained GitHub token as a Worker secret named `NEXUS_GITHUB_TOKEN`. Give it Contents read/write access only to `Nabeelwasti/Wasti-AI-Agent`. Never put the token in the repository or client app. Without this secret, memory routes return HTTP 503 and do not write anything.
 
