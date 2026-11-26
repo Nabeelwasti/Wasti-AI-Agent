@@ -14,7 +14,23 @@
       "files": [],
       "commercial_use": "conditional; review Meta community licence, AUP, attribution and access gate",
       "gated": true,
-      "source_url": "https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct"
+      "source_url": "https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct",
+      "local_candidate": {
+        "repo_id": "tensorblock/Llama-3.2-1B-Instruct-GGUF",
+        "revision": null,
+        "file_name": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1B",
+        "estimated_size_bytes": 808000000,
+        "minimum_available_ram_gb": 3.5,
+        "license_id": "llama3.2",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Not approved for customer distribution; Meta Llama terms and gated base access must be reviewed. Not recommended with 3 GB available RAM.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "qwen",
@@ -56,7 +72,23 @@
       "gated": false,
       "source_url": "https://huggingface.co/google/gemma-4-E2B-it",
       "candidate": "google/gemma-4-E2B-it",
-      "runtime_note": "2.3B effective / 5.1B including embeddings; multimodal; intended for edge/mobile-class deployments"
+      "runtime_note": "2.3B effective / 5.1B including embeddings; multimodal; intended for edge/mobile-class deployments",
+      "local_candidate": {
+        "repo_id": "ggml-org/gemma-3-1b-it-GGUF",
+        "revision": null,
+        "file_name": "gemma-3-1b-it-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1B",
+        "estimated_size_bytes": 806000000,
+        "minimum_available_ram_gb": 3.5,
+        "license_id": "gemma",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Gemma terms apply; review prohibited-use and distribution terms. 1B model is a later device trial after Qwen.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "deepseek",
@@ -69,7 +101,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "permissive subject to MIT and underlying Qwen base-model terms",
-      "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+      "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "local_candidate": {
+        "repo_id": "tensorblock/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+        "revision": null,
+        "file_name": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1.5B",
+        "estimated_size_bytes": 1117000000,
+        "minimum_available_ram_gb": 4,
+        "license_id": "MIT with Qwen base notices",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Preserve DeepSeek MIT and Qwen base-model notices; confirm exact derived-model rights before customer use. Requires more than current free RAM.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "mistral",
@@ -82,7 +130,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted subject to Apache-2.0 notices",
-      "source_url": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3"
+      "source_url": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3",
+      "local_candidate": {
+        "repo_id": "second-state/Mistral-7B-Instruct-v0.3-GGUF",
+        "revision": null,
+        "file_name": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "7B",
+        "estimated_size_bytes": 4370000000,
+        "minimum_available_ram_gb": 8,
+        "license_id": "Apache-2.0",
+        "commercial_allowed": true,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Large 7B checkpoint; not suitable for current phone RAM. Reserve for a higher-RAM device or online provider.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "phi",
@@ -95,7 +159,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted subject to MIT notices and model-specific terms",
-      "source_url": "https://huggingface.co/microsoft/Phi-3.5-mini-instruct"
+      "source_url": "https://huggingface.co/microsoft/Phi-3.5-mini-instruct",
+      "local_candidate": {
+        "repo_id": "bartowski/Phi-3.5-mini-instruct-GGUF",
+        "revision": null,
+        "file_name": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "3.8B",
+        "estimated_size_bytes": 2390000000,
+        "minimum_available_ram_gb": 5,
+        "license_id": "MIT",
+        "commercial_allowed": true,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Large 3.8B checkpoint; not suitable for current phone RAM. Reassess only with at least about 5 GB available RAM.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "granite",
@@ -108,7 +188,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted subject to Apache-2.0 notices",
-      "source_url": "https://huggingface.co/ibm-granite/granite-3.1-2b-instruct"
+      "source_url": "https://huggingface.co/ibm-granite/granite-3.1-2b-instruct",
+      "local_candidate": {
+        "repo_id": "mradermacher/granite-3.1-2b-instruct-GGUF",
+        "revision": null,
+        "file_name": "granite-3.1-2b-instruct.Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "2B",
+        "estimated_size_bytes": 1550000000,
+        "minimum_available_ram_gb": 4.5,
+        "license_id": "Apache-2.0",
+        "commercial_allowed": true,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "2B model; not suitable with 3 GB available RAM. Keep as a later install candidate.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "glm",
@@ -121,7 +217,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "conditional; review Zhipu/GLM agreement, attribution and prohibited-use clauses",
-      "source_url": "https://huggingface.co/zai-org/glm-4-9b-chat"
+      "source_url": "https://huggingface.co/zai-org/glm-4-9b-chat",
+      "local_candidate": {
+        "repo_id": "bartowski/glm-4-9b-chat-GGUF",
+        "revision": null,
+        "file_name": "glm-4-9b-chat-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "9B",
+        "estimated_size_bytes": 6250000000,
+        "minimum_available_ram_gb": 10,
+        "license_id": "GLM-4 custom licence",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "9B model and custom terms; online-first. Local install requires a much higher-RAM device and legal review.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "command-r",
@@ -135,7 +247,23 @@
       "files": [],
       "commercial_use": "non-commercial only; exclude from customer/commercial products unless separately licensed",
       "gated": true,
-      "source_url": "https://huggingface.co/CohereLabs/c4ai-command-r7b-12-2024"
+      "source_url": "https://huggingface.co/CohereLabs/c4ai-command-r7b-12-2024",
+      "local_candidate": {
+        "repo_id": "oncu/c4ai-command-r7b-12-2024-GGUF",
+        "revision": null,
+        "file_name": "c4ai-command-r7b-12-2024-q4_k_m.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "7B",
+        "estimated_size_bytes": 5060000000,
+        "minimum_available_ram_gb": 8,
+        "license_id": "CC-BY-NC-4.0",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Non-commercial licence; prohibited for customer/commercial deployment absent separate rights. Not suitable for current phone RAM.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "falcon",
@@ -148,7 +276,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "conditional; review TII licence and acceptable-use terms",
-      "source_url": "https://huggingface.co/tiiuae/Falcon3-1B-Instruct"
+      "source_url": "https://huggingface.co/tiiuae/Falcon3-1B-Instruct",
+      "local_candidate": {
+        "repo_id": "second-state/Falcon3-1B-Instruct-GGUF",
+        "revision": null,
+        "file_name": "Falcon3-1B-Instruct-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1B",
+        "estimated_size_bytes": 1060000000,
+        "minimum_available_ram_gb": 3.5,
+        "license_id": "TII Falcon-LLM License 2.0",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Custom TII terms require review before customer use. Later device candidate; 3 GB free RAM may be insufficient.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "smollm",
@@ -161,7 +305,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "generally permitted subject to Apache-2.0 notices",
-      "source_url": "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct"
+      "source_url": "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "local_candidate": {
+        "repo_id": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
+        "revision": null,
+        "file_name": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1.7B",
+        "estimated_size_bytes": 1060000000,
+        "minimum_available_ram_gb": 4,
+        "license_id": "Apache-2.0",
+        "commercial_allowed": true,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Compact 1.7B model; later local trial when at least about 4 GB RAM is available.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     },
     {
       "id": "stablelm",
@@ -174,7 +334,23 @@
       "download_status": "not-downloaded",
       "files": [],
       "commercial_use": "non-commercial research only; exclude from customer/commercial APIs unless Stability AI grants commercial rights",
-      "source_url": "https://huggingface.co/stabilityai/stablelm-2-1_6b-chat"
+      "source_url": "https://huggingface.co/stabilityai/stablelm-2-1_6b-chat",
+      "local_candidate": {
+        "repo_id": "tensorblock/stablelm-2-1_6b-chat-GGUF",
+        "revision": null,
+        "file_name": "stablelm-2-1_6b-chat-Q4_K_M.gguf",
+        "quantization": "Q4_K_M",
+        "parameters": "1.6B",
+        "estimated_size_bytes": 961000000,
+        "minimum_available_ram_gb": 4,
+        "license_id": "Stability AI Non-Commercial Research Community License",
+        "commercial_allowed": false,
+        "redistribution_allowed": false,
+        "license_review": "Candidate source and Q4_K_M artifact identified by upstream model card/file listing; pin exact immutable revision, preserve all base-model notices, and complete terms review before downloading or distributing.",
+        "intended_device_profile": "Non-commercial research terms; do not use in customer/commercial products without separate rights. Later personal-device trial.",
+        "download_status": "not-downloaded",
+        "sha256": null
+      }
     }
   ]
 }
