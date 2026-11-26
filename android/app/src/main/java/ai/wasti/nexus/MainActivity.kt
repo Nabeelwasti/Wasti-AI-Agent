@@ -312,7 +312,7 @@ class MainActivity : ComponentActivity() {
     ): List<Pair<String, String>> = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-        require(key.length >= 32) { "API key must be at least 32 characters." }
+        require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
         val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
         val listRequest = Request.Builder()
             .url("$apiRoot/memory/snapshots?limit=1")
@@ -661,7 +661,7 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         val local = isLoopbackHttp(root)
         require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
-        require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
+        require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
 
         // Bound the remote context so a long chat cannot exceed gateway request limits.
         // Only the online conversation is supplied; local-only turns never leave the device.
