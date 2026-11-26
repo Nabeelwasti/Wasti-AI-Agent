@@ -31,7 +31,7 @@ Snapshot filenames use a reverse-timestamp prefix so GitHub's lexicographic dire
 
 The Worker writes encrypted memory files directly through the GitHub Contents API. It does not use Cloudflare storage. The configured repository must remain public in this deployment mode; the Worker verifies visibility before every operation. Only PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte salt) plus AES-256-GCM ciphertext (12-byte nonce) and non-sensitive metadata are accepted. The user recovery passphrase never reaches the Worker. GitHub exposes those ciphertext files and metadata publicly, so plaintext personal/customer information and encryption keys must never be committed.
 
-Configure the Worker variables in `wrangler.toml` (`NEXUS_MEMORY_REPOSITORY`, branch and prefix), then add a fine-grained GitHub token as a Worker secret named `NEXUS_GITHUB_TOKEN`. Give it Contents read/write access only to `Nabeelwasti/Wasti-AI-Agent`. Never put the token in the repository or client app. Without this secret, memory routes return HTTP 503 and do not write anything.
+Configure the Worker variables in `wrangler.toml` (`NEXUS_MEMORY_REPOSITORY`, branch and prefix), then add a fine-grained GitHub token as a Worker secret named `NEXUS_GITHUB_TOKEN` (Cloudflare dashboard → Worker → Settings → Variables and Secrets, or `npx wrangler secret put NEXUS_GITHUB_TOKEN`). Give it Contents read/write access only to `Nabeelwasti/Wasti-AI-Agent`. Never put the token in the repository or client app. Without this secret, memory routes return HTTP 503 and do not write anything.
 
 GitHub is a versioned sync/archive layer, not a transactional database. Batch memory into snapshots, keep local encrypted copies for offline access, and account for GitHub API rate limits and public visibility. The initial endpoint is a single personal vault, not a multi-tenant customer memory service.
 
@@ -54,8 +54,8 @@ The Worker orchestrates configured inference services; it does not host large mo
 The gateway accepts OpenAI-compatible providers through `NEXUS_PROVIDERS_JSON`. The example `providers.example.json` demonstrates OpenRouter's free-model router. To enable it:
 
 1. Create an OpenRouter account and API key yourself.
-2. Add `NEXUS_OPENROUTER_API_KEY` as a Worker secret.
-3. Add the JSON from `providers.example.json` as the Worker secret/config value `NEXUS_PROVIDERS_JSON`.
+2. Add `NEXUS_OPENROUTER_API_KEY` as a Worker secret (`npx wrangler secret put NEXUS_OPENROUTER_API_KEY`).
+3. Add the JSON from `providers.example.json` as the Worker secret/config value `NEXUS_PROVIDERS_JSON` (`npx wrangler secret put NEXUS_PROVIDERS_JSON`).
 4. Keep `NEXUS_DEPLOYMENT_MODE=customer` unless the selected model and upstream provider terms have been reviewed for customer use. The example deliberately sets `commercial_allowed: false`, so it is hidden in customer mode.
 
 OpenRouter's `openrouter/free` router selects from its currently available free models; it does **not** guarantee a specific one of the twelve registered model families. Free-model IDs and availability change. The example is a personal experimentation path, not a promise of free production capacity. Never put provider keys in GitHub or frontend code.
