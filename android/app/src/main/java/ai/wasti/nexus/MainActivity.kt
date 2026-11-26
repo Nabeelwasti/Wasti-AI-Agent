@@ -83,8 +83,8 @@ class MainActivity : ComponentActivity() {
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
                     onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns, passphrase -> syncMemorySnapshot(url, key, turns, passphrase) },
-                    onSendRemote = { url, key, prompt, hybrid, agentId ->
-                        sendRemote(url, key, prompt, hybrid, agentId)
+                    onSendRemote = { url, key, history, prompt, hybrid, agentId ->
+                        sendRemote(url, key, history, prompt, hybrid, agentId)
                     }
                 )
             }
@@ -486,6 +486,7 @@ class MainActivity : ComponentActivity() {
     private suspend fun sendRemote(
         url: String,
         key: String,
+        history: List<Pair<String, String>>,
         prompt: String,
         hybrid: Boolean,
         agentId: String
@@ -493,7 +494,23 @@ class MainActivity : ComponentActivity() {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "API key must be at least 32 characters." }
-        val messages = JSONArray().put(JSONObject().put("role", "user").put("content", prompt))
+
+        // Bound the remote context so a long chat cannot exceed gateway request limits.
+        // Only the online conversation is supplied; local-only turns never leave the device.
+        val selectedHistory = mutableListOf<Pair<String, String>>()
+        var contextChars = prompt.length
+        for (turn in history.asReversed()) {
+            val turnChars = turn.first.length + turn.second.length
+            if (selectedHistory.size >= 10 || contextChars + turnChars > 18000) break
+            selectedHistory.add(turn)
+            contextChars += turnChars
+        }
+        val messages = JSONArray()
+        selectedHistory.asReversed().forEach { (user, assistant) ->
+            messages.put(JSONObject().put("role", "user").put("content", user))
+            messages.put(JSONObject().put("role", "assistant").put("content", assistant))
+        }
+        messages.put(JSONObject().put("role", "user").put("content", prompt))
         val payload = JSONObject()
             .put("model", if (hybrid) "nexus-hybrid" else agentId)
             .put("messages", messages)
@@ -545,7 +562,7 @@ private fun NexusScreen(
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
-    onSendRemote: suspend (String, String, String, Boolean, String) -> String
+    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -557,6 +574,7 @@ private fun NexusScreen(
     var prompt by remember { mutableStateOf(initialPrompt) }
     var answer by remember { mutableStateOf("Choose Online or Offline mode to begin.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(true) }
@@ -801,6 +819,20 @@ private fun NexusScreen(
                 }
             }
 
+            if (conversation.isNotEmpty()) {
+                Text("CONVERSATION", style = MaterialTheme.typography.titleMedium)
+                conversation.takeLast(12).forEach { (user, assistant) ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("YOU", style = MaterialTheme.typography.labelSmall)
+                            Text(user)
+                            HorizontalDivider()
+                            Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall)
+                            Text(assistant)
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp),
                 label = { Text("Your prompt") }
@@ -815,7 +847,7 @@ private fun NexusScreen(
                                 onSendLocal(prompt)
                             } else {
                                 onSave(url, key)
-                                onSendRemote(url, key, prompt, hybrid, agentId)
+                                onSendRemote(url, key, remoteConversation, prompt, hybrid, agentId)
                             }
                         } catch (error: Exception) {
                             "Request failed: ${error.message}"
@@ -823,6 +855,9 @@ private fun NexusScreen(
                         answer = result
                         if (!result.startsWith("Request failed:")) {
                             conversation = conversation + (prompt to result)
+                            if (!offlineMode) {
+                                remoteConversation = remoteConversation + (prompt to result)
+                            }
                         }
                         busy = false
                     }
