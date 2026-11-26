@@ -49,7 +49,8 @@ class MainActivity : ComponentActivity() {
         .build()
     private val alias = "wasti.nexus.gateway.key"
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
-    private val localEngine: InferenceEngine by lazy { AiChat.getInferenceEngine(this) }
+    private val localEngineDelegate = lazy { AiChat.getInferenceEngine(this) }
+    private val localEngine: InferenceEngine by localEngineDelegate
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -237,7 +238,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        runCatching { localEngine.destroy() }
+        if (localEngineDelegate.isInitialized()) runCatching { localEngine.destroy() }
         super.onDestroy()
     }
 }
@@ -273,7 +274,7 @@ private fun NexusScreen(
             scope.launch {
                 busy = true
                 try {
-                    onUnloadLocal()
+                    if (localReady) onUnloadLocal()
                     localReady = false
                     localModelPath = onImportModel(uri)
                     answer = "Model copied into NEXUS private storage. Load it before starting offline chat."
