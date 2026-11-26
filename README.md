@@ -50,7 +50,8 @@ Copy one tested GGUF into `$HOME/models/`, configure `termux/env.example` as `~/
 ```bash
 nexus server start "$HOME/models/your-model.gguf"
 nexus server status
-nexus chat wasti-local "Hello in Urdu and English"
+nexus models
+nexus chat <model-id-from-list> "Hello in Urdu and English"
 ```
 
 See [termux/README.md](termux/README.md) for setup, model placement, safety and Android integration.
