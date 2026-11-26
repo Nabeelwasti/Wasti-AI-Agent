@@ -734,6 +734,10 @@ private fun NexusScreen(
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val chatScrollState = rememberScrollState()
+    LaunchedEffect(conversation.size, busy, settingsExpanded) {
+        if (!settingsExpanded) chatScrollState.animateScrollTo(chatScrollState.maxValue)
+    }
     val modelPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -786,7 +790,7 @@ private fun NexusScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            Surface(modifier = Modifier.imePadding(), tonalElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth()) {
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     Row(
@@ -805,55 +809,56 @@ private fun NexusScreen(
                         Button(
                             enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
                             onClick = {
-                                                    val submittedPrompt = prompt.trim()
-                    busy = true
-                    scope.launch {
-                        var usedRemote = false
-                        try {
-                            val result = if (offlineMode) {
-                                onSendLocal(submittedPrompt)
-                            } else {
-                                onSave(url, key)
-                                try {
-                                    val onlineAnswer = onSendRemote(
-                                        url, key, remoteConversation, submittedPrompt, hybrid, agentId
-                                    )
-                                    usedRemote = true
-                                    onlineAnswer
-                                } catch (onlineError: Exception) {
-                                    val canUseLocal = autoMode &&
-                                        shouldFallbackToLocal(onlineError) &&
-                                        localModelPath.isNotBlank() &&
-                                        localModelPath in installedModels
-                                    if (!canUseLocal) throw onlineError
+                                val submittedPrompt = prompt.trim()
+                                busy = true
+                                scope.launch {
+                                    var usedRemote = false
                                     try {
-                                        if (!localReady) {
-                                            onLoadLocal(localModelPath)
-                                            localReady = true
-                                        }
-                                        "Offline fallback used because the online brain was unavailable.\n                                \n                                " +
+                                        val result = if (offlineMode) {
                                             onSendLocal(submittedPrompt)
-                                    } catch (localError: Exception) {
-                                        localReady = false
-                                        throw IllegalStateException(
-                                            "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
-                                            localError
-                                        )
+                                        } else {
+                                            onSave(url, key)
+                                            try {
+                                                val onlineAnswer = onSendRemote(
+                                                    url, key, remoteConversation, submittedPrompt, hybrid, agentId
+                                                )
+                                                usedRemote = true
+                                                onlineAnswer
+                                            } catch (onlineError: Exception) {
+                                                val canUseLocal = autoMode &&
+                                                    shouldFallbackToLocal(onlineError) &&
+                                                    localModelPath.isNotBlank() &&
+                                                    localModelPath in installedModels
+                                                if (!canUseLocal) throw onlineError
+                                                try {
+                                                    if (!localReady) {
+                                                        onLoadLocal(localModelPath)
+                                                        localReady = true
+                                                    }
+                                                    "Offline fallback used because the online brain was unavailable.\\n\\n" +
+                                                        onSendLocal(submittedPrompt)
+                                                } catch (localError: Exception) {
+                                                    localReady = false
+                                                    throw IllegalStateException(
+                                                        "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
+                                                        localError
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        conversation = conversation + (submittedPrompt to result)
+                                        if (usedRemote) {
+                                            remoteConversation = remoteConversation + (submittedPrompt to result)
+                                        }
+                                        prompt = ""
+                                        answer = "Ready"
+                                    } catch (error: Exception) {
+                                        answer = "Request failed: ${error.message}"
+                                    } finally {
+                                        busy = false
                                     }
                                 }
                             }
-                            conversation = conversation + (submittedPrompt to result)
-                            if (usedRemote) {
-                                remoteConversation = remoteConversation + (submittedPrompt to result)
-                            }
-                            prompt = ""
-                            answer = "Ready"
-                        } catch (error: Exception) {
-                            answer = "Request failed: ${error.message}"
-                        } finally {
-                            busy = false
-                        }
-                    }
                             }
                         ) { Text("Send") }
                     }
@@ -862,7 +867,7 @@ private fun NexusScreen(
         }
     ) { inset ->
         Column(
-            Modifier.fillMaxSize().padding(inset).padding(horizontal = 16.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(inset).padding(horizontal = 16.dp).verticalScroll(chatScrollState),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (settingsExpanded) {
