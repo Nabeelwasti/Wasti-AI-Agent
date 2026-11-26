@@ -38,6 +38,7 @@ internal object NexusRuntimePolicy {
 
     private const val GIB = 1024L * 1024L * 1024L
     private const val LOCAL_RESERVE_BYTES = 1_229L * 1024L * 1024L
+    private const val MIN_TERMUX_HEADROOM_BYTES = 768L * 1024L * 1024L
     private const val SEVERE_THERMAL_STATUS = 3
     private const val LOW_BATTERY_PERCENT = 12
 
@@ -108,23 +109,24 @@ internal object NexusRuntimePolicy {
         val thermalSafe = snapshot.thermalStatus < SEVERE_THERMAL_STATUS
         val batterySafe = snapshot.batteryPercent == null || snapshot.batteryPercent >= LOW_BATTERY_PERCENT || snapshot.charging
         val localSafe = localCanHandle(task, snapshot.localModelPath) && modelExists && (snapshot.localModelLoaded || memoryEnough) && thermalSafe && batterySafe
+        val termuxSafe = localServerAvailable && snapshot.availableRamBytes >= MIN_TERMUX_HEADROOM_BYTES && thermalSafe && batterySafe
         val online = snapshot.internetValidated
         if (mode == NexusMode.OFFLINE) {
             return when {
                 localSafe -> NexusRouteDecision(NexusRoute.LOCAL, task, "Offline mode: use the installed local text model; internet is never used.")
-                localServerAvailable -> NexusRouteDecision(NexusRoute.TERMUX, task, "Offline mode: use the paired loopback Termux inference server.")
+                termuxSafe -> NexusRouteDecision(NexusRoute.TERMUX, task, "Offline mode: use the paired loopback Termux inference server.")
                 else -> NexusRouteDecision(NexusRoute.BLOCKED, task, "Offline mode cannot complete this task: no compatible local runtime or sufficient device headroom.")
             }
         }
         if (mode == NexusMode.ONLINE) {
             return when {
                 online && remoteConfigured -> NexusRouteDecision(NexusRoute.REMOTE, task, "Online mode: use the configured self-hosted remote endpoint.")
-                localServerAvailable -> NexusRouteDecision(NexusRoute.TERMUX, task, "Use the local Termux inference server; no internet route is required.")
+                termuxSafe -> NexusRouteDecision(NexusRoute.TERMUX, task, "Use the local Termux inference server; no internet route is required.")
                 else -> NexusRouteDecision(NexusRoute.BLOCKED, task, if (!online) "No validated internet connection or reachable local inference server is available." else "No self-hosted remote model is configured.")
             }
         }
         if (localSafe) return NexusRouteDecision(NexusRoute.LOCAL, task, "Auto mode: local inference is compatible and device RAM, thermal and battery headroom are sufficient.")
-        if (localServerAvailable) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
+        if (termuxSafe) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
         if (online && remoteConfigured) {
             val network = if (snapshot.wifiConnected) "Wi-Fi" else if (snapshot.cellularConnected) "mobile data" else "validated internet"
             val dataNote = if (snapshot.metered) " Metered connection detected; no model-weight download is started automatically." else ""
