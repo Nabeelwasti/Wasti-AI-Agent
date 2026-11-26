@@ -26,7 +26,8 @@ Copy one verified `.gguf` model into `$HOME/models/`. Do not copy a 20B+ model o
 nexus server start "$HOME/models/your-model.gguf"
 nexus server status
 nexus models
-nexus chat wasti-local "Reply in Urdu and English."
+nexus models
+nexus chat <model-id-from-list> "Reply in Urdu and English."
 ```
 
 Stop it when finished:
