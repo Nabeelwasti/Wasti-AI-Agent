@@ -7,6 +7,7 @@ Last updated: 2026-11-26.
 - Canonical repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
 - One monorepo contains the Android app, model registry/acquisition scripts, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
 - No model weights, provider credentials, GitHub tokens or personal plaintext memory are committed.
+- Latest debug APK artifact: `wasti-nexus-debug-apk`, 20,378,967 bytes, SHA-256 `ee3e326f0d02ef05269dfd14e896f24bdc994e481617b157c851b41c7a14aa64`, from run [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029). It expires on 2026-12-03. This is a CI debug artifact, not a production-signed APK.
 - The complete PR CI passed on commit `5f1327491fc2679377eef61de46df390dec577ad` (run [45823646137](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823646137)). Post-merge main CI [45823876505](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823876505) passed Python/Worker checks, Android `assembleDebug`, APK artifact upload and the deployed gateway health/model-catalogue smoke test. The latest main CI [45824266029](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45824266029) also passed Python/Worker checks, health smoke and Android `assembleDebug`; the authenticated inference smoke was skipped because the GitHub Actions `NEXUS_API_KEY` secret is not configured. These are **debug** builds, not signed production releases.
 
 ## Android client
