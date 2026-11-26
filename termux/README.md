@@ -29,7 +29,8 @@ nexus models
 nexus server token
 # Paste the printed local pairing token into the app's endpoint key field.
 nexus models
-nexus chat <model-id-from-list> "Reply in Urdu and English."
+# Replace MODEL_ID with the model ID returned above.
+nexus chat MODEL_ID "Reply in Urdu and English."
 ```
 
 Stop it when finished:
