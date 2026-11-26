@@ -105,7 +105,7 @@ class GitHubMemoryStore:
         url = f"/repos/{self.repository}/contents/{quote(path, safe='/')}"
         async with self._client() as client:
             await self._ensure_public(client)
-            response = await client.get(url, params={"ref": self.branch})
+            response = await client.get(url, params={"ref": self.branch, "per_page": 100})
         if response.status_code == 404:
             raise GitHubMemoryError("Memory snapshot not found")
         if response.status_code != 200:
