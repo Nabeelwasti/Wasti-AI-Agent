@@ -45,12 +45,12 @@ import javax.crypto.spec.GCMParameterSpec
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-private class GatewayHttpException(
+internal class GatewayHttpException(
     val statusCode: Int,
     message: String
 ) : IllegalStateException(message)
 
-private fun shouldFallbackToLocal(error: Exception): Boolean {
+internal fun shouldFallbackToLocal(error: Exception): Boolean {
     if (error is java.io.IOException) return true
     if (error is IllegalArgumentException) {
         val message = error.message.orEmpty()
