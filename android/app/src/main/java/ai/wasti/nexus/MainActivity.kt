@@ -630,7 +630,7 @@ class MainActivity : ComponentActivity() {
 
     private fun isLoopbackHttp(root: String): Boolean = runCatching {
         val uri = java.net.URI(root)
-        uri.scheme == "http" && uri.host?.lowercase() in setOf("localhost", "127.0.0.1", "::1")
+        uri.scheme == "http" && uri.host?.lowercase() == "localhost"
     }.getOrDefault(false)
 
     private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
