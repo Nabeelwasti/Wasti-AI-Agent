@@ -26,6 +26,8 @@ Copy one verified `.gguf` model into `$HOME/models/`. Do not copy a 20B+ model o
 nexus server start "$HOME/models/your-model.gguf"
 nexus server status
 nexus models
+nexus server token
+# Paste the printed local pairing token into the app's endpoint key field.
 nexus models
 nexus chat <model-id-from-list> "Reply in Urdu and English."
 ```
@@ -36,7 +38,7 @@ Stop it when finished:
 nexus server stop
 ```
 
-Default endpoint: `http://localhost:8088/v1`. The server uses one concurrent request, a conservative context size, bounded CPU threads and CPU-only inference by default. You can tune `NEXUS_SERVER_CTX`, `NEXUS_SERVER_THREADS` and `NEXUS_GPU_LAYERS` after measuring stability. Increasing them can cause heat, memory pressure or Android process termination.
+Default endpoint: `http://localhost:8088/v1`. The server requires a random local pairing token stored in Termux's private state directory; use `nexus server token` to view it. This is local authentication, not a vendor AI API key. The server uses one concurrent request, a conservative context size, bounded CPU threads and CPU-only inference by default. You can tune `NEXUS_SERVER_CTX`, `NEXUS_SERVER_THREADS` and `NEXUS_GPU_LAYERS` after measuring stability. Increasing them can cause heat, memory pressure or Android process termination.
 
 ## Automatic fallback
 
