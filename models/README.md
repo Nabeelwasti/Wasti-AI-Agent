@@ -25,6 +25,30 @@ This directory tracks all 12 target model families, exact candidate repositories
 
 The scripts refuse moving branches and do not bypass gated access or accept terms on your behalf.
 
+## First phone-sized local candidate
+
+A small Qwen candidate is registered under the Qwen family:
+
+- Repository: `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
+- File: `qwen2.5-0_5b-instruct-q4_k_m.gguf`
+- Quantization: Q4_K_M
+- Approximate file size: 398 MB
+- Licence: Apache-2.0 (preserve the exact repository/base-model notices)
+
+This is the first candidate to test with approximately 3 GB of free RAM. It is not yet downloaded or device-validated. The app's memory check is a preflight estimate, not a benchmark guarantee.
+
+To pin only this family's primary and local-candidate repositories, then download only the selected GGUF file:
+
+```bash
+python -m pip install -r models/requirements.txt
+python models/pin_revisions.py --family qwen
+# Review the resolved SHAs, then:
+python models/pin_revisions.py --family qwen --write
+python models/download_local_candidate.py qwen --output /path/to/nexus-local-models
+```
+
+The download script filters to the exact GGUF filename; it does not download the other quantizations or all twelve families. The resulting manifest contains the exact revision, file size and SHA-256. Copy that GGUF file to the phone and import it from the Offline section.
+
 ## Android storage policy
 
 The Android app must never download all 12 models automatically. It will expose a catalogue with separate states: available online, downloadable to device, installed, incompatible, and licence-restricted. Device fit is based on measured/estimated peak memory, model size, context/KV-cache budget, ABI and runtime compatibility—not storage space alone.
