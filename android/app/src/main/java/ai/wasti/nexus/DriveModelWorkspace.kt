@@ -258,7 +258,7 @@ internal object DriveModelWorkspace {
             require(existing.delete()) { "Could not replace the incorrect existing Drive file ${model.fileName}." }
         }
 
-        val temporaryName = ".wasti-${model.id}.part"
+        val temporaryName = "wasti-${model.id}.part"
         root.findFile(temporaryName)?.let { stale ->
             require(stale.delete()) { "Could not remove the previous incomplete temporary model file." }
         }
