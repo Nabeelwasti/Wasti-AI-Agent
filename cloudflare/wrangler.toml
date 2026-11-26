@@ -1,0 +1,8 @@
+name = "wasti-nexus-edge"
+main = "src/index.js"
+compatibility_date = "2026-11-26"
+
+[vars]
+ALLOWED_ORIGINS = ""
+MAX_HYBRID_AGENTS = "6"
+REQUEST_TIMEOUT_MS = "45000"
