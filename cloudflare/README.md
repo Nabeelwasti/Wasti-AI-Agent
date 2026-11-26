@@ -55,11 +55,11 @@ Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. 
 - `api_key_env`: name of another Worker secret;
 - `models`: array of `id`, optional `upstream_model`, `agent`, `enabled` and `commercial_allowed` values.
 
-The Worker defaults to customer-safe mode: a model is hidden and blocked unless `commercial_allowed: true` is explicitly set after reviewing its exact licence. Hybrid mode now requires at least two distinct configured model IDs; with the current one-model catalogue, use single-brain mode. For private personal testing only, set `NEXUS_DEPLOYMENT_MODE=personal`; this does not grant redistribution or commercial rights.
+The Worker defaults to customer-safe mode: a model is hidden and blocked unless `commercial_allowed: true` is explicitly set after reviewing its exact licence. Hybrid mode requires at least two distinct configured model IDs; the two first-party models currently satisfy that requirement. For private personal testing only, set `NEXUS_DEPLOYMENT_MODE=personal`; this does not grant redistribution or commercial rights.
 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
-The Worker exposes one currently configured first-party Cloudflare Workers AI model through the `AI` binding: `nexus-gemma-4-26b-a4b`, backed by `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, Apache-2.0). No third-party provider API key is needed for this route; the NEXUS bearer key still authenticates access to the gateway. Cloudflare inference is metered, not unlimited free compute. Offline Android operation remains separate and uses a locally imported GGUF model.
+The Worker exposes two currently configured first-party Cloudflare Workers AI models through the `AI` binding: `nexus-gemma-4-26b-a4b` backed by `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, Apache-2.0), and `nexus-qwen-3.8-27b` backed by `@cf/qwen/qwen3.8-27b` (Qwen 3.8 27B, Apache-2.0). No third-party provider API key is needed for this route; the NEXUS bearer key still authenticates access to the gateway. Cloudflare inference is metered, not unlimited free compute. Offline Android operation remains separate and uses a locally imported GGUF model.
 
 ## Online inference providers
 
