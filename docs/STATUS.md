@@ -3,7 +3,7 @@
 **Snapshot:** 2026-11-26  
 **Current main commit:** `7bbb6058e082fba6390fc249714f16d7098dce2f`  
 **Android release:** `0.4.0` (`versionCode 4`)  
-**State:** <badge>release candidate — physical-device validation pending</badge>
+**State:** Release candidate — physical-device validation pending
 
 ## Latest merged work and CI evidence
 
