@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
@@ -65,7 +65,7 @@ def model_license(info: dict | None) -> str | None:
 
 def inspect_model(model: dict) -> dict:
     source = model.get("source", "")
-    parts = [part for part in __import__("urllib.parse", fromlist=["urlparse"]).urlparse(source).path.split("/") if part]
+    parts = [part for part in urlparse(source).path.split("/") if part]
     if len(parts) < 2:
         return {"id": model.get("id"), "error": "invalid Hugging Face source URL"}
     repo_id = "/".join(parts[:2])
