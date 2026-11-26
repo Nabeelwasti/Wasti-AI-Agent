@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
                     onSaveMemory = { turns -> saveMemorySnapshot(turns) },
                     onRestoreMemory = { restoreLatestLocalMemorySnapshot() },
                     onRestoreRemoteMemory = { url, key -> restoreLatestRemoteMemorySnapshot(url, key) },
+                    onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns -> syncMemorySnapshot(url, key, turns) },
                     onSendRemote = { url, key, prompt, hybrid, agentId ->
                         sendRemote(url, key, prompt, hybrid, agentId)
@@ -442,6 +443,29 @@ class MainActivity : ComponentActivity() {
         output.toString().ifBlank { "The local model returned an empty response." }
     }
 
+
+    private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
+        withContext(Dispatchers.IO) {
+            val root = url.trim().trimEnd('/')
+            require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
+            require(key.length >= 32) { "API key must be at least 32 characters." }
+            val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
+            val request = Request.Builder()
+                .url("$apiRoot/models")
+                .header("Authorization", "Bearer $key")
+                .get()
+                .build()
+            http.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw IllegalStateException("Model catalogue returned HTTP ${response.code}: $body")
+                val data = JSONObject(body).optJSONArray("data") ?: JSONArray()
+                (0 until data.length())
+                    .mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
+                    .distinct()
+                    .sorted()
+            }
+        }
+
     private suspend fun sendRemote(
         url: String,
         key: String,
@@ -501,6 +525,7 @@ private fun NexusScreen(
     onSaveMemory: suspend (List<Pair<String, String>>) -> String,
     onRestoreMemory: suspend () -> List<Pair<String, String>>,
     onRestoreRemoteMemory: suspend (String, String) -> List<Pair<String, String>>,
+    onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>) -> String,
     onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
@@ -519,6 +544,8 @@ private fun NexusScreen(
     var offlineMode by remember { mutableStateOf(false) }
     var localReady by remember { mutableStateOf(false) }
     var agentId by remember { mutableStateOf("qwen") }
+    var remoteModels by remember { mutableStateOf(emptyList<String>()) }
+    var remoteMenuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val modelPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -685,11 +712,50 @@ private fun NexusScreen(
                     FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid — all brains") })
                     FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
                 }
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            answer = try {
+                                onSave(url, key)
+                                remoteModels = onFetchModels(url, key)
+                                if (agentId !in remoteModels) agentId = remoteModels.firstOrNull().orEmpty()
+                                "Loaded ${remoteModels.size} configured online brain(s)."
+                            } catch (error: Exception) {
+                                "Could not load online brains: ${error.message}"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Refresh online brains") }
                 if (!hybrid) {
-                    OutlinedTextField(
-                        agentId, { agentId = it }, Modifier.fillMaxWidth(),
-                        label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true
-                    )
+                    if (remoteModels.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = { remoteMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(agentId.ifBlank { "Choose online brain" }) }
+                        DropdownMenu(
+                            expanded = remoteMenuExpanded,
+                            onDismissRequest = { remoteMenuExpanded = false }
+                        ) {
+                            remoteModels.forEach { modelId ->
+                                DropdownMenuItem(
+                                    text = { Text(modelId) },
+                                    onClick = {
+                                        agentId = modelId
+                                        remoteMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            agentId, { agentId = it }, Modifier.fillMaxWidth(),
+                            label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true
+                        )
+                    }
                 }
             }
 
