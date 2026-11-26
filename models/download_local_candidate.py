@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
@@ -35,6 +36,10 @@ def main() -> None:
     file_name = candidate.get("file_name")
     if not repo_id or not revision or not file_name:
         raise SystemExit("Local candidate requires repo_id, immutable revision and file_name. Run pin_revisions.py first.")
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise SystemExit("Local candidate revision must be a 40-character immutable SHA.")
+    if not file_name.endswith(".gguf") or "/" in file_name or "\\" in file_name:
+        raise SystemExit("Local candidate must name one GGUF file, not a path or directory.")
 
     output = Path(args.output).resolve() / args.family_id
     output.mkdir(parents=True, exist_ok=True)
@@ -63,6 +68,10 @@ def main() -> None:
     }
     manifest_path = output / "NEXUS-MODEL-MANIFEST.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if candidate.get("commercial_allowed") is not True:
+        print("WARNING: this candidate is not approved for customer/commercial use. Review the exact licence before any distribution.")
+    if candidate.get("redistribution_allowed") is not True:
+        print("NOTICE: redistribution is not approved by this registry entry; keep the checkpoint local unless separately cleared.")
     print(json.dumps({"model_path": str(model_path), "manifest": str(manifest_path), "sha256": digest}, indent=2))
 
 
