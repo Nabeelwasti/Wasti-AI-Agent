@@ -12,6 +12,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 
 internal data class WorkspaceModel(
@@ -25,13 +27,16 @@ internal data class WorkspaceModel(
     val status: String,
     val license: String,
     val source: String,
+    val sourceRevision: String,
     val minimumAvailableRamGb: Double,
     val note: String
 ) {
     val downloadable: Boolean
         get() = status == "ready" &&
             (sizeBytes ?: 0L) > 0L &&
-            sha256?.matches(Regex("^[a-fA-F0-9]{64}$")) == true
+            sha256?.matches(Regex("^[a-fA-F0-9]{64}$")) == true &&
+            sourceRevision.matches(Regex("^[a-fA-F0-9]{40}$")) &&
+            source.startsWith("https://huggingface.co/")
 }
 
 internal object DriveModelWorkspace {
@@ -75,6 +80,7 @@ internal object DriveModelWorkspace {
                 status = status,
                 license = item.optString("license"),
                 source = item.optString("source"),
+                sourceRevision = item.optString("source_revision"),
                 minimumAvailableRamGb = item.optDouble("minimum_available_ram_gb", 0.0),
                 note = item.optString("note")
             )
@@ -87,10 +93,14 @@ internal object DriveModelWorkspace {
     }
 
     fun persistWorkspaceAccess(context: Context, uri: Uri) {
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     }
 
     fun validateWorkspace(context: Context, uri: Uri): String {
@@ -187,6 +197,198 @@ internal object DriveModelWorkspace {
         } catch (error: Exception) {
             temporary.delete()
             throw error
+        }
+    }
+
+    suspend fun archiveAllModelsToDrive(
+        context: Context,
+        treeUri: Uri,
+        models: List<WorkspaceModel>,
+        onProgress: (Long, Long) -> Unit
+    ): Int = withContext(Dispatchers.IO) {
+        val ready = models.filter { it.downloadable }
+        require(ready.size == 12) { "All twelve model manifests must be ready before archiving." }
+        val root = DocumentFile.fromTreeUri(context, treeUri)
+            ?: throw IllegalStateException("Google Drive workspace permission has expired. Connect it again.")
+        require(root.isDirectory && root.canRead()) { "Google Drive workspace is not readable." }
+        require(root.canWrite()) {
+            "The selected Drive provider did not grant write access. Reconnect the folder or upload the model files using the Google Drive app."
+        }
+
+        val totalBytes = ready.sumOf { requireNotNull(it.sizeBytes) }
+        val maxFileBytes = ready.maxOf { requireNotNull(it.sizeBytes) }
+        val availableCache = StatFs(context.cacheDir.absolutePath).availableBytes
+        require(availableCache >= maxFileBytes + MIN_FREE_RESERVE_BYTES) {
+            "Not enough temporary phone storage for the largest model. Free at least ${(maxFileBytes + MIN_FREE_RESERVE_BYTES) / 1_073_741_824.0} GB and retry."
+        }
+
+        var completedBytes = 0L
+        var archivedCount = 0
+        for (model in ready) {
+            currentCoroutineContext().ensureActive()
+            try {
+                archiveOneModelToDrive(context, root, model) { received, _ ->
+                    onProgress(completedBytes + received, totalBytes)
+                }
+                archivedCount += 1
+                completedBytes += requireNotNull(model.sizeBytes)
+                onProgress(completedBytes, totalBytes)
+            } catch (error: Exception) {
+                throw IllegalStateException("Could not archive ${model.displayName}: ${error.message}", error)
+            }
+        }
+        archivedCount
+    }
+
+    private suspend fun archiveOneModelToDrive(
+        context: Context,
+        root: DocumentFile,
+        model: WorkspaceModel,
+        onProgress: (Long, Long) -> Unit
+    ) {
+        val expectedSize = requireNotNull(model.sizeBytes)
+        val existingMatches = findFiles(root, model.fileName, maxVisited = 600)
+        require(existingMatches.size <= 1) {
+            "More than one file named ${model.fileName} exists in the selected Drive folder. Remove duplicates first."
+        }
+        val existing = existingMatches.singleOrNull()
+        if (existing != null && existing.isFile && existing.length() == expectedSize) {
+            // Installation independently checks the complete SHA-256 before
+            // the model is used. Avoid re-uploading a same-sized archive.
+            onProgress(expectedSize, expectedSize)
+            return
+        }
+        if (existing != null) {
+            require(existing.delete()) { "Could not replace the incorrect existing Drive file ${model.fileName}." }
+        }
+
+        val temporaryName = ".wasti-${model.id}.part"
+        root.findFile(temporaryName)?.delete()
+        val temporary = root.createFile("application/octet-stream", temporaryName)
+            ?: throw IllegalStateException("Google Drive could not create a temporary model file.")
+
+        val sourceUri = Uri.parse(model.source)
+        val segments = sourceUri.pathSegments
+        require(sourceUri.scheme == "https" && sourceUri.host == "huggingface.co" && segments.size == 2) {
+            "The pinned model source URL is invalid."
+        }
+        val downloadUri = Uri.Builder()
+            .scheme("https")
+            .authority("huggingface.co")
+            .appendPath(segments[0])
+            .appendPath(segments[1])
+            .appendPath("resolve")
+            .appendPath(model.sourceRevision)
+            .appendPath(model.fileName)
+            .appendQueryParameter("download", "true")
+            .build()
+        val connection = URL(downloadUri.toString()).openConnection() as HttpURLConnection
+        connection.instanceFollowRedirects = true
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 120_000
+        connection.setRequestProperty("User-Agent", "WASTI-NEXUS-Android/0.4.0")
+        connection.setRequestProperty("Accept-Encoding", "identity")
+
+        try {
+            connection.connect()
+            val responseCode = connection.responseCode
+            require(responseCode in 200..299) {
+                "Hugging Face download returned HTTP $responseCode for ${model.fileName}."
+            }
+            val responseLength = connection.contentLengthLong
+            if (responseLength > 0L) {
+                require(responseLength == expectedSize) {
+                    "Upstream file length changed. Expected $expectedSize bytes, received $responseLength."
+                }
+            }
+
+            val digest = MessageDigest.getInstance("SHA-256")
+            var copied = 0L
+            val input = connection.inputStream
+            val output = context.contentResolver.openOutputStream(temporary.uri, "w")
+                ?: throw IllegalStateException("Google Drive did not provide a writable file stream.")
+            input.use { stream ->
+                output.buffered(256 * 1024).use { sink ->
+                    val buffer = ByteArray(256 * 1024)
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val count = stream.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        copied += count
+                        require(copied <= expectedSize) {
+                            "Upstream model file is larger than the pinned catalogue size."
+                        }
+                        digest.update(buffer, 0, count)
+                        sink.write(buffer, 0, count)
+                        onProgress(copied, expectedSize)
+                    }
+                    sink.flush()
+                }
+            }
+
+            require(copied == expectedSize) {
+                "Incomplete model archive. Expected $expectedSize bytes, received $copied."
+            }
+            val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+            require(actualHash.equals(model.sha256, ignoreCase = true)) {
+                "Upstream SHA-256 verification failed. The model was rejected before it could be archived."
+            }
+            val storedLength = temporary.length()
+            if (storedLength > 0L) {
+                require(storedLength == expectedSize) {
+                    "Google Drive stored an incomplete model file. Expected $expectedSize bytes, found $storedLength."
+                }
+            }
+
+            if (!temporary.renameTo(model.fileName)) {
+                val finalDocument = root.createFile("application/octet-stream", model.fileName)
+                    ?: throw IllegalStateException("Google Drive could not create the final model file.")
+                try {
+                    val copyDigest = MessageDigest.getInstance("SHA-256")
+                    var copiedToFinal = 0L
+                    val archiveInput = context.contentResolver.openInputStream(temporary.uri)
+                        ?: throw IllegalStateException("Could not reopen the verified temporary Drive file.")
+                    val finalOutput = context.contentResolver.openOutputStream(finalDocument.uri, "w")
+                        ?: throw IllegalStateException("Google Drive did not provide the final file stream.")
+                    archiveInput.use { stream ->
+                        finalOutput.buffered(256 * 1024).use { sink ->
+                            val buffer = ByteArray(256 * 1024)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val count = stream.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                copiedToFinal += count
+                                copyDigest.update(buffer, 0, count)
+                                sink.write(buffer, 0, count)
+                            }
+                            sink.flush()
+                        }
+                    }
+                    val finalHash = copyDigest.digest().joinToString("") { "%02x".format(it) }
+                    require(copiedToFinal == expectedSize && finalHash.equals(model.sha256, ignoreCase = true)) {
+                        "Final Google Drive file verification failed."
+                    }
+                } catch (error: Exception) {
+                    finalDocument.delete()
+                    throw error
+                } finally {
+                    temporary.delete()
+                }
+            }
+
+            val finalFile = root.findFile(model.fileName)
+                ?: throw IllegalStateException("Google Drive did not retain the archived model file.")
+            val finalLength = finalFile.length()
+            if (finalLength > 0L) {
+                require(finalLength == expectedSize) { "Archived model length does not match the pinned catalogue." }
+            }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        } finally {
+            connection.disconnect()
         }
     }
 
