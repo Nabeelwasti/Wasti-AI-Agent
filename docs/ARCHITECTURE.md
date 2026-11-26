@@ -10,7 +10,7 @@ One repository, one app identity and one reusable brain API. Runtime components 
 - Local inference through Arm AI Chat (`com.arm:ai-chat:0.1.0`), backed by llama.cpp, for compatible GGUF checkpoints.
 - Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. The first one-tap catalogue entry downloads the pinned Qwen2.5-0.5B-Instruct Q4_K_M file from Hugging Face, verifies SHA-256 and GGUF metadata, then installs and loads it. Remaining model families, resumable background transfers and checksum verification for manual imports remain planned.
 - Encrypted local memory and conversation history.
-- Default Auto routing: try the online gateway first, then fall back to the installed local GGUF model for network errors, missing online credentials and transient 408/429/5xx responses. Authentication/permission errors remain visible. Local-fallback turns are excluded from subsequent cloud conversation history. Explicit Offline mode never sends inference prompts to the gateway.
+- Default Auto routing is local-first: use the selected installed GGUF model whenever it is ready. Remote inference is an explicit optional fallback/online mode, never a prerequisite for chat. Local turns are not sent to remote conversation history. Offline mode never sends inference prompts to the gateway.
 - The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
 
 ### Universal brain API
@@ -24,16 +24,17 @@ The API never reports an unconfigured model as available or fabricates model par
 
 ### Online hosting
 
-Cloudflare hosts the web console and authenticated API routing. The Worker does not store model weights; it invokes the two configured first-party models (Gemma 4 26B A4B and Qwen 3.8 27B) through the `AI` binding and can route to optional configured HTTPS providers. Genuine two-model Hybrid is enabled. Remote inference is metered and subject to each model/provider's terms and availability. Keep provider credentials server-side.
+Cloudflare hosts the optional web console and inference gateway only. It does not store model weights. The owner's private Google Drive is the designated archive for approved GGUF checkpoints; Android obtains them through Google account OAuth, verifies them, and installs them in app-private storage. The two configured Workers AI models (Gemma 4 26B A4B and Qwen 3.8 27B) remain optional hosted fallbacks. Remote inference is separate from local execution and is subject to provider availability and usage terms. No Cloudflare storage product is part of the model archive.
 
 ## Request routing
 
-1. Determine connectivity and user policy.
-2. If offline or local-only, select an installed compatible local model. If none is installed, explain that online-only brains are unavailable rather than pretending to answer.
-3. If online and remote routing is allowed, resolve the requested model against the live catalogue.
-4. For Hybrid, fan out only to configured, licensed and healthy providers. Return a truthful participant/failure list.
-5. Synthesize with a configured synthesis model. If synthesis fails, return a structured partial result and explicitly label it as unsynthesized; do not silently claim a collective answer.
-6. Keep local and remote memory scopes separate unless the user explicitly enables sync.
+1. Resolve the user's explicit mode and selected local model.
+2. In Local/Auto mode, prefer the installed compatible local model; this path requires no AI API key or hosted inference quota.
+3. If the user explicitly chooses an online brain or enables remote fallback, resolve the requested model against the live hosted catalogue.
+4. For Hybrid, fan out only to configured, licensed and healthy hosted providers. Return a truthful participant/failure list.
+5. If no local model is installed and remote inference is disabled, explain that a model must first be downloaded from the Google Drive workspace or imported.
+6. Synthesize with a configured synthesis model. If synthesis fails, return a structured partial result and explicitly label it as unsynthesized; do not silently claim a collective answer.
+7. Keep local and remote memory scopes separate unless the user explicitly enables sync.
 
 ## Memory and training-data storage on GitHub
 
