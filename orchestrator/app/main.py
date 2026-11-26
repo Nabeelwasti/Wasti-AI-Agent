@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .github_memory import GitHubMemoryError, GitHubMemoryStore
+from .task_router import rank_agents
 
 APP_VERSION = "0.1.1"
 app = FastAPI(title="WASTI NEXUS Orchestrator", version=APP_VERSION)
@@ -27,7 +28,7 @@ class Message(BaseModel):
 
 
 class NexusOptions(BaseModel):
-    mode: str = Field(default="single", pattern="^(single|hybrid)$")
+    mode: str = Field(default="single", pattern="^(single|hybrid|auto)$")
     agents: list[str] = Field(default_factory=list, max_length=12)
     review_rounds: int = Field(default=0, ge=0, le=2)
     synthesis_agent: str | None = None
@@ -263,6 +264,40 @@ async def chat_completions(req: ChatRequest):
     cfg = agents_config()
     trace_id = str(uuid.uuid4())
     started = time.perf_counter()
+
+    if req.nexus.mode == "auto" or req.model == "nexus-auto":
+        task, ranked_agents = rank_agents(user_messages, cfg, model_allowed)
+        if not ranked_agents:
+            raise HTTPException(
+                status_code=503,
+                detail={"message": "No eligible provider supports this task", "task": task, "trace_id": trace_id},
+            )
+        failures = []
+        for agent_id in ranked_agents:
+            try:
+                result = await call_agent(agent_id, cfg[agent_id], user_messages, req.temperature, req.max_tokens)
+                return {
+                    "id": f"nexus-{trace_id}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": "nexus-auto",
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": result["content"]}, "finish_reason": "stop"}],
+                    "nexus": {
+                        "trace_id": trace_id,
+                        "mode": "auto",
+                        "task": task,
+                        "selected_agent": agent_id,
+                        "fallback_order": ranked_agents,
+                        "failed_agents": failures,
+                        "latency_ms": int((time.perf_counter() - started) * 1000),
+                    },
+                }
+            except Exception as exc:
+                failures.append({"agent": agent_id, "error": str(exc)[:240]})
+        raise HTTPException(
+            status_code=502,
+            detail={"message": "All eligible providers failed", "task": task, "failed_agents": failures, "trace_id": trace_id},
+        )
 
     if req.nexus.mode == "single" and req.model != "nexus-hybrid":
         agent_id = req.model
