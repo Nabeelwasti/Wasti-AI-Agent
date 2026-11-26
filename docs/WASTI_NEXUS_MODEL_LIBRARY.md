@@ -35,6 +35,10 @@ The displayed sizes are rounded for readability; the app uses the exact byte cou
 
 The Redmi Note 14 Pro must be treated as an 8-GB-class mobile environment unless the exact device variant and available RAM are measured. Start with Qwen2.5 0.5B. Do not promise all models can run concurrently or that larger models will load reliably on the phone. Models are installed and loaded one at a time.
 
+## Provenance and licence notices
+
+The exact pinned manifest, upstream attribution, licence evidence and distribution rules are recorded in [THIRD_PARTY_MODEL_NOTICES.md](THIRD_PARTY_MODEL_NOTICES.md).
+
 ## Sources
 
 - [Qwen2.5 0.5B GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF)
@@ -52,18 +56,15 @@ The Redmi Note 14 Pro must be treated as an 8-GB-class mobile environment unless
 - [Hugging Face licence guidance](https://huggingface.co/docs/hub/repositories-licenses)
 - [llama.cpp supported model architectures](https://github.com/ggml-org/llama.cpp)
 
-## Release gate and current verification
+## Verification state and remaining gates
 
-All twelve source artifacts now have immutable revisions, exact sizes, SHA-256 values, and permissive base-model licence evidence recorded in the catalogue. CI rechecks those manifests against the public source. The remaining release gate is Android runtime and physical-device validation:
+**Completed in source audit and CI:** all twelve exact GGUF files exist at immutable 40-character revisions; exact byte lengths and SHA-256 values match Hugging Face's linked-object metadata; base-model and GGUF repository metadata show permissive Apache-2.0 or MIT licence evidence; the catalogue and central registry contain matching manifests; and all twelve are enabled for verified Drive-to-device download.
 
-1. Exact GGUF file exists in the stated source repository.
-2. Immutable 40-character source revision is pinned.
-3. Exact file size in bytes is recorded.
-4. SHA-256 is independently verified against the exact upstream artifact.
-5. Base-model and quantized-repository licence texts are archived and reviewed for personal use, redistribution and intended commercial use.
-6. GGUF architecture, tokenizer/chat template and the bundled Arm AI Chat runtime are verified.
-7. Minimum available RAM and conservative context length are set.
-8. A test transfer from the owner's private Drive folder passes size/hash checks.
-9. A local inference smoke test passes on a supported Android device.
+**Still required before calling the Android experience device-certified:**
 
-All twelve catalogue entries are now marked `ready` for verified Drive-to-device download. This does not mean the weights are already in the owner's Drive or that every model has passed inference on the Redmi. The owner must place the exact files in the private workspace, and physical-device runtime/RAM/thermal testing remains the final validation gate. Do not rename or remove upstream notices. Do not put model binaries in GitHub or Cloudflare storage; Google Drive remains the private model archive.
+1. Archive the full upstream licence texts/notices with the user's private model archive before any redistribution or customer offering.
+2. Confirm GGUF architecture, tokenizer/chat template and the bundled Arm AI Chat runtime on the target Android build.
+3. Connect the owner's private Drive folder and test all twelve transfers, interruption/restart behaviour, checksum rejection and permission revocation/reconnect.
+4. Run local inference on the Redmi Note 14 Pro and measure RAM, context length, thermal behaviour, battery use and latency for each model tier.
+
+All twelve catalogue entries are marked `ready` for verified Drive-to-device download. This does not mean the weights are already in the owner's Drive or that every model has passed inference on the Redmi. Do not rename or remove upstream notices. Do not put model binaries in GitHub or Cloudflare storage; Google Drive remains the private model archive.
