@@ -8,8 +8,9 @@ Cloudflare's role is limited to hosting the online web app's static files and fo
 
 ## Static web app
 
-- Static files live in `cloudflare/public/`.
-- Wrangler serves them through Workers Static Assets.
+- The canonical web console source is `cloudflare/public/index.html`.
+- The deployment process embeds that HTML into the Worker response so the online console is served from the same workers.dev origin.
+- No Cloudflare KV, D1, R2, Durable Objects or Workers Static Assets storage is used; the Worker code itself serves the console.
 - The online console asks the user for an API key in the browser and does not persist it.
 - The web UI must never contain a master key or GitHub write credential.
 - Same-origin requests use `/v1` on this Worker.
