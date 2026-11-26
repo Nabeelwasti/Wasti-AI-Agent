@@ -25,10 +25,10 @@ jobs:
         with:
           packages: "platform-tools"
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;37.0.0"
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "9.9.2"
+          gradle-version: "9.7.0"
       - name: Decode protected release keystore
         env:
           NEXUS_RELEASE_KEYSTORE_BASE64: ${{ secrets.NEXUS_RELEASE_KEYSTORE_BASE64 }}
@@ -54,7 +54,7 @@ jobs:
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
       - name: Upload signed APK
         uses: actions/upload-artifact@v7
         with:
