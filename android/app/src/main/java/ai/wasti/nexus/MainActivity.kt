@@ -835,7 +835,7 @@ private fun NexusScreen(
                                                         onLoadLocal(localModelPath)
                                                         localReady = true
                                                     }
-                                                    "Offline fallback used because the online brain was unavailable.\\n\\n" +
+                                                    "Offline fallback used because the online brain was unavailable.\n\n" +
                                                         onSendLocal(submittedPrompt)
                                                 } catch (localError: Exception) {
                                                     localReady = false
