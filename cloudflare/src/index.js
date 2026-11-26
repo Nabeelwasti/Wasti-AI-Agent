@@ -69,14 +69,14 @@ function authorized(request, env) {
     request.headers.get("Authorization") === `Bearer ${expected}`;
 }
 
-async function parseJson(request) {
+async function parseJson(request, maxChars = MAX_REQUEST_CHARS) {
   let raw;
   try {
     raw = await request.text();
   } catch {
     throw new GatewayError("Request body could not be read", 400);
   }
-  if (raw.length > MAX_REQUEST_CHARS) {
+  if (raw.length > maxChars) {
     throw new GatewayError("Request exceeds the configured size limit", 413);
   }
   try {
@@ -343,6 +343,185 @@ async function hybridBody(body, env, headers) {
   }, 200, headers);
 }
 
+
+const SNAPSHOT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MEMORY_TYPES = new Set(["conversation-summary", "fact", "preference", "project-note", "knowledge-reference"]);
+
+function decodeBase64Url(value) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new GatewayError("Memory nonce/ciphertext must be unpadded base64url", 400);
+  }
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4);
+  try {
+    const binary = atob(padded);
+    return Uint8Array.from(binary, character => character.charCodeAt(0));
+  } catch {
+    throw new GatewayError("Memory nonce/ciphertext is not valid base64url", 400);
+  }
+}
+
+function encodeBase64Utf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function decodeBase64Utf8(value) {
+  const binary = atob(String(value).replace(/\\s/g, ""));
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+function memoryConfig(env) {
+  const repository = String(env.NEXUS_MEMORY_REPOSITORY || "Nabeelwasti/Wasti-AI-Agent").trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new GatewayError("NEXUS_MEMORY_REPOSITORY must be owner/repository", 503);
+  }
+  const token = String(env.NEXUS_GITHUB_TOKEN || "");
+  if (token.length < 20) throw new GatewayError("GitHub memory integration is not configured", 503);
+  const branch = String(env.NEXUS_MEMORY_BRANCH || "main");
+  const prefix = String(env.NEXUS_MEMORY_PREFIX || "memory/personal/encrypted").replace(/^\/+|\/+$/g, "");
+  if (!prefix || prefix.split("/").some(part => !part || part === "." || part === "..")) {
+    throw new GatewayError("NEXUS_MEMORY_PREFIX is invalid", 503);
+  }
+  return { repository, token, branch, prefix };
+}
+
+async function githubMemoryRequest(config, path, init = {}) {
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${config.token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "WASTI-NEXUS-Memory",
+      ...(init.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    if (response.status === 404) return { status: 404, data: null };
+    if (response.status === 422) return { status: 422, data: null };
+    throw new GatewayError(`GitHub memory service returned HTTP ${response.status}`, 502);
+  }
+  return { status: response.status, data: await response.json() };
+}
+
+async function verifyPublicMemoryRepository(config) {
+  const result = await githubMemoryRequest(config, `/repos/${config.repository}`);
+  if (result.status !== 200 || result.data?.private !== false) {
+    throw new GatewayError("Configured memory repository must be public in this deployment mode", 503);
+  }
+}
+
+function validateMemorySnapshot(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new GatewayError("Memory snapshot must be a JSON object", 400);
+  }
+  const id = String(body.snapshot_id || "").toLowerCase();
+  if (!SNAPSHOT_ID_PATTERN.test(id)) throw new GatewayError("snapshot_id must be a UUID", 400);
+  const createdAt = body.created_at;
+  if (typeof createdAt !== "string" || !/(?:Z|[+-][0-9]{2}:[0-9]{2})$/i.test(createdAt) || !Number.isFinite(Date.parse(createdAt))) {
+    throw new GatewayError("created_at must be a valid timezone-aware timestamp", 400);
+  }
+  const keyId = body.key_id;
+  if (typeof keyId !== "string" || keyId.length < 8 || keyId.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(keyId)) {
+    throw new GatewayError("key_id must be 8-128 safe characters", 400);
+  }
+  const nonce = body.nonce;
+  const ciphertext = body.ciphertext;
+  if (decodeBase64Url(nonce).length !== 12 || decodeBase64Url(ciphertext).length < 16 || ciphertext.length > 1400000) {
+    throw new GatewayError("AES-256-GCM requires a 12-byte nonce and ciphertext with an authentication tag", 400);
+  }
+  const contentType = body.content_type || "conversation-summary";
+  if (!MEMORY_TYPES.has(contentType)) throw new GatewayError("Unsupported memory content_type", 400);
+  const tags = body.tags || [];
+  if (!Array.isArray(tags) || tags.length > 32 || tags.some(tag =>
+    typeof tag !== "string" || tag.length > 64 || !/^[A-Za-z0-9._:-]+$/.test(tag)
+  )) {
+    throw new GatewayError("Memory tags must be up to 32 safe labels", 400);
+  }
+  return {
+    schema_version: "1.0",
+    record_id: id,
+    tenant_scope: "personal",
+    created_at: new Date(createdAt).toISOString(),
+    content_type: contentType,
+    tags,
+    cipher: {
+      algorithm: "AES-256-GCM",
+      key_id: keyId,
+      nonce,
+      ciphertext,
+    },
+  };
+}
+
+async function memorySnapshots(request, env, headers, url) {
+  const config = memoryConfig(env);
+  await verifyPublicMemoryRepository(config);
+  const contentsBase = `/repos/${config.repository}/contents/${config.prefix.split("/").map(encodeURIComponent).join("/")}`;
+  if (request.method === "GET" && url.pathname === "/v1/memory/snapshots") {
+    const requestedLimit = Number(url.searchParams.get("limit") || 100);
+    const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 100;
+    const result = await githubMemoryRequest(config, `${contentsBase}?ref=${encodeURIComponent(config.branch)}&per_page=100`);
+    if (result.status === 404) return json({ data: [] }, 200, headers);
+    if (!Array.isArray(result.data)) throw new GatewayError("GitHub memory path is not a directory", 502);
+    const data = result.data
+      .filter(item => item?.type === "file" && SNAPSHOT_ID_PATTERN.test(String(item.name || "").replace(/\.json$/i, "")) && String(item.name).endsWith(".json"))
+      .slice(0, limit)
+      .map(item => ({ snapshot_id: item.name.slice(0, -5).toLowerCase(), sha: item.sha }));
+    return json({ data }, 200, headers);
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/memory/snapshots") {
+    const input = await parseJson(request, 1500000);
+    const record = validateMemorySnapshot(input);
+    const path = `${contentsBase}/${encodeURIComponent(record.record_id)}.json`;
+    const result = await githubMemoryRequest(config, path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `memory: add encrypted snapshot ${record.record_id}`,
+        content: encodeBase64Utf8(JSON.stringify(record) + "\\n"),
+        branch: config.branch,
+      }),
+    });
+    if (result.status === 422) throw new GatewayError("Snapshot already exists; snapshot IDs are immutable", 409);
+    return json({
+      object: "memory.snapshot",
+      snapshot_id: record.record_id,
+      commit_sha: result.data?.commit?.sha || null,
+      path: `${config.prefix}/${record.record_id}.json`,
+    }, 201, headers);
+  }
+
+  const match = url.pathname.match(/^\\/v1\\/memory\\/snapshots\\/([0-9a-f-]{36})$/i);
+  if (request.method === "GET" && match) {
+    const snapshotId = match[1].toLowerCase();
+    if (!SNAPSHOT_ID_PATTERN.test(snapshotId)) throw new GatewayError("snapshot_id must be a UUID", 400);
+    const path = `${contentsBase}/${encodeURIComponent(snapshotId)}.json?ref=${encodeURIComponent(config.branch)}`;
+    const result = await githubMemoryRequest(config, path);
+    if (result.status === 404) throw new GatewayError("Memory snapshot not found", 404);
+    if (result.data?.encoding !== "base64" || typeof result.data?.content !== "string") {
+      throw new GatewayError("GitHub returned an unsupported memory file encoding", 502);
+    }
+    let record;
+    try {
+      record = JSON.parse(decodeBase64Utf8(result.data.content));
+    } catch {
+      throw new GatewayError("Stored memory snapshot is corrupt", 502);
+    }
+    if (record?.record_id !== snapshotId || record?.cipher?.algorithm !== "AES-256-GCM") {
+      throw new GatewayError("Stored memory snapshot identity or encryption metadata is invalid", 502);
+    }
+    return json({ object: "memory.snapshot", data: record }, 200, headers);
+  }
+  return null;
+}
+
 export default {
   async fetch(request, env) {
     const headers = corsHeaders(request, env);
@@ -362,6 +541,10 @@ export default {
     }
 
     try {
+      if (url.pathname === "/v1/memory/snapshots" || url.pathname.startsWith("/v1/memory/snapshots/")) {
+        const memoryResponse = await memorySnapshots(request, env, headers, url);
+        if (memoryResponse) return memoryResponse;
+      }
       if (request.method === "GET" && url.pathname === "/v1/models") {
         return json({ object: "list", data: modelCatalog(env) }, 200, headers);
       }
