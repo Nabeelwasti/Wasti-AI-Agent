@@ -1,4 +1,13 @@
 export type NexusMessage = { role: "system" | "user" | "assistant"; content: string };
+export type EncryptedMemorySnapshot = {
+  snapshot_id: string;
+  created_at: string;
+  key_id: string;
+  nonce: string;
+  ciphertext: string;
+  content_type?: "conversation-summary" | "fact" | "preference" | "project-note" | "knowledge-reference";
+  tags?: string[];
+};
 export type NexusResponse = {
   id: string;
   choices: Array<{ message: { role: "assistant"; content: string } }>;
@@ -29,6 +38,28 @@ export class NexusClient {
 
   chat(model: string, messages: NexusMessage[]) {
     return this.request<NexusResponse>("/v1/chat/completions", { model, messages, stream: false });
+  }
+
+  memorySnapshots(limit = 100) {
+    const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    return this.request<{ data: Array<{ snapshot_id: string; sha: string }> }>(
+      "/v1/memory/snapshots?limit=" + safeLimit
+    );
+  }
+
+  createMemorySnapshot(snapshot: EncryptedMemorySnapshot) {
+    return this.request<{ object: string; snapshot_id: string; commit_sha: string | null }>(
+      "/v1/memory/snapshots", snapshot
+    );
+  }
+
+  memorySnapshot(snapshotId: string) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId)) {
+      throw new Error("Invalid memory snapshot UUID");
+    }
+    return this.request<{ object: string; data: EncryptedMemorySnapshot }>(
+      "/v1/memory/snapshots/" + snapshotId
+    );
   }
 
   hybrid(messages: NexusMessage[], agents?: string[], synthesisModel?: string, reviewRounds = 1) {
