@@ -38,20 +38,14 @@ function modelAllowed(model, env) {
 
 const BUILTIN_WORKERS_AI_MODELS = [
   {
-    id: "nexus-llama-3.2-1b",
-    upstream_model: "@cf/meta/llama-3.2-1b-instruct",
-    agent: "fast-generalist",
-    license: "Llama 3.2 Community License",
+    id: "nexus-gemma-4-26b-a4b",
+    upstream_model: "@cf/google/gemma-4-26b-a4b-it",
+    agent: "generalist-reasoning-vision",
+    license: "Apache-2.0",
     commercial_allowed: true,
-    license_url: "https://www.llama.com/llama3_2/license/",
-  },
-  {
-    id: "nexus-llama-3.2-3b",
-    upstream_model: "@cf/meta/llama-3.2-3b-instruct",
-    agent: "generalist",
-    license: "Llama 3.2 Community License",
-    commercial_allowed: true,
-    license_url: "https://www.llama.com/llama3_2/license/",
+    license_url: "https://ai.google.dev/gemma/docs/gemma_4_license",
+    context_window: 256000,
+    pricing_usd_per_million_tokens: { input: 0.10, output: 0.30 },
   },
 ];
 
