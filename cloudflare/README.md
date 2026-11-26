@@ -47,7 +47,7 @@ The Worker defaults to customer-safe mode: a model is hidden and blocked unless 
 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
-The Worker orchestrates configured inference services; it does not host large model weights or provide GPU inference itself. Online requests will return no usable model until at least one lawful inference provider is configured. Offline Android operation uses the separate native local runtime.
+The Worker exposes a first-party Cloudflare Workers AI model through the `AI` binding and can also route to optional HTTPS OpenAI-compatible providers. The built-in `nexus-gemma-4-26b-a4b` model uses `@cf/google/gemma-4-26b-a4b-it` (Gemma 4, Apache-2.0); no third-party provider API key is needed for this route. Cloudflare inference is metered, not unlimited free compute. Offline Android operation remains separate and uses the locally imported GGUF model.
 
 ## Online inference providers
 
