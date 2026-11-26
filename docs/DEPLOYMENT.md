@@ -27,6 +27,10 @@ Official deployment references:
 - https://developers.cloudflare.com/workers/wrangler/commands/
 - https://developers.cloudflare.com/workers/wrangler/configuration/
 
-## Why there is not yet a live endpoint
+## Current gateway URL and readiness
 
-A stable public API needs a running orchestrator origin and at least one configured model backend. A Cloudflare proxy with no origin would only return errors. This repository therefore contains deployment code and a stable API contract, but does not invent a live URL.
+A Cloudflare Worker gateway has been deployed and its `workers.dev` subdomain enabled:
+
+`https://wasti-nexus-gateway.wastinabeel99.workers.dev`
+
+The deployed source was verified byte-for-byte against `cloudflare/worker/src/index.js`, and the `NEXUS_API_KEY` secret binding is present. However, `NEXUS_PROVIDERS_JSON` has no configured model backends yet. The URL is provisioned, but it is **not inference-ready** until at least one licensed, tested HTTPS model provider is configured and the authenticated `/v1/models` and Hybrid smoke tests pass. Do not put the owner API key in public frontend code or customer APKs.
