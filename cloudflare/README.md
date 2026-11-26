@@ -46,3 +46,14 @@ The Worker defaults to customer-safe mode: a model is hidden and blocked unless 
 Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
 
 The Worker orchestrates configured inference services; it does not host large model weights or provide GPU inference itself. Online requests will return no usable model until at least one lawful inference provider is configured. Offline Android operation uses the separate native local runtime.
+
+## Online inference providers
+
+The gateway accepts OpenAI-compatible providers through `NEXUS_PROVIDERS_JSON`. The example `providers.example.json` demonstrates OpenRouter's free-model router. To enable it:
+
+1. Create an OpenRouter account and API key yourself.
+2. Add `NEXUS_OPENROUTER_API_KEY` as a Worker secret.
+3. Add the JSON from `providers.example.json` as the Worker secret/config value `NEXUS_PROVIDERS_JSON`.
+4. Keep `NEXUS_DEPLOYMENT_MODE=customer` unless the selected model and upstream provider terms have been reviewed for customer use. The example deliberately sets `commercial_allowed: false`, so it is hidden in customer mode.
+
+OpenRouter's `openrouter/free` router selects from its currently available free models; it does **not** guarantee a specific one of the twelve registered model families. Free-model IDs and availability change. The example is a personal experimentation path, not a promise of free production capacity. Never put provider keys in GitHub or frontend code.
