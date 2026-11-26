@@ -40,7 +40,10 @@ def test_snapshot_input_is_client_encrypted_and_timezone_aware():
     record = MemorySnapshotInput(
         snapshot_id=snapshot_id,
         created_at=datetime.now(timezone.utc),
-        key_id="device-key-2026",
+        key_id="pbkdf2-sha256-600k-v1",
+        kdf="PBKDF2-HMAC-SHA256",
+        iterations=600000,
+        salt="AAAAAAAAAAAAAAAAAAAAAA",
         nonce="YWJjZGVmZ2hpamts",
         ciphertext="MDEyMzQ1Njc4OWFiY2RlZg",
     ).encrypted_record()
@@ -54,7 +57,10 @@ def test_snapshot_input_rejects_naive_datetime():
         MemorySnapshotInput(
             snapshot_id=uuid.uuid4(),
             created_at=datetime(2026, 1, 1),
-            key_id="device-key-2026",
+            key_id="pbkdf2-sha256-600k-v1",
+            kdf="PBKDF2-HMAC-SHA256",
+            iterations=600000,
+            salt="AAAAAAAAAAAAAAAAAAAAAA",
             nonce="YWJjZGVmZ2hpamts",
             ciphertext="MDEyMzQ1Njc4OWFiY2RlZg",
         ).encrypted_record()
@@ -83,7 +89,10 @@ def test_save_snapshot_writes_one_immutable_encrypted_file(monkeypatch):
         "created_at": created_at,
         "cipher": {
             "algorithm": "AES-256-GCM",
-            "key_id": "device-key-2026",
+            "key_id": "pbkdf2-sha256-600k-v1",
+            "kdf": "PBKDF2-HMAC-SHA256",
+            "iterations": 600000,
+            "salt": "AAAAAAAAAAAAAAAAAAAAAA",
             "nonce": "YWJjZGVmZ2hpamts",
             "ciphertext": "MDEyMzQ1Njc4OWFiY2RlZg",
         },
