@@ -1,28 +1,57 @@
 #!/usr/bin/env python3
-"""Download all 12 pinned model snapshots to a private external archive."""
-import argparse, json, subprocess, sys
+"""Download only explicitly selected local GGUF candidates.
+
+This compatibility entry point intentionally never downloads all twelve full
+upstream checkpoints. Select one or more family IDs with --family.
+"""
+import argparse
+import json
+import subprocess
+import sys
 from pathlib import Path
 
-def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument("--output",default="./nexus-model-archive")
-    parser.add_argument("--registry",default=str(Path(__file__).with_name("registry.json")))
-    parser.add_argument("--dry-run",action="store_true")
-    args=parser.parse_args()
-    registry=json.loads(Path(args.registry).read_text(encoding="utf-8"))
-    families=registry.get("families",[])
-    if len(families)!=12:
-        raise SystemExit(f"Expected 12 registered families; found {len(families)}")
-    missing=[x.get("id","?") for x in families if not x.get("repo_id") or not x.get("revision")]
-    if missing:
-        raise SystemExit("Refusing to download moving/unpinned checkpoints. Add immutable revision SHAs for: "+", ".join(missing))
-    print("Private archive only. This script does not publish or redistribute weights.")
-    for item in families:
-        print(f"{item['id']}: {item['repo_id']} @ {item['revision']}")
-        if args.dry_run: continue
-        command=[sys.executable,str(Path(__file__).with_name("download_snapshot.py")),
-                 item["repo_id"],"--revision",item["revision"],"--output",args.output]
-        subprocess.run(command,check=True)
-    print("All pinned snapshots downloaded. Verify manifests and run model-load tests before marking any entry archived.")
 
-if __name__=="__main__": main()
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--family", action="append", required=True,
+                        help="Explicit family ID; repeat to select multiple local candidates")
+    parser.add_argument("--registry", default=str(Path(__file__).with_name("registry.json")))
+    parser.add_argument("--output", default="./nexus-local-models")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    registry = json.loads(Path(args.registry).read_text(encoding="utf-8"))
+    families = {item.get("id"): item for item in registry.get("families", [])}
+    unknown = sorted(set(args.family) - set(families))
+    if unknown:
+        raise SystemExit("Unknown family ID(s): " + ", ".join(unknown))
+
+    selected = []
+    for family_id in dict.fromkeys(args.family):
+        family = families[family_id]
+        candidate = family.get("local_candidate")
+        if not isinstance(candidate, dict):
+            raise SystemExit(f"No local GGUF candidate registered for {family_id}")
+        if not candidate.get("revision"):
+            raise SystemExit(
+                f"{family_id} local candidate is not pinned. Run "
+                f"python models/pin_revisions.py --family {family_id}, review it, "
+                f"then --write."
+            )
+        selected.append(family_id)
+
+    downloader = Path(__file__).with_name("download_local_candidate.py")
+    print("Only explicitly selected GGUF files will be downloaded; primary full checkpoints are excluded.")
+    for family_id in selected:
+        print(f"{family_id}: {families[family_id]['local_candidate']['repo_id']}")
+        if args.dry_run:
+            continue
+        subprocess.run(
+            [sys.executable, str(downloader), family_id,
+             "--registry", args.registry, "--output", args.output],
+            check=True,
+        )
+
+
+if __name__ == "__main__":
+    main()
