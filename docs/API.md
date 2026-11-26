@@ -38,24 +38,37 @@ The gateway Worker is deployed and its workers.dev subdomain is enabled. **No in
 
 The Worker also accepts `POST /v1/hybrid/chat/completions` with an optional `models` array. Hybrid mode runs independent analysis, peer critique and synthesis. The response lists only actual successful participants, failures, independent answers and peer reviews.
 
-## Encrypted GitHub memory snapshots (orchestrator)
+## Encrypted GitHub memory snapshots
 
-The FastAPI orchestrator provides a personal-memory snapshot adapter. It stores only client-encrypted AES-256-GCM payloads as files in the configured GitHub repository. The API never decrypts memory.
+The deployed Cloudflare Worker exposes GitHub-backed snapshot routes. Cloudflare is only the authenticated API gateway; the Worker sends encrypted files directly to the GitHub Contents API. No Cloudflare storage product is used.
 
-Configure these variables on the trusted orchestrator host:
-- `NEXUS_MEMORY_REPOSITORY=owner/Wasti-AI-Agent`
-- `NEXUS_GITHUB_TOKEN` — fine-grained token with Contents read/write access restricted to this repository
-- `NEXUS_MEMORY_BRANCH=main` (optional)
-- `NEXUS_MEMORY_PREFIX=memory/personal/encrypted` (optional)
+Configure these Worker settings:
+- `NEXUS_MEMORY_REPOSITORY=Nabeelwasti/Wasti-AI-Agent`
+- `NEXUS_MEMORY_BRANCH=main`
+- `NEXUS_MEMORY_PREFIX=memory/personal/encrypted`
+- `NEXUS_GITHUB_TOKEN` — Worker secret containing a fine-grained GitHub token with Contents read/write access to this repository only.
+
+The repository must remain public in the current deployment mode. Every memory request checks its visibility. The Worker accepts only an AES-256-GCM envelope with a 12-byte nonce and authenticated ciphertext; it never receives plaintext memory. GitHub exposes the encrypted files and all metadata publicly. Never commit plaintext personal/customer data, encryption keys, API keys or GitHub tokens.
 
 Endpoints (all require the NEXUS bearer key):
-- `GET /v1/memory/snapshots` — list snapshot IDs.
-- `POST /v1/memory/snapshots` — create an immutable encrypted snapshot file.
-- `GET /v1/memory/snapshots/{snapshot_id}` — retrieve an encrypted snapshot for client-side decryption.
+- `GET /v1/memory/snapshots?limit=100` — list encrypted snapshot IDs.
+- `POST /v1/memory/snapshots` — create an immutable encrypted snapshot.
+- `GET /v1/memory/snapshots/{snapshot_id}` — retrieve ciphertext for device-side decryption.
 
-The write body includes `snapshot_id` (UUID), timezone-aware `created_at`, `key_id`, base64url `nonce`, base64url `ciphertext`, optional `content_type` and `tags`. Batch many memory records into one encrypted snapshot before upload. The API writes under `memory/personal/encrypted/`; it does not accept a client-controlled repository path or tenant path. The configured repository must be public. GitHub exposes encrypted blobs and their metadata to everyone; the server refuses plaintext records. Keep encryption keys exclusively on trusted devices and maintain a separate encrypted recovery backup.
+Example write body:
+```json
+{
+  "snapshot_id": "123e4567-e89b-42d3-a456-426614174000",
+  "created_at": "2026-11-26T12:00:00+05:00",
+  "key_id": "android-key-2026",
+  "nonce": "base64url-encoded-12-byte-nonce",
+  "ciphertext": "base64url-encoded-AES-256-GCM-ciphertext-and-tag",
+  "content_type": "conversation-summary",
+  "tags": ["nexus", "project"]
+}
+```
 
-This initial adapter is for one personal vault, not a multi-customer identity system. Do not expose the shared NEXUS key to customers. This deployment deliberately uses a public repository: only client-encrypted ciphertext is written there, and all blob metadata is public. Keep the GitHub token server-side, encrypt before upload, and retain a local encrypted copy so offline mode works. Never store plaintext customer or personal records in this repository. GitHub commit history and API rate limits make this a versioned sync/archive layer, not a high-frequency transactional database.
+The Android client must encrypt locally before upload, retain an encrypted local copy for offline use, and never send plaintext to this endpoint. The current API is a single personal vault, not a multi-tenant customer memory service. Keep the GitHub token in Worker secrets only. Batch many records into one encrypted snapshot because GitHub is a versioned sync/archive layer, not a transactional database; respect API rate limits and repository history growth. A device-bound Keystore key cannot be recovered on a new phone without a separately designed recovery mechanism.
 
 ## Provider configuration
 
