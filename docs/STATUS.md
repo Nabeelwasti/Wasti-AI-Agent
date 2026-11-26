@@ -7,7 +7,7 @@ Last updated: 2026-11-26.
 - Canonical repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
 - One monorepo contains the Android app, model registry/acquisition scripts, Python orchestration service, Cloudflare gateway, SDKs, tests and documentation.
 - No model weights, provider credentials, GitHub tokens or personal plaintext memory are committed.
-- The latest previously verified full CI run passed on commit `d5dfa7fb5d8c88b44545c763033181e56914afab` (run [45819011014](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45819011014)). It built a **debug** APK; it did not produce a signed production release.
+- The complete PR CI passed on commit `5f1327491fc2679377eef61de46df390dec577ad` (run [45823646137](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823646137)), including Python tests, Worker tests and Android `assembleDebug`. The post-merge main CI run [45823876505](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45823876505) has passed Python/Worker checks and the deployed gateway smoke test; Android build/artifact publication is still running as of this status update. These are **debug** builds, not signed production releases.
 
 ## Android client
 
@@ -31,9 +31,9 @@ Last updated: 2026-11-26.
 - Worker source of record: `cloudflare/src/index.js`; Wrangler config: `cloudflare/wrangler.toml`.
 - The Worker has an `AI` binding and a protected OpenAI-compatible API.
 - **Critical upstream lifecycle finding:** Cloudflare deprecated both previous built-in model IDs, `@cf/meta/llama-3.2-1b-instruct` and `@cf/meta/llama-3.2-3b-instruct`, effective 2026-11-20. The prior successful CI only checked the binding/catalogue count and therefore did not detect that the upstream models no longer generated responses.
-- The current repair branch replaces those retired IDs with `@cf/google/gemma-4-26b-a4b-it`, exposes its Apache-2.0 licence, context and published token pricing metadata, and updates the unit test to verify dispatch to that exact ID.
+- The merged repair replaces those retired IDs with `@cf/google/gemma-4-26b-a4b-it`, exposes its Apache-2.0 licence, context and published token pricing metadata, and tests dispatch to that exact ID.
 - The repair branch also adds hashed per-application API keys with `models`/`chat` scopes; the master key alone can access the personal memory endpoints. A Cloudflare Rate Limiting binding is configured at 60 requests per 60 seconds per key per location. Cloudflare describes this as approximate/local, not strict global quotas. Public apps must not embed these long-lived bearer keys; a backend auth/token-exchange layer is still required.
-- The updated model has been called successfully through the authenticated Cloudflare account API, returning `NEXUS_LIVE_MODEL_OK`. This verifies the model is available to the connected Cloudflare account, but it does not yet prove the deployed NEXUS Worker is updated or its route returns the answer. The repair branch is not yet deployed or proven by a live authenticated Worker generation request. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
+- The updated model was called successfully through the authenticated Cloudflare account API, returning `NEXUS_LIVE_MODEL_OK`. The current Worker source was deployed on 2026-11-26 at 12:53:33Z as version `85373829-cbf2-4b13-89e1-b9407ba624cc`; the `AI` binding, existing `NEXUS_API_KEY`/`NEXUS_GITHUB_TOKEN` secrets, plain-text variables and `NEXUS_RATE_LIMIT` binding were verified after upload. The post-merge GitHub Actions deployed-gateway smoke test passed and confirmed the public health endpoint advertises `nexus-gemma-4-26b-a4b`. A live authenticated chat-completion request through the Worker itself is still not verified. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
 - The existing `NEXUS_API_KEY` and `NEXUS_GITHUB_TOKEN` bindings were observed as configured secrets; secret values were not read or exposed.
 
 ## Memory
@@ -47,8 +47,8 @@ Last updated: 2026-11-26.
 
 The project must not be advertised as a fully production-ready multi-customer service until all of the following have evidence:
 
-1. Deploy the current Worker source and run authenticated real model generation against the live endpoint.
-2. Deploy and configure `NEXUS_CLIENT_KEYS_JSON` with unique per-application keys. The branch includes a 256-bit key generator, SHA-256 hash validation, `models`/`chat` scopes and master-only memory access. The approximate per-location rate limiter is not a strict quota; add Durable Objects or an external metering service for strict global limits, plus user authentication and short-lived tokens for public apps.
+1. Run an authenticated real chat-completion request through the deployed Worker endpoint. Public health and model-catalogue smoke tests now pass, but they do not prove that the Worker returns a generated answer.
+2. Configure `NEXUS_CLIENT_KEYS_JSON` with unique per-application keys. The merged source includes a 256-bit key generator, SHA-256 hash validation, `models`/`chat` scopes and master-only memory access; the secret is not yet populated with app-specific client keys. The approximate per-location rate limiter is not a strict quota; add Durable Objects or an external metering service for strict global limits, plus user authentication and short-lived tokens for public apps.
 3. Add tenant isolation and authorization for memory and any future customer data. The current GitHub memory path is a single personal vault, not a customer memory service.
 4. Complete privacy/retention disclosures, abuse controls, monitoring/alerting, backup/restore drills and operational incident procedures.
 5. Install the APK on the target Android device, test with networking disabled, validate at least one GGUF model's actual generation, and record RAM, thermal, latency and battery results.
