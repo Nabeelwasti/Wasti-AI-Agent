@@ -1,7 +1,7 @@
 const MAX_AGENTS = 12;
 const MAX_MESSAGES = 40;
 const MAX_REQUEST_CHARS = 30000;
-const CONSOLE_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"theme-color\" content=\"#10131b\"><title>WASTI NEXUS — AI Brain</title>\n<style>\n:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}\nmain{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}\nh1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}\nlabel{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}\n.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}\n.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}\n@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}\n</style></head>\n<body><main>\n<header><div class=\"brand\"><div class=\"mark\">N</div><h1>WASTI NEXUS</h1></div><p class=\"sub\">One universal brain API · Multiple model providers · Hybrid intelligence</p></header>\n<section class=\"panel\">\n<div class=\"row\"><div><label for=\"key\">NEXUS API key</label><input id=\"key\" type=\"password\" autocomplete=\"off\" placeholder=\"Enter your API key\"></div><div><label for=\"model\">Brain</label><select id=\"model\"><option value=\"nexus-hybrid\">NEXUS Hybrid</option></select></div></div>\n<div class=\"actions\"><button id=\"refresh\" class=\"secondary\">Refresh model catalogue</button><span id=\"status\" class=\"status\">Connecting to gateway…</span></div>\n<p class=\"muted\">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>\n</section>\n<section class=\"panel\">\n<label for=\"prompt\">Ask NEXUS</label><textarea id=\"prompt\" placeholder=\"What would you like the AI brains to work on?\"></textarea>\n<div class=\"actions\"><button id=\"send\">Send request</button><span class=\"pill\" id=\"mode\">Hybrid collective</span></div>\n</section>\n<section class=\"panel\"><label>Response</label><div id=\"answer\" class=\"answer\">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>\n<p class=\"muted\">NEXUS gateway: same-origin /v1 · Model availability depends on configured providers and their licences.</p>\n</main>\n<script>\nconst $=id=>document.getElementById(id), key=()=>$(\"key\").value.trim();\nfunction status(s){$(\"status\").textContent=s}\nasync function loadModels(){status(\"Loading configured brains…\");try{const r=await fetch(\"/v1/models\",{headers:{Authorization:\"Bearer \"+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||\"HTTP \"+r.status);const list=d.data||[];const options=[{id:\"nexus-hybrid\",owned_by:\"WASTI NEXUS\"},...list.filter(m=>m.id!==\"nexus-hybrid\")];$(\"model\").replaceChildren(...options.map(m=>{const o=document.createElement(\"option\");o.value=m.id;o.textContent=m.id+(m.owned_by?\" · \"+m.owned_by:\"\");return o}));status(list.length?list.length+\" brain(s) available.\":\"Gateway is online, but no inference providers are configured yet. Hybrid will become available when providers are connected.\");}catch(e){status(\"Catalogue unavailable: \"+e.message)}}\n$(\"refresh\").addEventListener(\"click\",loadModels);\n$(\"model\").addEventListener(\"change\",()=>{$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid collective\":\"Single brain\"});\n$(\"send\").addEventListener(\"click\",async()=>{const prompt=$(\"prompt\").value.trim();if(!prompt)return; if(!key()){status(\"Enter your API key first.\");return}const btn=$(\"send\");btn.disabled=true;$(\"answer\").textContent=\"Working…\";try{const model=$(\"model\").value;const body={model,messages:[{role:\"user\",content:prompt}],stream:false};if(model===\"nexus-hybrid\")body.nexus={mode:\"hybrid\",review_rounds:1};const r=await fetch(\"/v1/chat/completions\",{method:\"POST\",headers:{\"Authorization\":\"Bearer \"+key(),\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||\"HTTP \"+r.status);$(\"answer\").textContent=d.choices?.[0]?.message?.content||\"No answer returned.\";status(\"Completed.\");}catch(e){$(\"answer\").textContent=\"Request failed: \"+e.message;status(\"Check provider setup and API key.\")}finally{btn.disabled=false}});\nloadModels();\n</script></body></html>";
+const CONSOLE_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"theme-color\" content=\"#10131b\"><title>WASTI NEXUS — AI Brain</title>\n<style>\n:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}\nmain{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}\nh1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}\nlabel{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}\n.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}\n.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}\n@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}\n</style></head>\n<body><main>\n<header><div class=\"brand\"><div class=\"mark\">N</div><h1>WASTI NEXUS</h1></div><p class=\"sub\">One universal brain API · Multiple model providers · Hybrid intelligence</p></header>\n<section class=\"panel\">\n<div class=\"row\"><div><label for=\"key\">NEXUS API key</label><input id=\"key\" type=\"password\" autocomplete=\"off\" placeholder=\"Enter your API key\"></div><div><label for=\"model\">Brain</label><select id=\"model\"><option value=\"nexus-hybrid\">NEXUS Hybrid</option></select></div></div>\n<div class=\"actions\"><button id=\"refresh\" class=\"secondary\">Refresh model catalogue</button><span id=\"status\" class=\"status\">Connecting to gateway…</span></div>\n<p class=\"muted\">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>\n</section>\n<section class=\"panel\">\n<label for=\"prompt\">Ask NEXUS</label><textarea id=\"prompt\" placeholder=\"What would you like the AI brains to work on?\"></textarea>\n<div class=\"actions\"><button id=\"send\">Send request</button><span class=\"pill\" id=\"mode\">Hybrid orchestration</span></div>\n</section>\n<section class=\"panel\"><label>Response</label><div id=\"answer\" class=\"answer\">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>\n<p class=\"muted\">NEXUS gateway: same-origin /v1 · Model availability depends on configured providers and their licences.</p>\n</main>\n<script>\nconst $=id=>document.getElementById(id), key=()=>$(\"key\").value.trim();\nfunction status(s){$(\"status\").textContent=s}\nasync function loadModels(){status(\"Loading configured brains…\");try{const r=await fetch(\"/v1/models\",{headers:{Authorization:\"Bearer \"+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||\"HTTP \"+r.status);const list=d.data||[];const options=[{id:\"nexus-hybrid\",owned_by:\"WASTI NEXUS\"},...list.filter(m=>m.id!==\"nexus-hybrid\")];$(\"model\").replaceChildren(...options.map(m=>{const o=document.createElement(\"option\");o.value=m.id;o.textContent=m.id+(m.owned_by?\" · \"+m.owned_by:\"\");return o}));status(list.length?list.length+\" brain(s) available.\":\"Gateway is online, but no inference providers are configured yet. Hybrid will become available when providers are connected.\");}catch(e){status(\"Catalogue unavailable: \"+e.message)}}\n$(\"refresh\").addEventListener(\"click\",loadModels);\n$(\"model\").addEventListener(\"change\",()=>{$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":\"Single brain\"});\n$(\"send\").addEventListener(\"click\",async()=>{const prompt=$(\"prompt\").value.trim();if(!prompt)return; if(!key()){status(\"Enter your API key first.\");return}const btn=$(\"send\");btn.disabled=true;$(\"answer\").textContent=\"Working…\";try{const model=$(\"model\").value;const body={model,messages:[{role:\"user\",content:prompt}],stream:false};if(model===\"nexus-hybrid\")body.nexus={mode:\"hybrid\",review_rounds:1};const r=await fetch(\"/v1/chat/completions\",{method:\"POST\",headers:{\"Authorization\":\"Bearer \"+key(),\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||\"HTTP \"+r.status);$(\"answer\").textContent=d.choices?.[0]?.message?.content||\"No answer returned.\";status(\"Completed.\");}catch(e){$(\"answer\").textContent=\"Request failed: \"+e.message;status(\"Check provider setup and API key.\")}finally{btn.disabled=false}});\nloadModels();\n</script></body></html>";
 
 class GatewayError extends Error {
   constructor(message, status = 502, details = undefined) {
@@ -38,20 +38,14 @@ function modelAllowed(model, env) {
 
 const BUILTIN_WORKERS_AI_MODELS = [
   {
-    id: "nexus-llama-3.2-1b",
-    upstream_model: "@cf/meta/llama-3.2-1b-instruct",
-    agent: "fast-generalist",
-    license: "Llama 3.2 Community License",
+    id: "nexus-gemma-4-26b-a4b",
+    upstream_model: "@cf/google/gemma-4-26b-a4b-it",
+    agent: "generalist-reasoning-vision",
+    license: "Apache-2.0",
     commercial_allowed: true,
-    license_url: "https://www.llama.com/llama3_2/license/",
-  },
-  {
-    id: "nexus-llama-3.2-3b",
-    upstream_model: "@cf/meta/llama-3.2-3b-instruct",
-    agent: "generalist",
-    license: "Llama 3.2 Community License",
-    commercial_allowed: true,
-    license_url: "https://www.llama.com/llama3_2/license/",
+    license_url: "https://ai.google.dev/gemma/docs/gemma_4_license",
+    context_window: 256000,
+    pricing_usd_per_million_tokens: { input: 0.10, output: 0.30 },
   },
 ];
 
@@ -74,6 +68,8 @@ function modelCatalog(env) {
     agent: model.agent,
     license: model.license,
     license_url: model.license_url,
+    context_window: model.context_window,
+    pricing_usd_per_million_tokens: model.pricing_usd_per_million_tokens,
     inference: "Cloudflare Workers AI binding; no third-party provider key",
   }));
   const external = configuredProviders(env).flatMap(provider =>
@@ -104,10 +100,55 @@ function corsHeaders(request, env) {
   return headers;
 }
 
-function authorized(request, env) {
-  const expected = env.NEXUS_API_KEY || "";
-  return expected.length >= 32 &&
-    request.headers.get("Authorization") === `Bearer ${expected}`;
+function constantTimeEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+function requiredScope(pathname) {
+  if (pathname === "/v1/models") return "models";
+  if (pathname.startsWith("/v1/chat/") || pathname.startsWith("/v1/hybrid/")) return "chat";
+  if (pathname.startsWith("/v1/memory/")) return "memory";
+  return "unknown";
+}
+
+async function authorizeRequest(request, env, pathname) {
+  const authorization = request.headers.get("Authorization") || "";
+  const match = authorization.match(/^Bearer ([^\s]{32,})$/);
+  if (!match) return { ok: false, status: 401 };
+  const presented = match[1];
+
+  const master = env.NEXUS_API_KEY || "";
+  if (master.length >= 32 && constantTimeEqual(presented, master)) {
+    return { ok: true, role: "master", rate_limit_key: "master", scopes: ["models", "chat", "memory", "admin"] };
+  }
+
+  let configured;
+  try {
+    configured = JSON.parse(env.NEXUS_CLIENT_KEYS_JSON || '{"keys":[]}');
+  } catch {
+    return { ok: false, status: 503 };
+  }
+  const keys = Array.isArray(configured.keys) ? configured.keys : [];
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(presented));
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  const scope = requiredScope(pathname);
+  let recognized = false;
+  for (const entry of keys) {
+    if (!entry || entry.enabled === false || typeof entry.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/i.test(entry.sha256)) continue;
+    if (!constantTimeEqual(hash, entry.sha256.toLowerCase())) continue;
+    recognized = true;
+    const scopes = Array.isArray(entry.scopes) ? entry.scopes : [];
+    if (scopes.includes(scope)) {
+      return { ok: true, role: "client", client_id: String(entry.id || "unnamed"), rate_limit_key: hash, scopes };
+    }
+  }
+  return { ok: false, status: recognized ? 403 : 401 };
 }
 
 async function parseJson(request, maxChars = MAX_REQUEST_CHARS) {
@@ -194,7 +235,13 @@ async function invoke(env, modelId, messages, options = {}) {
   const baseUrl = String(provider.base_url || "").replace(/\/$/, "");
   const apiKeyName = provider.api_key_env;
   const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
-  if (!baseUrl.startsWith("https://") || !apiKey) {
+  let parsedBaseUrl;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    throw new GatewayError(`Provider for model '${modelId}' has an invalid base URL`, 503);
+  }
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password || !apiKey) {
     throw new GatewayError(`Provider for model '${modelId}' is not configured correctly`, 503);
   }
 
@@ -204,6 +251,7 @@ async function invoke(env, modelId, messages, options = {}) {
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
+      redirect: "manual",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -644,15 +692,42 @@ export default {
       });
     }
     if (request.method === "GET" && url.pathname === "/healthz") {
+      const models = modelCatalog(env);
       return json({
         status: "ok",
         service: "wasti-nexus-gateway",
-        configured_models: modelCatalog(env).length,
+        configured_models: models.length,
+        model_ids: models.map(model => model.id),
       }, 200, headers);
     }
 
-    if (url.pathname.startsWith("/v1/") && !authorized(request, env)) {
-      return json({ error: { message: "Unauthorized" } }, 401, headers);
+    if (url.pathname.startsWith("/v1/")) {
+      const authorization = await authorizeRequest(request, env, url.pathname);
+      if (!authorization.ok) {
+        const status = authorization.status || 401;
+        return json({
+          error: {
+            message: status === 403 ? "This API key does not have permission for this resource." :
+              status === 503 ? "Gateway client-key configuration is invalid." : "Unauthorized",
+          },
+        }, status, headers);
+      }
+      if (env.NEXUS_DEPLOYMENT_MODE === "customer") {
+        if (!env.NEXUS_RATE_LIMIT || typeof env.NEXUS_RATE_LIMIT.limit !== "function") {
+          return json({ error: { message: "Gateway rate limiting is not configured." } }, 503, headers);
+        }
+        try {
+          const { success } = await env.NEXUS_RATE_LIMIT.limit({ key: authorization.rate_limit_key });
+          if (!success) {
+            return json({ error: { message: "Rate limit exceeded. Please retry shortly." } }, 429, {
+              ...headers,
+              "Retry-After": "60",
+            });
+          }
+        } catch {
+          return json({ error: { message: "Gateway rate limiting is temporarily unavailable." } }, 503, headers);
+        }
+      }
     }
 
     try {

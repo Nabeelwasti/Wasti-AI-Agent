@@ -58,7 +58,17 @@ jobs:
           python -m json.tool models/registry.json > /dev/null
           python -m json.tool memory/schemas/memory-record.schema.json > /dev/null
           python -m json.tool datasets/manifests/dataset-manifest.schema.json > /dev/null
-          python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('cloudflare/wrangler.toml').read_text())"
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          config = tomllib.loads(pathlib.Path("cloudflare/wrangler.toml").read_text())
+          limits = config.get("ratelimits", [])
+          binding = next((item for item in limits if item.get("name") == "NEXUS_RATE_LIMIT"), None)
+          assert binding is not None, "NEXUS_RATE_LIMIT binding is required in customer mode"
+          assert binding.get("simple") == {"limit": 60, "period": 60}, binding
+          assert str(binding.get("namespace_id", "")).isdigit(), binding
+          PY
 
   edge:
     name: Cloudflare Worker syntax
@@ -71,6 +81,8 @@ jobs:
           node-version: "22"
       - name: Check Worker JavaScript syntax
         run: node --check cloudflare/src/index.js
+      - name: Check client key generator syntax
+        run: node --check cloudflare/scripts/create-client-key.mjs
       - name: Run Worker unit tests
         run: node --test cloudflare/tests/*.test.mjs
 
@@ -131,5 +143,7 @@ jobs:
           assert data.get("status") == "ok", data
           assert data.get("service") == "wasti-nexus-gateway", data
           assert data.get("configured_models", 0) >= 1, data
-          print("Gateway is reachable; configured first-party model count:", data["configured_models"])
+          assert "nexus-gemma-4-26b-a4b" in data.get("model_ids", []), data
+          assert not any("llama-3.2" in model_id for model_id in data.get("model_ids", [])), data
+          print("Gateway is reachable; active model IDs:", data["model_ids"])
           PY
