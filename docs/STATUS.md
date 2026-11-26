@@ -2,25 +2,24 @@
 
 Last updated: 2026-11-26.
 
-## Implemented in repository
-- Single-repository project foundation.
-- Architecture, roadmap, security and API documentation.
-- Candidate registry for 12 requested model families.
-- Guarded Hugging Face snapshot downloader requiring reviewed license metadata and immutable revision pin.
-- FastAPI orchestrator foundation with bearer authentication, configured-agent discovery, OpenAI-compatible non-streaming chat completion, parallel Hybrid analysis and optional LLM synthesis.
-- Hybrid response reports successful and failed agent participation, including bounded peer-review rounds and an optional synthesis backend.
-- Provider endpoint policy requires HTTPS except explicitly enabled loopback development endpoints.
-- Cloudflare Worker reverse-proxy starter.
-- Native Android Compose client can submit online chat/Hybrid requests, stores the API key encrypted with Android Keystore, masks the key field and allows selecting a single configured agent.
+## Verified in this session
+- One source repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent).
+- Twelve target model families are represented in the model registry; all checkpoint entries remain candidates.
+- FastAPI orchestrator source includes bearer authentication, configured-agent discovery, OpenAI-compatible non-streaming chat, parallel Hybrid analysis, bounded peer-review rounds and synthesis.
+- Provider endpoints require HTTPS, except explicitly enabled loopback HTTP for local development.
+- Hugging Face snapshot tooling requires an immutable revision and creates per-file SHA-256 manifests.
+- Native Android Compose client source includes gateway settings, single/Hybrid requests and Android Keystore AES-GCM encryption for the API key. The key input is masked.
+- Cloudflare Worker `wasti-nexus-gateway` was uploaded successfully, its `workers.dev` subdomain was enabled, and its API key was stored as a Cloudflare secret.
+- Provisioned gateway URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`.
+- Worker source and deployment configuration are kept in this same GitHub repository.
 
-## Not implemented or not verified yet
-- No actual model checkpoint has been downloaded into a user-controlled archive.
-- No checkpoint's license review is marked approved.
-- No model inference backend is bundled or configured.
-- API streaming is not implemented.
-- Android local inference, model downloads, offline chat, permission center, agent activity display and customer workspace isolation are not implemented.
-- No Cloudflare Worker has been deployed and no public API endpoint exists yet.
-- No release APK has been built or signed.
-- CI workflows have been committed, but no successful CI run or APK build has been verified in this session.
+## Not yet verified or not complete
+- External HTTP smoke test of the public Worker URL could not be performed from this execution environment.
+- No provider/model backend is configured in the Worker; the gateway currently reports zero model providers. Protected model requests cannot generate answers yet.
+- No actual model checkpoint has been downloaded into the user's archive.
+- No exact checkpoint has completed licence review or been approved for redistribution.
+- Android Gradle build, CI result, release APK and signing have not been verified.
+- Android local inference, offline chat, model manager, broader permission center, agent activity display and customer workspace isolation remain incomplete.
+- Production rate limiting, tenant identity, quotas, audit persistence, data retention, monitoring, penetration testing and restore drills remain release gates.
 
-Do not describe this project as production-ready until the outstanding release gates in ROADMAP.md have passed.
+A deployed gateway shell is not the same as a functioning model service. Do not describe this product as production-ready until all release gates pass.
