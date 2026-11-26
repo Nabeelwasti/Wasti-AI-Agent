@@ -53,8 +53,8 @@ def test_customer_mode_hides_pending_or_restricted_licences():
 
 def test_auto_mode_falls_back_after_first_provider_failure(monkeypatch):
     os.environ["NEXUS_AGENTS_JSON"] = json.dumps({
-        "coder": {"model": "coder-model", "base_url": "https://coder.example/v1", "capabilities": ["coding", "chat"], "commercial_allowed": True, "priority": 1},
-        "general": {"model": "general-model", "base_url": "https://general.example/v1", "capabilities": ["chat"], "commercial_allowed": True, "priority": 2}
+        "coder": {"model": "coder-model", "base_url": "https://coder.example/v1", "capabilities": ["coding", "chat"], "commercial_allowed": True, "license_status": "verified", "priority": 1},
+        "general": {"model": "general-model", "base_url": "https://general.example/v1", "capabilities": ["chat"], "commercial_allowed": True, "license_status": "verified", "priority": 2}
     })
     calls = []
     async def fake_call(agent_id, config, messages, temperature, max_tokens):
@@ -76,7 +76,7 @@ def test_auto_mode_falls_back_after_first_provider_failure(monkeypatch):
 
 def test_auto_mode_fails_closed_for_image_without_vision_provider(monkeypatch):
     os.environ["NEXUS_AGENTS_JSON"] = json.dumps({
-        "text": {"model": "text-model", "base_url": "https://text.example/v1", "capabilities": ["chat"], "commercial_allowed": True}
+        "text": {"model": "text-model", "base_url": "https://text.example/v1", "capabilities": ["chat"], "commercial_allowed": True, "license_status": "verified"}
     })
     async def should_not_call(*args, **kwargs):
         raise AssertionError("text-only provider must not be called for image input")
