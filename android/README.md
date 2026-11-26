@@ -30,7 +30,7 @@ The downloader uses the pinned immutable revision, verifies the upstream SHA-256
 
 ## Online inference
 
-Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online Hybrid mode requests the shared NEXUS gateway; the gateway currently has no inference providers configured. The app can save encrypted conversation snapshots locally, restore them on the same device, and sync/restore ciphertext through the Worker once `NEXUS_GITHUB_TOKEN` is configured. Cross-device recovery is not implemented.
+Configure the HTTPS gateway URL and bearer key in the app. The key is encrypted with Android Keystore AES-GCM. Online Hybrid mode requests the shared NEXUS gateway; the gateway currently has no inference providers configured. The app can save and restore encrypted conversation snapshots locally, sync/restore ciphertext through the Worker once `NEXUS_GITHUB_TOKEN` is configured, and restore on another device using the same recovery passphrase. The passphrase is not stored or uploaded by NEXUS.
 
 ## Toolchain
 
