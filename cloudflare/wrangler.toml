@@ -4,5 +4,5 @@ compatibility_date = "2026-11-26"
 
 [vars]
 ALLOWED_ORIGINS = ""
-MAX_HYBRID_AGENTS = "6"
+MAX_HYBRID_AGENTS = "12"
 REQUEST_TIMEOUT_MS = "45000"
