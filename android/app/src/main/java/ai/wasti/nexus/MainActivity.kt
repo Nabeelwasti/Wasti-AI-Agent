@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
                 initialUrl = prefs.getString("url", "") ?: "",
                 initialKey = decryptSecret(),
                 onSave = { url, key -> prefs.edit().putString("url", url).apply(); encryptSecret(key) },
-                onSend = { url, key, prompt, hybrid -> send(url, key, prompt, hybrid) }
+                onSend = { url, key, prompt, hybrid, agentId -> send(url, key, prompt, hybrid, agentId) }
             )
         } }
     }
@@ -73,15 +74,16 @@ class MainActivity : ComponentActivity() {
         String(cipher.doFinal(ciphertext))
     } catch (_: Exception) { "" }
 
-    private suspend fun send(url: String, key: String, prompt: String, hybrid: Boolean): String = withContext(Dispatchers.IO) {
+    private suspend fun send(url: String, key: String, prompt: String, hybrid: Boolean, agentId: String): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
         require(key.length >= 32) { "API key must be at least 32 characters." }
         val messages = JSONArray().put(JSONObject().put("role", "user").put("content", prompt))
-        val payload = JSONObject().put("model", if (hybrid) "nexus-hybrid" else "qwen")
+        val payload = JSONObject().put("model", if (hybrid) "nexus-hybrid" else agentId)
             .put("messages", messages).put("stream", false)
         if (hybrid) payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
-        val request = Request.Builder().url(root + "/v1/chat/completions")
+        val apiRoot = if (root.endsWith("/v1")) root else root + "/v1"
+        val request = Request.Builder().url(apiRoot + "/chat/completions")
             .header("Authorization", "Bearer " + key)
             .post(payload.toString().toRequestBody("application/json".toMediaType())).build()
         http.newCall(request).execute().use { response ->
@@ -99,7 +101,7 @@ private fun NexusScreen(
     initialUrl: String,
     initialKey: String,
     onSave: (String, String) -> Unit,
-    onSend: suspend (String, String, String, Boolean) -> String
+    onSend: suspend (String, String, String, Boolean, String) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -107,22 +109,27 @@ private fun NexusScreen(
     var answer by remember { mutableStateOf("Connect a NEXUS gateway or install an offline model to begin.") }
     var busy by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(true) }
+    var agentId by remember { mutableStateOf("qwen") }
     val scope = rememberCoroutineScope()
     Scaffold(topBar = { TopAppBar(title = { Text("WASTI NEXUS") }) }) { inset ->
         Column(Modifier.fillMaxSize().padding(inset).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
             OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("Gateway HTTPS URL") }, singleLine = true)
-            OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("Gateway API key") }, singleLine = true)
+            OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("Gateway API key") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
             Button(onClick = { onSave(url, key); answer = "Connection settings saved. API key encrypted with Android Keystore." }, modifier = Modifier.fillMaxWidth()) { Text("Save connection") }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid — all brains") })
                 FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
             }
+            if (!hybrid) {
+                OutlinedTextField(agentId, { agentId = it }, Modifier.fillMaxWidth(),
+                    label = { Text("Configured agent ID (for example: qwen)") }, singleLine = true)
+            }
             OutlinedTextField(prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp), label = { Text("Your prompt") })
             Button(enabled = !busy && prompt.isNotBlank(), onClick = {
                 onSave(url, key); busy = true
                 scope.launch {
-                    answer = try { onSend(url, key, prompt, hybrid) }
+                    answer = try { onSend(url, key, prompt, hybrid, agentId) }
                     catch (e: Exception) { "Request failed: " + e.message }
                     finally { busy = false }
                 }
