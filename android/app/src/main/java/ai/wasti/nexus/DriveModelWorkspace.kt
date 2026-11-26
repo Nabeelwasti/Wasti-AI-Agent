@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StatFs
 import androidx.documentfile.provider.DocumentFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -227,6 +228,8 @@ internal object DriveModelWorkspace {
                 archivedCount += 1
                 completedBytes += requireNotNull(model.sizeBytes)
                 onProgress(completedBytes, totalBytes)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 throw IllegalStateException("Could not archive ${model.displayName}: ${error.message}", error)
             }
@@ -256,7 +259,9 @@ internal object DriveModelWorkspace {
         }
 
         val temporaryName = ".wasti-${model.id}.part"
-        root.findFile(temporaryName)?.delete()
+        root.findFile(temporaryName)?.let { stale ->
+            require(stale.delete()) { "Could not remove the previous incomplete temporary model file." }
+        }
         val temporary = root.createFile("application/octet-stream", temporaryName)
             ?: throw IllegalStateException("Google Drive could not create a temporary model file.")
 
