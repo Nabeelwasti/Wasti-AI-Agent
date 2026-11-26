@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.arm.aichat.AiChat
@@ -723,6 +724,7 @@ private fun NexusScreen(
     var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var settingsExpanded by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
@@ -754,12 +756,117 @@ private fun NexusScreen(
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("WASTI NEXUS") }) }) { inset ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("WASTI NEXUS")
+                        Text(
+                            when {
+                                offlineMode -> "OFFLINE · PRIVATE ON-DEVICE"
+                                autoMode -> "AUTO · ONLINE WITH LOCAL FALLBACK"
+                                else -> "ONLINE · HOSTED AI"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        conversation = emptyList()
+                        remoteConversation = emptyList()
+                        answer = "New conversation started."
+                    }) { Text("New chat") }
+                    TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
+                        Text(if (settingsExpanded) "Done" else "Settings")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Column(Modifier.fillMaxWidth()) {
+                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = prompt,
+                            onValueChange = { prompt = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Message WASTI NEXUS") },
+                            maxLines = 5,
+                            enabled = !busy
+                        )
+                        Button(
+                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
+                            onClick = {
+                                                    val submittedPrompt = prompt.trim()
+                    busy = true
+                    scope.launch {
+                        var usedRemote = false
+                        try {
+                            val result = if (offlineMode) {
+                                onSendLocal(submittedPrompt)
+                            } else {
+                                onSave(url, key)
+                                try {
+                                    val onlineAnswer = onSendRemote(
+                                        url, key, remoteConversation, submittedPrompt, hybrid, agentId
+                                    )
+                                    usedRemote = true
+                                    onlineAnswer
+                                } catch (onlineError: Exception) {
+                                    val canUseLocal = autoMode &&
+                                        shouldFallbackToLocal(onlineError) &&
+                                        localModelPath.isNotBlank() &&
+                                        localModelPath in installedModels
+                                    if (!canUseLocal) throw onlineError
+                                    try {
+                                        if (!localReady) {
+                                            onLoadLocal(localModelPath)
+                                            localReady = true
+                                        }
+                                        "Offline fallback used because the online brain was unavailable.\n                                \n                                " +
+                                            onSendLocal(submittedPrompt)
+                                    } catch (localError: Exception) {
+                                        localReady = false
+                                        throw IllegalStateException(
+                                            "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
+                                            localError
+                                        )
+                                    }
+                                }
+                            }
+                            conversation = conversation + (submittedPrompt to result)
+                            if (usedRemote) {
+                                remoteConversation = remoteConversation + (submittedPrompt to result)
+                            }
+                            prompt = ""
+                            answer = "Ready"
+                        } catch (error: Exception) {
+                            answer = "Request failed: ${error.message}"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                            }
+                        ) { Text("Send") }
+                    }
+                }
+            }
+        }
+    ) { inset ->
         Column(
-            Modifier.fillMaxSize().padding(inset).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.fillMaxSize().padding(inset).padding(horizontal = 16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+            if (settingsExpanded) {
+                            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = autoMode,
@@ -1023,96 +1130,8 @@ private fun NexusScreen(
                 }
             }
 
-            if (conversation.isNotEmpty()) {
-                Text("CONVERSATION", style = MaterialTheme.typography.titleMedium)
-                conversation.takeLast(12).forEach { (user, assistant) ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("YOU", style = MaterialTheme.typography.labelSmall)
-                            Text(user)
-                            HorizontalDivider()
-                            Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall)
-                            Text(assistant)
-                        }
-                    }
-                }
-            }
-            OutlinedTextField(
-                prompt, { prompt = it }, Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                label = { Text("Your prompt") }
-            )
-            Button(
-                enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
-                onClick = {
-                    busy = true
-                    scope.launch {
-                        var usedRemote = false
-                        val result = try {
-                            if (offlineMode) {
-                                onSendLocal(prompt)
-                            } else {
-                                onSave(url, key)
-                                try {
-                                    val onlineAnswer = onSendRemote(
-                                        url, key, remoteConversation, prompt, hybrid, agentId
-                                    )
-                                    usedRemote = true
-                                    onlineAnswer
-                                } catch (onlineError: Exception) {
-                                    val canUseLocal = autoMode &&
-                                        shouldFallbackToLocal(onlineError) &&
-                                        localModelPath.isNotBlank() &&
-                                        localModelPath in installedModels
-                                    if (!canUseLocal) throw onlineError
 
-                                    try {
-                                        if (!localReady) {
-                                            onLoadLocal(localModelPath)
-                                            localReady = true
-                                        }
-                                        val localAnswer = onSendLocal(prompt)
-                                        "Offline fallback used because the online brain was unavailable.\n\n$localAnswer"
-                                    } catch (localError: Exception) {
-                                        localReady = false
-                                        throw IllegalStateException(
-                                            "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
-                                            localError
-                                        )
-                                    }
-                                }
-                            }
-                        } catch (error: Exception) {
-                            "Request failed: ${error.message}"
-                        }
-                        answer = result
-                        if (!result.startsWith("Request failed:")) {
-                            conversation = conversation + (prompt to result)
-                            // Only send turns that actually used the online provider in later requests.
-                            // Explicit offline and automatic local-fallback turns stay on-device.
-                            if (usedRemote) {
-                                remoteConversation = remoteConversation + (prompt to result)
-                            }
-                        }
-                        busy = false
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    when {
-                        busy -> "Working…"
-                        offlineMode -> "✦ RUN LOCALLY — NO INTERNET"
-                        autoMode -> "✦ AUTO — ONLINE WITH OFFLINE FALLBACK"
-                        hybrid -> "✦ HYBRID ORCHESTRATION"
-                        else -> "Send to online brain"
-                    }
-                )
-            }
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            HorizontalDivider()
-            Text("Answer", style = MaterialTheme.typography.titleMedium)
-            Text(answer)
-            OutlinedTextField(
+                            OutlinedTextField(
                 value = memoryPassphrase,
                 onValueChange = { memoryPassphrase = it },
                 modifier = Modifier.fillMaxWidth(),
@@ -1190,6 +1209,53 @@ private fun NexusScreen(
                 "Memory uses PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM. Use the same 12+ character recovery passphrase on every device. The passphrase is not uploaded or stored by NEXUS; if you forget it, encrypted snapshots cannot be recovered.",
                 style = MaterialTheme.typography.bodySmall
             )
+
+                Text(answer, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                if (conversation.isEmpty()) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(top = 72.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Hello, I'm WASTI NEXUS.", style = MaterialTheme.typography.headlineMedium)
+                        Text(
+                            "Your personal AI workspace. Ask a question, explore an idea, or start creating.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            if (offlineMode) "Private offline mode is selected." else "Your selected online brain is ready when connected.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                conversation.takeLast(40).forEach { (user, assistant) ->
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(0.88f),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        ) {
+                            Text(user, Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
+                    }
+                }
+                if (answer.startsWith("Request failed:")) {
+                    Text(answer, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (busy) Text("WASTI NEXUS is thinking…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
