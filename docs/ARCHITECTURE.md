@@ -20,7 +20,7 @@ One OpenAI-compatible endpoint exposes `GET /v1/models` and `POST /v1/chat/compl
 - `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step;
 - a local model through the Android SDK/runtime, without sending the prompt to the server.
 
-The API never reports an unconfigured model as available or fabricates model participation. Native Workers AI model IDs are exposed only when the AI binding is present. It exposes capability, availability, provider and licence metadata separately.
+The API never reports an unconfigured model as available or fabricates model participation. Native Workers AI model IDs are exposed only when the AI binding is present. It exposes capability, availability, provider and licence metadata separately. Customer-mode API requests require a configured per-key Rate Limiting binding; its counters are approximate and local to each Cloudflare location, not a strict global quota.
 
 ### Online hosting
 
