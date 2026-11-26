@@ -37,6 +37,14 @@ GitHub is a versioned sync/archive layer, not a transactional database. Batch me
 
 ## Per-application API keys
 
+**Important naming distinction — these are different secrets in different systems:**
+
+- Cloudflare Worker secret `NEXUS_API_KEY` is the gateway **master key**. The Worker grants it models, chat, memory and admin scopes. Keep it only in Cloudflare; never copy it into GitHub Actions or an app.
+- GitHub repository Actions secret `NEXUS_API_KEY` is the raw **CI client key** consumed by the workflow. It must be a separately generated least-privilege key (normally `chat` only), not the Cloudflare master key.
+- Cloudflare Worker secret `NEXUS_CLIENT_KEYS_JSON` contains SHA-256 hashes and scopes for client keys. It does not contain their raw values.
+
+Do not ship the master `NEXUS_API_KEY` in a customer app, APK, website bundle or public source repository. For each product integration, create a separate client key with least-privilege scopes:
+
 Do not ship the master `NEXUS_API_KEY` in a customer app, APK, website bundle or public source repository. For each product integration, create a separate client key with least-privilege scopes:
 
 ```bash
@@ -46,6 +54,18 @@ node cloudflare/scripts/create-client-key.mjs --id my-product --scopes models,ch
 The script prints a random 256-bit client key once and a SHA-256 registry entry. Store the raw key only in a server-side secret manager or a private owner-controlled environment. Do not embed it in a distributed APK, browser bundle or public source; client-side bearer keys can be extracted. Public customer apps need user authentication and a backend/token-exchange layer. Add the printed registry entry to the JSON value of the Cloudflare Worker secret `NEXUS_CLIENT_KEYS_JSON`, preserving existing entries. Client keys can access only the `models` and `chat` scopes; the personal GitHub memory endpoints remain master-key only. Revoke a client by removing its entry or setting `enabled: false` in the secret, then update the secret.
 
 The Worker stores only SHA-256 hashes of client keys in `NEXUS_CLIENT_KEYS_JSON`; raw client keys are never committed. The customer deployment also requires the `NEXUS_RATE_LIMIT` binding (60 requests per 60 seconds per key, per Cloudflare location). Cloudflare documents these counters as approximate and local to each location; they are a basic abuse-control layer, not a strict global quota. Use Durable Objects or a dedicated metering service for strict cross-location quotas. This provides per-app separation and revocation, but it is not a substitute for customer identity, tenant isolation, quotas or distributed rate limiting. Do not use the personal-memory API as a multi-tenant customer data store.
+
+## Configure the Android app for online chat
+
+Generate a dedicated Android client key with model-list and chat permissions:
+
+```bash
+node cloudflare/scripts/create-client-key.mjs --id nexus-android --scopes models,chat
+```
+
+Add the printed JSON registry entry to the Cloudflare Worker secret `NEXUS_CLIENT_KEYS_JSON`, preserving existing CI or other app entries. Put the printed raw key into the Android app's **Settings → Online Gateway → Gateway API key** field, keep the base URL as `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (do not append `/v1`), and tap **Save connection**. The Android app encrypts the key at rest with AES-GCM using a key held by Android Keystore. This client key can list models and chat; it does not grant personal-memory sync. The app can still use local encrypted memory without a gateway key. The current remote personal-memory endpoints are master-key-only, so never enable or expose that master credential in a distributed/customer APK.
+
+Generate a separate CI key; do not reuse the Android key.
 
 ## GitHub Actions authenticated inference smoke test
 
@@ -61,7 +81,7 @@ The repository's CI workflow uses a dedicated, least-privilege client key to ver
    {"keys":[{"id":"nexus-ci","sha256":"<printed-sha256>","scopes":["chat"],"enabled":true}]}
    ```
    Preserve any existing entries instead of replacing them.
-4. In GitHub → Settings → Secrets and variables → Actions → New repository secret, create `NEXUS_API_KEY` and set its value to the raw key printed by the script.
+4. In GitHub → Settings → Secrets and variables → Actions → New repository secret, create `NEXUS_API_KEY` and set its value to the raw CI key printed by the script. This GitHub Actions secret is distinct from the Cloudflare Worker master secret also named `NEXUS_API_KEY`; the values must not be the same.
 5. Open Actions → **WASTI NEXUS CI** → **Run workflow**. The authenticated smoke test should call both configured models and assert non-empty responses.
 
 The workflow environment variable is named `NEXUS_API_KEY`, but the value should be this dedicated `chat`-only client key. Do not use the master key: it also grants model listing, memory and administrative scopes. Never share or expose the master key.
