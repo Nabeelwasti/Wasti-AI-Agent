@@ -14,7 +14,7 @@ Native Kotlin + Jetpack Compose app with online single/Hybrid routing and a loca
 - Runtime: Arm AI Chat `com.arm:ai-chat:0.1.0`, an Android library built on llama.cpp.
 - Model format: GGUF.
 - Import: Android Storage Access Framework; selected GGUF files are copied into app-private storage and their metadata is parsed before install.
-- One-tap catalogue install: Qwen2.5-0.5B-Instruct Q4_K_M downloads from its pinned public Hugging Face revision without an AI/provider API key. The app checks available storage, streams to a temporary file, verifies the pinned SHA-256, validates GGUF metadata, atomically finalizes the file and loads it. Failed/incomplete/checksum-mismatched downloads are deleted.
+- One-tap catalogue install: Qwen2.5-0.5B-Instruct Q4_K_M downloads from its pinned public Hugging Face revision without an AI/provider API key. The app supports HTTP Range resume into an app-private `.part` file, bounded size/storage checks, live progress, full-file SHA-256 verification, GGUF metadata validation and safe finalization that preserves an existing installation. Interrupted network transfers retain their partial bytes for retry; checksum- or metadata-invalid files are rejected and deleted.
 - Model manager: multiple installed files can be selected, loaded one at a time, unloaded and removed.
 - Runtime lifecycle: load, chat, unload and release native memory.
 - Preflight: file size/storage checks and a conservative available-RAM estimate before model load.
@@ -34,7 +34,7 @@ Choose the exact file `qwen2.5-0.5b-instruct-q4_k_m.gguf` (about 491 MB). The Mo
 
 After the browser download completes, open NEXUS → **Offline → Import GGUF** and select the file from Downloads. NEXUS copies it into app-private storage. Keep at least 1 GB free after import. The guarded Python downloader remains an optional developer/reproducibility tool; it is not part of the Android runtime and does not require Termux on the phone if run on another computer.
 
-**Current limits:** the first in-app catalogue entry is the verified Qwen 0.5B candidate only. The transfer currently requires the app to remain open; resumable background downloads, a full multi-family catalogue, and automatic SHA-256 verification for manually imported files are not implemented. Device-level inference, speed, memory and thermal tests are still required.
+**Current limits:** the first in-app one-tap installer is the verified Qwen 0.5B candidate only. Resume is available when the app is reopened and the user taps download again; this is not a background WorkManager transfer. A full multi-family catalogue, and automatic SHA-256 verification for manually imported files are not implemented. Device-level inference, speed, memory and thermal tests are still required.
 
 ## Online inference
 
