@@ -107,7 +107,7 @@ internal object NexusRuntimePolicy {
         val memoryEnough = modelExists && snapshot.availableRamBytes >= estimatedLocalWorkingSet(snapshot.localModelPath)
         val thermalSafe = snapshot.thermalStatus < SEVERE_THERMAL_STATUS
         val batterySafe = snapshot.batteryPercent == null || snapshot.batteryPercent >= LOW_BATTERY_PERCENT || snapshot.charging
-        val localSafe = localCanHandle(task) && modelExists && (snapshot.localModelLoaded || memoryEnough) && thermalSafe && batterySafe
+        val localSafe = localCanHandle(task, snapshot.localModelPath) && modelExists && (snapshot.localModelLoaded || memoryEnough) && thermalSafe && batterySafe
         val online = snapshot.internetValidated
         if (mode == NexusMode.OFFLINE) {
             return when {
@@ -126,8 +126,16 @@ internal object NexusRuntimePolicy {
         if (localSafe) return NexusRouteDecision(NexusRoute.LOCAL, task, "Auto mode: local inference is compatible and device RAM, thermal and battery headroom are sufficient.")
         if (localServerAvailable) return NexusRouteDecision(NexusRoute.TERMUX, task, "Auto mode: native app inference is unsuitable; use the paired local Termux server.")
         if (online && remoteConfigured) {
+            val network = if (snapshot.wifiConnected) "Wi-Fi" else if (snapshot.cellularConnected) "mobile data" else "validated internet"
+            val dataNote = if (snapshot.metered) " Metered connection detected; no model-weight download is started automatically." else ""
+            return NexusRouteDecision(
+                NexusRoute.REMOTE,
+                task,
+                "Auto mode: no safe local route is available; use the configured self-hosted endpoint over $network.$dataNote"
+            )
+        }
         val reason = when {
-            !localCanHandle(task) -> "This task needs a dedicated vision, image, speech or training runtime not installed in the local chat engine."
+            !localCanHandle(task, snapshot.localModelPath) -> "This task needs a compatible local model or dedicated vision, image, speech or training runtime."
             !modelExists -> "No compatible local model is installed and no validated internet route is available."
             !memoryEnough -> "Phone RAM headroom is below the conservative model working-set estimate and no remote route is available."
             !thermalSafe -> "Phone temperature is too high for safe local inference and no remote route is available."
