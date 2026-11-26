@@ -276,6 +276,9 @@ async function autoBody(body, env, headers) {
     const capabilities = new Set(model.capabilities.map(value => String(value).toLowerCase()));
     if (task === "general") return capabilities.has("chat");
     return capabilities.has(task) || capabilities.has("chat");
+  }).sort((left, right) => {
+    const score = model => model.capabilities.some(value => String(value).toLowerCase() === task) ? 0 : 1;
+    return score(left) - score(right);
   });
   if (!candidates.length) {
     throw new GatewayError("No licensed, configured model can handle this task.", 503, {
