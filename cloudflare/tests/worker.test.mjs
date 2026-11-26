@@ -408,7 +408,7 @@ test("customer catalogue hides models without explicit commercial clearance", as
   const response = await worker.fetch(authedRequest("/v1/models"), configured);
   assert.equal(response.status, 200);
   const ids = (await response.json()).data.map(model => model.id);
-  assert.deepEqual(ids, ["approved-model"]);
+  assert.deepEqual(ids, ["approved-model", "nexus-auto"]);
 });
 
 test("chat gateway rejects streaming before provider dispatch", async () => {
