@@ -800,6 +800,7 @@ private fun NexusScreen(
                 try {
                     if (localReady) onUnloadLocal()
                     localReady = false
+                    loadedModelPath = ""
                     localModelPath = onImportModel(uri)
                     installedModels = onListModels()
                     freeStorageBytes = onFreeStorage()
@@ -1056,6 +1057,7 @@ private fun NexusScreen(
                                     try {
                                         if (localReady) onUnloadLocal()
                                         localReady = false
+                                        loadedModelPath = ""
                                         localModelPath = modelPath
                                         onSelectModel(modelPath)
                                         answer = "Selected model. Load it to start offline inference."
@@ -1118,6 +1120,7 @@ private fun NexusScreen(
                                                     onSelectModel(downloadedPath)
                                                     onLoadLocal(downloadedPath)
                                                     localReady = true
+                                                    loadedModelPath = downloadedPath
                                                     offlineMode = true
                                                     autoMode = false
                                                     freeStorageBytes = onFreeStorage()
@@ -1202,9 +1205,11 @@ private fun NexusScreen(
                                 answer = try {
                                     onLoadLocal(localModelPath)
                                     localReady = true
+                                    loadedModelPath = localModelPath
                                     "Local model loaded. You can chat without internet."
                                 } catch (error: Exception) {
                                     localReady = false
+                                    loadedModelPath = ""
                                     "Could not load local model: ${error.message}"
                                 } finally {
                                     busy = false
@@ -1231,6 +1236,7 @@ private fun NexusScreen(
                                     try {
                                         if (localReady) onUnloadLocal()
                                         localReady = false
+                                        loadedModelPath = ""
                                         onDeleteModel(localModelPath)
                                         installedModels = onListModels()
                                         localModelPath = installedModels.firstOrNull().orEmpty()
@@ -1259,6 +1265,7 @@ private fun NexusScreen(
                                 try {
                                     onUnloadLocal()
                                     localReady = false
+                                    loadedModelPath = ""
                                     answer = "Local model unloaded and native memory released."
                                 } catch (error: Exception) {
                                     answer = "Could not unload local model: ${error.message}"
