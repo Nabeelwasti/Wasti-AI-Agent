@@ -55,8 +55,10 @@ def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]
         capabilities = {str(v).lower() for v in agent.get("capabilities", ["chat"])}
         if task != "general" and required.isdisjoint(capabilities):
             continue
+        task_priorities = agent.get("task_priority", {})
+        raw_priority = task_priorities.get(task, agent.get("priority", 100)) if isinstance(task_priorities, dict) else agent.get("priority", 100)
         try:
-            priority = int(agent.get("priority", 100))
+            priority = int(raw_priority)
         except (TypeError, ValueError):
             priority = 100
         ranked.append((priority, 0 if task in capabilities else 1, agent_id))
@@ -68,8 +70,10 @@ def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]
             if agent_id in known or not allowed(agent):
                 continue
             if "chat" in {str(v).lower() for v in agent.get("capabilities", ["chat"])}:
+                task_priorities = agent.get("task_priority", {})
+                raw_priority = task_priorities.get(task, agent.get("priority", 100)) if isinstance(task_priorities, dict) else agent.get("priority", 100)
                 try:
-                    priority = int(agent.get("priority", 100))
+                    priority = int(raw_priority)
                 except (TypeError, ValueError):
                     priority = 100
                 fallbacks.append((priority, 2, agent_id))
