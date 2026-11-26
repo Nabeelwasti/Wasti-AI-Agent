@@ -30,7 +30,7 @@ The scripts refuse moving branches and do not bypass gated access or accept term
 A small Qwen candidate is registered under the Qwen family:
 
 - Repository: `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
-- File: `qwen2.5-0_5b-instruct-q4_k_m.gguf`
+- File: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
 - Quantization: Q4_K_M
 - Approximate file size: 491 MB
 - Licence: Apache-2.0 (preserve the exact repository/base-model notices)
@@ -64,7 +64,7 @@ All other configured models remain accessible through online routing when a lawf
 - Android private app storage: only the user-selected compatible quantized models and encrypted personal memory.
 - Cloudflare: web application assets and the online API gateway only; no memory, dataset or model-weight storage.
 
-GitHub is version control, not a high-throughput database or training runtime. Keep private user memory in a private repository, encrypt sensitive records before commit, batch writes, and respect API/rate limits. Never place customer data or secrets in a public repository.
+GitHub is version control, not a high-throughput database or training runtime. This deployment intentionally stores only client-encrypted memory snapshots in the public repository. GitHub exposes ciphertext and metadata publicly; never place plaintext customer/personal data or secrets here. Batch writes and respect API/rate limits.
 
 ## Licence and commercial use
 
