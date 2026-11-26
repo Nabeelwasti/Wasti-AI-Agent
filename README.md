@@ -4,7 +4,7 @@
 
 WASTI NEXUS is an offline-first Android assistant and a reusable multi-model orchestration platform for future products. Local model downloads and offline inference do not require provider API keys. Hosted inference is optional and uses a separately authenticated NEXUS gateway.
 
-> **Status: active release candidate — not yet production-certified.** PR #16 (resumable verified Qwen downloads) and PR #17 (Gemini-style Android chat interface) are merged into `main`. PR #17 pre-merge CI passed Android compilation/JVM tests, Python validation and Worker tests. The post-merge main CI run is tracked [here](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45847651425). Physical-device certification, authenticated deployed chat-generation, permanent owner release signing and customer-grade tenant controls remain open gates. See [docs/STATUS.md](docs/STATUS.md).
+> **Status: active release candidate — not yet production-certified.** PR #16 (resumable verified Qwen downloads) and PR #17 (Gemini-style Android chat interface) are merged into `main`. PR #17 pre-merge CI passed Android compilation/JVM tests, Python validation and Worker tests. The latest post-merge main CI run [completed successfully](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45859639925) for Android build/JVM tests, Python checks, Worker tests, public gateway health/protection checks and CI-only signing validation. The authenticated chat smoke test was skipped because `NEXUS_API_KEY` is not configured; this remains an open release gate. Physical-device certification, authenticated deployed chat-generation, permanent owner release signing and customer-grade tenant controls remain open gates. See [docs/STATUS.md](docs/STATUS.md).
 
 ## What is implemented
 
