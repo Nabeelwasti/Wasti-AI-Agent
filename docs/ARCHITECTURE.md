@@ -8,7 +8,7 @@ One repository, one app identity and one reusable brain API. Runtime components 
 
 - Kotlin/Jetpack Compose application.
 - Local inference through Arm AI Chat (`com.arm:ai-chat:0.1.0`), backed by llama.cpp, for compatible GGUF checkpoints.
-- Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. The first one-tap catalogue entry downloads the pinned Qwen2.5-0.5B-Instruct Q4_K_M file from Hugging Face, verifies SHA-256 and GGUF metadata, then installs and loads it. Remaining model families, resumable background transfers and checksum verification for manual imports remain planned.
+- Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. The first one-tap catalogue entry copies the pinned Qwen2.5-0.5B-Instruct Q4_K_M file from the owner's selected Google Drive folder, verifies exact byte length and SHA-256, then installs it in app-private storage. The Drive-backed catalogue currently enables the verified Qwen starter file; remaining model families and checksum verification for manual imports remain pending. SAF transfers restart from zero after interruption.
 - Encrypted local memory and conversation history.
 - Default Auto routing is local-first: use the selected installed GGUF model whenever it is ready. Remote inference is an explicit optional fallback/online mode, never a prerequisite for chat. Local turns are not sent to remote conversation history. Offline mode never sends inference prompts to the gateway.
 - The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
@@ -24,7 +24,7 @@ The API never reports an unconfigured model as available or fabricates model par
 
 ### Online hosting
 
-Cloudflare hosts the optional web console and inference gateway only. It does not store model weights. The owner's private Google Drive is the designated archive for approved GGUF checkpoints; Android obtains them through Google account OAuth, verifies them, and installs them in app-private storage. The two configured Workers AI models (Gemma 4 26B A4B and Qwen 3.8 27B) remain optional hosted fallbacks. Remote inference is separate from local execution and is subject to provider availability and usage terms. No Cloudflare storage product is part of the model archive.
+Cloudflare hosts the optional web console and inference gateway only. It does not store model weights. The owner's private Google Drive is the designated archive for approved GGUF checkpoints; Android obtains scoped access through the system Storage Access Framework folder picker, verifies files, and installs them in app-private storage. The two configured Workers AI models (Gemma 4 26B A4B and Qwen 3.8 27B) remain optional hosted fallbacks. Remote inference is separate from local execution and is subject to provider availability and usage terms. No Cloudflare storage product is part of the model archive.
 
 ## Request routing
 

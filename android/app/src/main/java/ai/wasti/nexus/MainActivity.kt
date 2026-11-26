@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity() {
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
                     initialModels = installedModels(),
+                    initialWorkspaceModels = DriveModelWorkspace.loadCatalog(this),
+                    initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
                     onListModels = { installedModels() },
                     onSelectModel = { path -> prefs.edit().putString("local_model_path", path).apply() },
@@ -105,7 +107,15 @@ class MainActivity : ComponentActivity() {
                         encryptSecret(key)
                     },
                     onImportModel = { uri -> importModel(uri) },
-                    onDownloadModel = { onProgress -> downloadFirstLocalModel(onProgress) },
+                    onConnectDriveWorkspace = { uri ->
+                        DriveModelWorkspace.persistWorkspaceAccess(this, uri)
+                        val name = DriveModelWorkspace.validateWorkspace(this, uri)
+                        prefs.edit().putString("drive_workspace_uri", uri.toString()).apply()
+                        name
+                    },
+                    onInstallDriveModel = { uri, model, progress ->
+                        DriveModelWorkspace.installModel(this, uri, model, progress)
+                    },
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt, onToken -> sendLocal(prompt, onToken) },
@@ -700,6 +710,8 @@ private fun NexusScreen(
     initialKey: String,
     initialModelPath: String,
     initialModels: List<String>,
+    initialWorkspaceModels: List<WorkspaceModel>,
+    initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
     onListModels: () -> List<String>,
     onSelectModel: (String) -> Unit,
@@ -707,7 +719,8 @@ private fun NexusScreen(
     onFreeStorage: () -> Long,
     onSave: (String, String) -> Unit,
     onImportModel: suspend (Uri) -> String,
-    onDownloadModel: suspend (suspend (Long, Long) -> Unit) -> String,
+    onConnectDriveWorkspace: (Uri) -> String,
+    onInstallDriveModel: suspend (Uri, WorkspaceModel, (Long, Long) -> Unit) -> String,
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: suspend () -> Unit,
     onSendLocal: suspend (String, (String) -> Unit) -> String,
@@ -722,6 +735,9 @@ private fun NexusScreen(
     var key by remember { mutableStateOf(initialKey) }
     var localModelPath by remember { mutableStateOf(initialModelPath) }
     var installedModels by remember { mutableStateOf(initialModels) }
+    var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
+    var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
+    var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
@@ -746,6 +762,19 @@ private fun NexusScreen(
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
         if (!settingsExpanded) chatScrollState.animateScrollTo(chatScrollState.maxValue)
+    }
+    val driveWorkspacePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                driveWorkspaceName = onConnectDriveWorkspace(uri)
+                driveWorkspaceUri = uri.toString()
+                answer = "Google Drive model workspace connected. Local model downloads need no AI API key."
+            } catch (error: Exception) {
+                answer = "Could not connect Google Drive folder: ${error.message}"
+            }
+        }
     }
     val modelPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -778,7 +807,7 @@ private fun NexusScreen(
                         Text(
                             when {
                                 offlineMode -> "OFFLINE · PRIVATE ON-DEVICE"
-                                autoMode -> "AUTO · ONLINE WITH LOCAL FALLBACK"
+                                autoMode -> "AUTO · LOCAL FIRST WITH ONLINE FALLBACK"
                                 else -> "ONLINE · HOSTED AI"
                             },
                             style = MaterialTheme.typography.labelSmall,
@@ -824,41 +853,36 @@ private fun NexusScreen(
                                 scope.launch {
                                     var usedRemote = false
                                     try {
-                                        val result = if (offlineMode) {
-                                            streamingResponse = ""
-                                            onSendLocal(submittedPrompt) { token -> streamingResponse += token }
-                                        } else {
-                                            onSave(url, key)
+                                        val localFirst = offlineMode || (
+                                            autoMode &&
+                                                localModelPath.isNotBlank() &&
+                                                localModelPath in installedModels
+                                            )
+                                        val result = if (localFirst) {
                                             try {
-                                                val onlineAnswer = onSendRemote(
+                                                if (!localReady) {
+                                                    onLoadLocal(localModelPath)
+                                                    localReady = true
+                                                }
+                                                streamingResponse = ""
+                                                onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                            } catch (localError: Exception) {
+                                                localReady = false
+                                                if (offlineMode || !autoMode) throw localError
+                                                onSave(url, key)
+                                                val remoteAnswer = onSendRemote(
                                                     url, key, remoteConversation, submittedPrompt, hybrid, agentId
                                                 )
                                                 usedRemote = true
-                                                onlineAnswer
-                                            } catch (onlineError: Exception) {
-                                                val canUseLocal = autoMode &&
-                                                    shouldFallbackToLocal(onlineError) &&
-                                                    localModelPath.isNotBlank() &&
-                                                    localModelPath in installedModels
-                                                if (!canUseLocal) throw onlineError
-                                                try {
-                                                    if (!localReady) {
-                                                        onLoadLocal(localModelPath)
-                                                        localReady = true
-                                                    }
-                                                    val fallbackNotice = "Offline fallback used because the online brain was unavailable.\n\n"
-                                                    streamingResponse = fallbackNotice
-                                                    fallbackNotice + onSendLocal(submittedPrompt) { token ->
-                                                        streamingResponse += token
-                                                    }
-                                                } catch (localError: Exception) {
-                                                    localReady = false
-                                                    throw IllegalStateException(
-                                                        "Online request failed (${onlineError.message}); local fallback also failed (${localError.message}).",
-                                                        localError
-                                                    )
-                                                }
+                                                remoteAnswer
                                             }
+                                        } else {
+                                            onSave(url, key)
+                                            val remoteAnswer = onSendRemote(
+                                                url, key, remoteConversation, submittedPrompt, hybrid, agentId
+                                            )
+                                            usedRemote = true
+                                            remoteAnswer
                                         }
                                         conversation = conversation + (submittedPrompt to result)
                                         streamingResponse = ""
@@ -948,44 +972,69 @@ private fun NexusScreen(
                     "The Qwen download uses a pinned public upstream revision. NEXUS verifies SHA-256 and GGUF metadata before installation. No AI API key is used for downloading or offline inference.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        enabled = !busy,
-                        onClick = {
-                            downloadProgress = 0f
-                            downloadingModel = true
-                            busy = true
-                            scope.launch {
-                                try {
-                                    val downloadedPath = onDownloadModel { received, total ->
-                                        downloadProgress = if (total > 0L) received.toFloat() / total.toFloat() else 0f
+                Text("GOOGLE DRIVE MODEL WORKSPACE", style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = { driveWorkspacePicker.launch(null) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (driveWorkspaceUri.isBlank()) "Connect Google Drive folder" else "Change Google Drive folder") }
+                if (driveWorkspaceUri.isNotBlank()) {
+                    Text("Connected folder: ${driveWorkspaceName.ifBlank { "Google Drive workspace" }}", style = MaterialTheme.typography.bodySmall)
+                    workspaceModels.forEach { model ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(model.displayName, style = MaterialTheme.typography.titleSmall)
+                                Text("${model.family} · ${model.quantization} · ${model.license}", style = MaterialTheme.typography.bodySmall)
+                                if (model.downloadable) {
+                                    Text("Verified catalogue entry · ${model.sizeBytes?.div(1_000_000)} MB", style = MaterialTheme.typography.bodySmall)
+                                    Button(
+                                        enabled = !busy,
+                                        onClick = {
+                                            downloadingModel = true
+                                            downloadProgress = 0f
+                                            busy = true
+                                            scope.launch {
+                                                try {
+                                                    val downloadedPath = onInstallDriveModel(Uri.parse(driveWorkspaceUri), model) { received, total ->
+                                                        downloadProgress = if (total > 0L) received.toFloat() / total.toFloat() else 0f
+                                                    }
+                                                    installedModels = onListModels()
+                                                    localModelPath = downloadedPath
+                                                    onSelectModel(downloadedPath)
+                                                    onLoadLocal(downloadedPath)
+                                                    localReady = true
+                                                    offlineMode = true
+                                                    autoMode = false
+                                                    freeStorageBytes = onFreeStorage()
+                                                    answer = "${model.displayName} downloaded from Google Drive, SHA-256 verified, installed and loaded. Offline chat is ready."
+                                                } catch (error: Exception) {
+                                                    localReady = false
+                                                    answer = "Drive model installation failed: ${error.message}"
+                                                } finally {
+                                                    downloadingModel = false
+                                                    busy = false
+                                                }
+                                            }
+                                        }
+                                    ) { Text("Download from Drive") }
+                                    if (downloadingModel && downloadProgress > 0f) {
+                                        LinearProgressIndicator(progress = { downloadProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                                        Text("Transfer and verification: ${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
                                     }
-                                    installedModels = onListModels()
-                                    localModelPath = downloadedPath
-                                    onSelectModel(downloadedPath)
-                                    onLoadLocal(downloadedPath)
-                                    localReady = true
-                                    freeStorageBytes = onFreeStorage()
-                                    answer = "Qwen 0.5B downloaded, SHA-256 verified, installed and loaded. Offline chat is ready."
-                                } catch (error: Exception) {
-                                    localReady = false
-                                    answer = "Could not install the model: ${error.message}"
-                                } finally {
-                                    downloadingModel = false
-                                    busy = false
+                                } else {
+                                    Text("Not yet downloadable · ${model.note}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
-                    ) { Text("Download / resume Qwen 0.5B · ~491 MB") }
-                    if (downloadingModel && downloadProgress > 0f) {
-                        LinearProgressIndicator(progress = { downloadProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-                        Text("Verified download: ${(downloadProgress * 100).toInt()}% · Network interruptions can be resumed by tapping again.", style = MaterialTheme.typography.bodySmall)
                     }
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = { modelPicker.launch(arrayOf("*/*")) }
-                    ) { Text("Import GGUF") }
+                } else {
+                    Text("Choose the WASTI-NEXUS-MODEL-WORKSPACE folder from Google Drive. NEXUS receives access only to the folder you select.", style = MaterialTheme.typography.bodySmall)
                 }
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = { modelPicker.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Import GGUF from device") }
                     Button(
                         enabled = !busy && localModelPath.isNotBlank() && !localReady,
                         onClick = {

@@ -2,76 +2,61 @@
 
 ## Purpose
 
-This document defines the private Google Drive model archive for WASTI NEXUS. Google Drive stores the model binaries; the Android phone downloads a selected GGUF into app-private storage and runs it locally. Google Drive is not an inference runtime.
+Google Drive is the owner's model-file archive. WASTI NEXUS Android uses the Android Storage Access Framework (SAF) to let the owner select one dedicated Drive folder. The app receives scoped permission to that folder, reads the approved model catalogue, copies a selected GGUF into app-private storage, verifies it, and runs it locally.
 
-The owner currently reports approximately 250 GB free in a 400 GB subscription. The current twelve Q4_K_M candidates are estimated at approximately 26 GB combined, before additional versions and future models. This is ample capacity for the current catalogue, but the estimates must be replaced with actual verified file sizes before publication.
+The owner reports approximately 250 GB available in a 400 GB subscription. The twelve Q4_K_M candidates are estimated at approximately 26 GB combined, before future versions. This provides ample archive capacity for the current candidate set. Storage capacity does not make a model compatible with the phone or grant redistribution rights.
 
 ## Folder layout
 
-Create a dedicated folder in the owner's Drive:
+Create a dedicated folder in Google Drive:
 
 `WASTI-NEXUS-MODEL-WORKSPACE/`
 
-- `catalogue/` — approved JSON model manifest.
-- `models/<family>/<version>/` — immutable GGUF binaries.
-- `licenses/<family>/` — licence text, model cards and attribution.
-- `checksums/` — SHA-256 and byte-length manifests.
-- `quarantine/` — incomplete or rejected files; never exposed to the app.
+- `qwen2.5-0.5b-instruct-q4_k_m.gguf` — first verified phone-sized model.
+- `models/` — future verified GGUF checkpoints, optionally grouped by family.
+- `licenses/` — model-card snapshots, licence texts and attribution notices.
+- `checksums/` — SHA-256 and exact byte-length manifests.
+- `quarantine/` — incomplete or unreviewed artifacts; never expose these as downloadable.
 
-Keep personal documents, memory snapshots, customer data and credentials outside this folder.
+The app searches the selected folder and up to four nested directory levels for the exact filename registered in its catalogue. Keep only one copy of each approved filename in the workspace. Keep personal documents, memory snapshots, customer data and credentials outside this folder.
 
-## Private authentication
+## How access works — no API key and no Google OAuth client
 
-The production design uses the owner's Google account OAuth sign-in and read-only Drive API access. This is a storage authorization, not an AI API key. It does not authorize or meter AI inference.
+The app uses Android's system folder picker with `ACTION_OPEN_DOCUMENT_TREE` / `ActivityResultContracts.OpenDocumentTree`. Google Drive appears as a document provider when its Android app/provider is installed and signed in. The owner chooses the dedicated workspace folder once. Android grants NEXUS access only to the selected folder, and the app persists the read permission across restarts.
 
-The Android app should use Google's supported authorization flow to obtain short-lived access tokens, then call:
+This is **not an AI API key, Google API key, service-account key or OAuth client configuration**. No Cloudflare credential is involved. NEXUS does not request broad access to the owner's entire Drive. The owner can revoke the folder permission through Android settings or reconnect another folder inside the app.
 
-- `GET https://www.googleapis.com/drive/v3/files?q=...` to list approved files in the workspace folder.
-- `GET https://www.googleapis.com/drive/v3/files/{fileId}?fields=id,name,size,mimeType,md5Checksum,modifiedTime,capabilities(canDownload)` to verify file metadata.
-- `GET https://www.googleapis.com/drive/v3/files/{fileId}?alt=media` to stream binary model bytes.
+Official Android references:
+- [Storage Access Framework](https://developer.android.com/guide/topics/providers/document-provider) — cloud document providers and folder access.
+- [Access documents and other files](https://developer.android.com/training/data-storage/shared/documents-files) — user-selected folder permissions and persistent URI grants.
+- [ACTION_OPEN_DOCUMENT_TREE](https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE) — directory selection.
 
-Official docs: [Drive files.get](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/get), [download and export](https://developers.google.com/workspace/drive/api/guides/manage-downloads), [Drive API scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth).
+## Catalogue and integrity contract
 
-The broad `drive.readonly` scope is classified as restricted by Google. The app must request only the minimum scope required and follow the applicable consent-screen, testing and verification rules. Do not embed a service-account private key, refresh token or other long-lived credential in the APK. Do not scrape browser pages or use public `uc?export=download` URLs as the production transport.
+The app currently bundles `android/app/src/main/assets/nexus-model-catalog.json`. It contains twelve families, but only a model with status `ready`, an exact filename, exact byte length and a 64-character SHA-256 is downloadable. All other entries remain visible as pending verification or restricted; the app refuses to download them.
 
-A public "anyone with the link" folder is not the default because it exposes model files to anyone who obtains the link. The personal archive should remain private.
+The Qwen2.5-0.5B-Instruct Q4_K_M entry is pinned to upstream revision `12145bd1d629190a4d44254073650877954d02c9`, file size 491,400,032 bytes, and SHA-256 `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`. The owner must place this exact file in the selected Drive workspace. A similarly named file with a different size or hash is rejected.
 
-## Manifest requirements
+Each future downloadable entry must include stable model ID, family, exact filename, quantization, Drive filename, exact byte length, SHA-256, immutable upstream revision, model-card and licence references, approved use status, GGUF architecture/runtime compatibility and conservative device-memory requirements. Missing values mean not ready.
 
-The manifest is version-controlled in this repository and contains metadata only, not access tokens. Each downloadable model must have:
+## Android download behaviour
 
-- stable model ID and family;
-- exact GGUF filename and quantization;
-- Drive file ID;
-- exact byte length and SHA-256;
-- upstream repository and immutable revision;
-- model-card and licence URLs plus archived notices;
-- licence and redistribution decision;
-- GGUF architecture, supported runtime, context recommendation and minimum-memory estimate;
-- manifest schema and catalogue revision.
+- The user selects the Drive folder through the Android system picker; only that folder is granted to the app.
+- NEXUS lists the twelve bundled catalogue entries and clearly marks pending, restricted and downloadable states.
+- A selected GGUF is streamed from the Drive document provider to an app-private `.part` file with progress and cancellation.
+- The app checks provider-reported length when available, exact streamed byte count and SHA-256.
+- Only a fully verified file is promoted to the installed-model directory. Failed transfers delete the partial file and preserve any existing installed model.
+- Storage preflight reserves additional free space; GGUF metadata and runtime/RAM checks still apply before loading.
+- The app does not delete or modify the original Drive archive when a local model is removed.
+- The current SAF stream implementation restarts an interrupted transfer from zero. It does not claim byte-range resume because document providers do not expose a uniform HTTP Range contract.
+- After installation, local inference works in airplane mode without Google Drive access, an AI API key or Cloudflare availability.
 
-Missing Drive IDs, checksums, byte lengths, immutable revisions or licence decisions mean the model is not downloadable. Never invent these values.
+## Current implementation state
 
-## Android acceptance criteria
+The Android app now includes a scoped Drive folder picker, persisted folder read permission, a twelve-family catalogue UI, a verified Qwen Drive copy path, exact length/SHA-256 checks and local install/load. The other eleven catalogue entries are deliberately pending until their exact GGUF artifact, immutable revision, licence and checksum are validated.
 
-- Owner can sign into the correct Google account and explicitly authorize read-only model access.
-- Catalogue shows all twelve families but clearly distinguishes verified/downloadable, pending review, incompatible and restricted.
-- Download is streamed to a temporary app-private file with progress, cancellation, retry and validated Range resume where supported by Drive.
-- File metadata is checked before transfer; exact size and SHA-256 are checked after transfer.
-- Only a verified file is atomically moved into the installed-model directory.
-- GGUF metadata and device RAM/context/runtime compatibility are checked before loading.
-- A failed or interrupted download never replaces a working installed model.
-- Model switching unloads the previous native runtime before loading another.
-- After download, local inference works in airplane mode without Google sign-in, a NEXUS API key, or Cloudflare availability.
-- Signing out of Google does not delete already-installed local models.
-- Removing a model from the phone never deletes its original Drive archive.
+The owner still needs to create the folder and upload the exact Qwen GGUF file. This repository connection cannot upload binaries into the owner's Drive. A real Drive-provider transfer, cancellation, permission revocation and airplane-mode install drill must be performed on the target Redmi before this feature is called device-certified.
 
-## Current implementation status
+## Licence gate
 
-This is the target architecture, not a claim that the integration is already live. The current Android code has a pinned Qwen upstream downloader, manual GGUF import, and local inference. It does not yet contain Google OAuth, Drive folder discovery, Drive manifest browsing, or Drive binary download. No Drive folder ID, OAuth client configuration, model file IDs or uploaded model binaries have been supplied to this repository.
-
-The GitHub connection available in this session cannot sign into or upload files to the owner's Google Drive. Therefore no model binary has been uploaded and no Drive transfer has been tested. These tasks must remain open until the owner account is connected and the Android integration is implemented and exercised.
-
-## Model licence gate
-
-Open weights are not automatically unrestricted. Review the exact base model and quantized GGUF repository terms before uploading or making each file downloadable. Command R and StableLM remain non-commercial in the current screening; Llama, Gemma, Falcon and GLM have additional terms or conditions requiring review. Keep any restricted checkpoint private and disabled for customer/commercial use unless the relevant rights permit it.
+Open weights are not automatically unrestricted. Review the exact base model and quantized GGUF repository terms before uploading each artifact. Command R and StableLM remain non-commercial in the current screening; Llama, Gemma, Falcon and GLM have additional conditions. Keep restricted candidates unavailable for customer/commercial products unless separate rights permit the intended use.
