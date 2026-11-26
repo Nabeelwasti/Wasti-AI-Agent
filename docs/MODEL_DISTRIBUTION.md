@@ -4,7 +4,7 @@
 
 **Google Drive is the sole owner model archive and model-file distribution source. Cloudflare R2, Cloudflare storage products and GitHub Releases are not part of the NEXUS model-storage design.** Cloudflare Workers AI remains an optional inference fallback only; it does not store or serve the twelve personal GGUF checkpoints.
 
-The owner's Google Drive subscription currently has approximately 250 GB available. The curated twelve-model Q4_K_M collection has a preliminary combined size of roughly 10 GB using rounded public model-card figures; exact total bytes will be recorded after each artifact is pinned. This is sufficient capacity for the current shortlist, but capacity does not approve a model's licence or guarantee that every model can run on the phone.
+The owner's Google Drive subscription currently has approximately 250 GB available. The curated twelve-model Q3_K_M/Q4_K_M collection has a preliminary combined size of roughly 10 GB using rounded public model-card figures; exact total bytes will be recorded after each artifact is pinned. This is sufficient capacity for the current shortlist, but capacity does not approve a model's licence or guarantee that every model can run on the phone.
 
 ## Drive layout
 
