@@ -537,11 +537,11 @@ private fun NexusScreen(
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: () -> Unit,
     onSendLocal: suspend (String) -> String,
-    onSaveMemory: suspend (List<Pair<String, String>>) -> String,
-    onRestoreMemory: suspend () -> List<Pair<String, String>>,
-    onRestoreRemoteMemory: suspend (String, String) -> List<Pair<String, String>>,
+    onSaveMemory: suspend (List<Pair<String, String>>, String) -> String,
+    onRestoreMemory: suspend (String) -> List<Pair<String, String>>,
+    onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
-    onSyncMemory: suspend (String, String, List<Pair<String, String>>) -> String,
+    onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
     onSendRemote: suspend (String, String, String, Boolean, String) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
@@ -833,7 +833,7 @@ private fun NexusScreen(
                             answer = try {
                                 val restored = onRestoreMemory(memoryPassphrase)
                                 conversation = restored
-                                "Restored ${restored.size} encrypted conversation turn(s) from this device."
+                                "Restored ${restored.size} encrypted conversation turn(s) from local storage."
                             } catch (error: Exception) {
                                 "Could not restore local memory: ${error.message}"
                             } finally {
@@ -891,7 +891,7 @@ private fun NexusScreen(
                 ) { Text("Sync to GitHub") }
             }
             Text(
-                "Memory is encrypted before saving or syncing using PBKDF2-HMAC-SHA256 and AES-256-GCM. Use the same recovery passphrase on every device. If you forget it, encrypted snapshots cannot be recovered.",
+                "Memory uses PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM. Use the same 12+ character recovery passphrase on every device. The passphrase is not uploaded or stored by NEXUS; if you forget it, encrypted snapshots cannot be recovered.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
