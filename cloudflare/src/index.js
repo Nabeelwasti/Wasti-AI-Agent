@@ -522,7 +522,7 @@ async function memorySnapshots(request, env, headers, url) {
   if (request.method === "GET" && match) {
     const snapshotId = match[1].toLowerCase();
     if (!SNAPSHOT_ID_PATTERN.test(snapshotId)) throw new GatewayError("snapshot_id must be a UUID", 400);
-    const listing = await githubMemoryRequest(config, `${contentsBase}?ref=${encodeURIComponent(config.branch)}&per_page=100`);
+    const listing = await githubMemoryRequest(config, `${contentsBase}?ref=${encodeURIComponent(config.branch)}`);
     if (listing.status === 404 || !Array.isArray(listing.data)) throw new GatewayError("Memory snapshot not found", 404);
     const filename = listing.data.find(item =>
       item?.type === "file" && new RegExp("^\\d{13}-" + snapshotId + "\\.json$", "i").test(String(item.name || ""))
