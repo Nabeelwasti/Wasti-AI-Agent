@@ -28,7 +28,7 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.13"
+          gradle-version: "9.7.0"
       - name: Decode protected release keystore
         env:
           NEXUS_RELEASE_KEYSTORE_BASE64: ${{ secrets.NEXUS_RELEASE_KEYSTORE_BASE64 }}
