@@ -1,54 +1,89 @@
 # WASTI NEXUS model distribution and archive policy
 
-## Keep model weights separate from the application source
+## Chosen storage architecture
 
-Do not commit GGUF weights to ordinary Git history. GitHub rejects ordinary Git files over 100 MB, and Git LFS has separate storage/bandwidth quotas. GitHub Release assets support files smaller than 2 GiB each; this is suitable for selected quantized files only when the model licence permits redistribution. See the official [GitHub large-file guidance](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github) and [Release asset limits](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases).
+**Google Drive is the sole owner model archive and model-file distribution source. Cloudflare R2, Cloudflare storage products and GitHub Releases are not part of the NEXUS model-storage design.** Cloudflare Workers AI remains an optional inference fallback only; it does not store or serve the twelve personal GGUF checkpoints.
 
-Cloudflare Workers AI is an inference service, not a user-uploaded GGUF model host. It runs the models in Cloudflare's catalogue through the AI binding. The NEXUS Worker must not attempt to upload or execute arbitrary custom GGUF files on Workers AI.
+The owner's Google Drive subscription currently has approximately 250 GB available. The twelve Q4_K_M candidate estimates in the registry total about 26 GB, before duplicate revisions and future additions. This is sufficient capacity for the current candidate set, but capacity does not approve a model's licence or guarantee that every model can run on the phone.
 
-## Recommended archive layout
+## Drive layout
 
-- **Source repository:** Kotlin/C++ source, tests, model registry, provenance, licence notices, SHA-256 manifests and download scripts.
-- **Private owner archive:** original checkpoints, fine-tuned adapters, training data and checkpoints. Google Drive or a private R2 bucket may be used for this purpose.
-- **Public app-download origin (optional):** a dedicated R2 Standard bucket with a custom domain and only files whose licences permit redistribution. Publish a signed/immutable JSON manifest containing model ID, exact filename, byte length, SHA-256, quantization, context recommendation, ABI/runtime requirements, source revision, licence URL and download URL.
-- **GitHub Release assets (optional):** only when the individual file is under 2 GiB and redistribution is permitted.
-- **Android:** download only a selected model into app-private storage; verify byte length and SHA-256 before exposing it to the inference runtime.
+Create one dedicated folder in the owner's Google Drive:
 
-R2's current Standard free tier is 10 GB-month storage, 1 million Class A operations/month and 10 million Class B operations/month, with no internet egress charge. It is not unlimited storage or unlimited operations. R2 storage is a separate product from Workers AI inference. See [official R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+`WASTI-NEXUS-MODEL-WORKSPACE/`
 
-Do not enable public bucket access on a private archive. A public app-download bucket should contain only approved redistributable artifacts, never personal memory, customer data, secrets or private training data.
+Recommended structure:
 
-## Sources that do not require Hugging Face
+- `catalogue/` — versioned JSON manifest and model notices.
+- `models/<family>/<model-version>/` — exact GGUF files, each immutable after publication.
+- `licenses/<family>/` — upstream licence text, model card snapshot and attribution notices.
+- `checksums/` — SHA-256 manifest and acquisition provenance.
+- `quarantine/` — incomplete, unreviewed or rejected artifacts; never exposed in the app catalogue.
 
-A model's upstream publisher or quantization maintainer may publish files through ModelScope, a project website, or a GitHub Release. Prefer a publisher-controlled source and pin the exact revision plus SHA-256. The registry and downloader must record the actual artifact source, not merely a family name.
+Do not put personal documents, memory snapshots, customer data, credentials or unrelated Drive files in this folder.
 
-Ollama's public library is a useful model catalogue, but its local blob API documents operations against an Ollama server. It is not automatically a stable public direct-download URL for a standalone GGUF file. Do not treat an Ollama tag/manifest as a verified Android GGUF asset without resolving and validating the actual blob and its model metadata.
+## Private access without an AI API key
 
-Hugging Face remains one optional source for public and gated checkpoints; it is not required as a runtime dependency. For public Qwen GGUF artifacts, the acquisition script can use the immutable public repository revision and pinned SHA-256. Gated sources must never be bypassed.
+The intended production design is **Google account OAuth sign-in with read-only Drive access**. This is not an AI API key and does not charge per model inference. The app obtains a short-lived Google access token after the owner signs in, then calls the official Drive API to list/download only the approved workspace files. The token must be kept in memory or protected OS storage, refreshed through Google's supported flow, and never committed to Git or embedded as a static secret.
 
-## Android acquisition requirements
+Use the narrowest practical scope. The Drive `drive.readonly` scope allows the app to find and download the owner's files, but Google classifies it as a restricted scope and its consent/verification requirements must be reviewed before public distribution. A private owner-only build can be tested with the owner's Google account in the OAuth consent screen's test-user configuration while the app is being developed. Do not request broad Drive access for unrelated app features.
 
-The Android app currently supports manual GGUF import and validation. It does not yet include a built-in model catalogue downloader or background-resume UI. Do not claim in-app model downloads are implemented until the app has:
+Official references:
+- [Drive files.get](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/get) — metadata and `alt=media` content retrieval.
+- [Download and export files](https://developers.google.com/workspace/drive/api/guides/manage-downloads) — authorised binary downloads and download capability checks.
+- [Choose Drive API scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth) — scope sensitivity and consent requirements.
 
-1. A signed or otherwise integrity-protected manifest.
-2. HTTPS-only URLs and an allow-list of approved hosts.
-3. Resumable HTTP range downloads with partial-file handling.
-4. Foreground/user-visible progress and cancellation.
-5. Sufficient-storage checks before and during download.
-6. Exact content-length and SHA-256 verification before atomic promotion from `.partial` to `.gguf`.
-7. A cancellation/retry/reboot recovery test.
-8. GGUF metadata parsing and runtime/device-fit preflight after download.
-9. Licence notices presented before any restricted model is downloaded.
+A public "anyone with the link" folder is **not** the default. It would expose every shared model file to anyone who obtains the link and would not be a private owner workspace. Do not use public sharing as a workaround for missing OAuth integration.
 
-Android WorkManager supports long-running work with a foreground notification, but on Android 16 it can still be subject to job quotas. For a user-initiated large model transfer, evaluate Android's user-initiated data-transfer job guidance and test the target API levels. See [Android long-running work](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running).
+## Manifest contract
 
-## Training and fine-tuning
+Keep the catalogue manifest in the monorepo so it can be reviewed and versioned. It contains metadata and Drive file IDs, never access tokens or private credentials. Each downloadable entry must include:
 
-A phone browser can control a hosted notebook, but the phone does not perform the GPU training itself. Google Colab free GPU availability, model access, runtime duration and disk capacity are not guaranteed; a T4 GPU is not guaranteed for every free session. Fine-tune an eligible base model with a small LoRA/QLoRA adapter, checkpoint to storage frequently, export a compatible GGUF only after testing, and preserve base-model plus adapter provenance and licences. Never claim a model is "trained by NEXUS" unless the exact training run, data rights, adapter and evaluation evidence are retained.
+- stable model ID and family;
+- exact GGUF filename and quantization;
+- Google Drive file ID;
+- exact byte length and SHA-256;
+- upstream repository and immutable revision;
+- model-card and licence URLs plus archived licence notice;
+- redistribution/commercial-use decision and reviewer status;
+- GGUF architecture, runtime compatibility, context recommendation and minimum-memory estimate;
+- manifest schema version and catalogue revision.
 
-## Current state
+A model is not downloadable in the app until its Drive file ID, byte length, SHA-256, immutable source revision, licence review and runtime compatibility are all verified. Null or missing fields mean **not ready**. Do not manufacture file IDs, checksums or licence approvals.
 
-- One phone-sized Qwen2.5-0.5B Q4_K_M candidate is pinned with an upstream SHA-256.
-- No model weights are hosted by this repository or the deployed Worker.
-- The Android app imports a model manually; in-app downloads are a future implementation.
-- A dedicated NEXUS R2 bucket and public model-download domain have not been provisioned.
+## Android download requirements
+
+The Android client must:
+
+1. Sign the owner into Google using the official OAuth flow; request only read access needed for the model workspace.
+2. Load the signed-off catalogue manifest and resolve Drive file IDs.
+3. Confirm the Drive file is downloadable and its metadata matches the manifest.
+4. Download through the official Drive API with the OAuth access token; never scrape Drive web pages or rely on unofficial `uc?export=download` links.
+5. Support HTTP Range resume only when the Drive response validates the requested range and stable file revision. Otherwise restart safely.
+6. Stream to app-private temporary storage with progress, cancellation, storage checks and retry/backoff.
+7. Verify exact byte length and SHA-256 before atomic promotion to the installed-model directory.
+8. Parse GGUF metadata and perform runtime, ABI, RAM/context and thermal preflight before offering Load.
+9. Preserve the previous installed model until the replacement passes all checks.
+10. Offer model removal without deleting the original Drive archive.
+
+A Google Drive access token is for storage access only. It must never be sent to Cloudflare Workers AI or used as an AI inference credential. Offline inference must work after a model is installed even when the Google account is signed out and the phone is offline.
+
+## Model licensing and the twelve families
+
+"Open weights" does not automatically mean unrestricted open-source software or permission to redistribute. The registry currently contains twelve research candidates, not twelve approved downloadable assets. Some entries have gated or conditional terms; Command R and StableLM are marked non-commercial in the current screening. Preserve each upstream licence and base-model notice. Do not upload, share or expose a checkpoint in Drive until its exact licence permits the intended storage, copying and use. Keep restricted candidates disabled for commercial/customer products unless the rights are separately obtained.
+
+## Current verified state
+
+- One monorepo remains the source of truth for app code, registry, manifests, tests and licence evidence.
+- One Qwen2.5-0.5B-Instruct Q4_K_M source revision and SHA-256 are pinned in the registry.
+- No model weights have been uploaded to the owner's Google Drive through this repository connection.
+- No Google Drive OAuth client has been configured for the Android package.
+- The Android app does not yet have the private Drive sign-in, manifest browser or generic Drive downloader.
+- The current in-app Qwen installer still downloads from its pinned upstream source; it is not yet backed by the Google Drive workspace.
+- No other eleven candidate files are approved for in-app download.
+
+These are explicit implementation gates, not completed features. Do not describe Google Drive model browsing or downloads as live until the Android integration and real Drive transfer tests pass.
+
+## Operational note
+
+Google Drive is storage, not a GPU inference service. Once downloaded, local inference runs on the phone and does not consume Cloudflare Workers AI inference quotas. Drive API access and transfers remain subject to Google's service terms and usage limits; large model downloads should use streaming, bounded concurrency, resumable transfers where supported, and exponential backoff.
