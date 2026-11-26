@@ -34,8 +34,10 @@ A small Qwen candidate is registered under the Qwen family:
 - Quantization: Q4_K_M
 - Approximate file size: 491 MB
 - Licence: Apache-2.0 (preserve the exact repository/base-model notices)
+- Pinned revision: `12145bd1d629190a4d44254073650877954d02c9`
+- Verified upstream SHA-256: `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`
 
-This is the first candidate to test with approximately 3 GB of free RAM. It is not yet downloaded or device-validated. The app's memory check is a preflight estimate, not a benchmark guarantee.
+This is the first candidate to test with approximately 3 GB of free RAM. The upstream revision and SHA-256 are pinned, but the file has not yet been downloaded to your phone or device-validated. The app's memory check is a preflight estimate, not a benchmark guarantee.
 
 To pin only this family's primary and local-candidate repositories, then download only the selected GGUF file:
 
