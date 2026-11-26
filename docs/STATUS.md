@@ -2,45 +2,60 @@
 
 Last updated: 2026-11-26.
 
-## Repository and successful writes
+## Repository and architecture
 
-- Single repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), main branch.
-- Recent GitHub Contents API writes returned successful commit SHAs; no force-push or history rewrite was used.
-- Twelve model families are catalogued. Llama and Gemma have pinned immutable revisions; ten candidates remain unpinned.
-- Registry integrity tests have been added at `tests/test_registry.py`.
-- GitHub-backed memory record and dataset manifest schemas are present. The FastAPI orchestrator has a personal-vault adapter with authenticated list/create/read endpoints, AES-256-GCM payload validation, immutable per-snapshot files, private-repository enforcement and mocked transport tests. Android-side encryption, sync queue/retry, restore UX and full retrieval/indexing remain incomplete.
-- The repository is currently public. The memory adapter intentionally refuses writes until the repository is made private; no personal memory has been written to GitHub.
-- A root `.gitignore` now excludes secrets, local build outputs, model checkpoints, private memory exports and generated indexes.
-- The Cloudflare static web console source is in `cloudflare/public/index.html`; Wrangler is configured to serve static assets and preserve the deployed Worker name `wasti-nexus-gateway`.
-- Android now includes Arm AI Chat (`com.arm:ai-chat:0.1.0`) backed by llama.cpp, GGUF file import into app-private storage, RAM preflight, model load/unload and local token generation source code.
-- A Qwen2.5-0.5B Q4_K_M GGUF local candidate (about 491 MB, Apache-2.0) is registered. A family-scoped revision pinning flow and single-file downloader have been added.
-- Research references and runtime recommendations are recorded in `docs/RESEARCH.md`.
+- Single public repository: [Nabeelwasti/Wasti-AI-Agent](https://github.com/Nabeelwasti/Wasti-AI-Agent), default branch `main`.
+- All changes have been committed without force-pushes or history rewrites.
+- No repository visibility change was made.
+- The repository contains the Android client, FastAPI orchestration service, Cloudflare Worker, model registry/download tools, SDKs, tests, memory schemas and dataset schemas.
+- Public GitHub Actions standard hosted runners are free. The workflow skips documentation-only, memory-only and dataset-only pushes; APK artifact retention is one day to limit storage.
 
-## Verified defects found and changes made
+## Android and local models
 
-- CI invoked `pytest -q tests/test_registry.py`, but that test file did not exist. It has now been added and CI runs the full root `tests` directory.
-- Model documentation incorrectly claimed no revisions were pinned despite Llama and Gemma having pinned SHAs. Corrected.
-- Wrangler config named the Worker `wasti-nexus-edge` while the deployed Worker is `wasti-nexus-gateway`. The config now uses the existing deployed name to avoid an accidental second Worker.
-- CI now has separate Python, Worker JavaScript syntax and Android debug-build jobs, least-privilege read permissions, TOML parsing and JSON syntax checks.
-- GitHub combined commit-status query currently returns an empty status list for the latest inspected commit. Therefore CI is still **unverified**; a successful source commit is not proof that a workflow ran or passed.
+- Android source uses Arm AI Chat `com.arm:ai-chat:0.1.0`, backed by llama.cpp and GGUF.
+- The client has source for online single/Hybrid requests and offline local inference.
+- GGUF import validates metadata and copies files into app-private storage.
+- Multiple installed GGUF files can be listed, selected, loaded, unloaded and removed. Only one local model is loaded at a time.
+- Conversation snapshots can be encrypted locally using Android Keystore AES-256-GCM.
+- A Qwen2.5-0.5B Q4_K_M candidate is the first phone trial (about 491 MB; Apache-2.0).
+- All twelve model families now have a candidate GGUF repository, filename, approximate size, licence gate and conservative RAM planning estimate in `models/registry.json`.
+- The downloader fetches one selected candidate and generates a SHA-256 manifest. No model weights have been downloaded into this repository or onto the phone by this work.
 
-## Architecture decisions
+## GitHub memory and datasets
 
-- One monorepo only.
-- Android must support both local inference and remote inference. Local chat must work without Cloudflare, GitHub or internet.
-- Install only selected device-compatible models; keep other legally usable/configured models online-only.
-- GitHub stores source-controlled memory/knowledge/dataset files. Personal/customer records must be encrypted, private and tenant-scoped. GitHub is not a transactional DB or training runtime.
-- Cloudflare hosts the online web app's static assets and the online API gateway only. No Cloudflare storage products for memory, datasets or model weights.
-- One OpenAI-compatible brain API supports individual models and truthful Hybrid participation reporting.
+- The repository remains public as requested.
+- The FastAPI memory adapter and Cloudflare Worker both support encrypted snapshot list/create/read routes.
+- The Worker verifies that the configured repository is public and accepts only AES-256-GCM ciphertext envelopes. It writes directly to the GitHub Contents API; it does not use Cloudflare storage.
+- The Android app can save encrypted local snapshots and attempt to sync ciphertext to the Worker.
+- The encryption key is device-bound to Android Keystore. Cross-device recovery/passphrase support is not implemented.
+- The Worker requires a fine-grained GitHub token in the Cloudflare secret `NEXUS_GITHUB_TOKEN`. That secret is **not configured yet**. Therefore remote memory sync returns HTTP 503 until the owner adds it. No memory snapshots have been written.
+- `memory/README.md` and `datasets/README.md` define the public ciphertext-only and dataset-admission policies. No personal data, training corpus or model weights have been committed.
 
-## Not complete / release blockers
+## Cloudflare gateway and online console
 
-- The Android source now has a local GGUF inference path and explicit Offline mode. The Gradle build, dependency resolution, APK and real-device offline inference are still unverified. Current model management is manual GGUF import/load/unload; in-app catalogue, download manager, checksum validation and uninstall UI remain incomplete.
-- Android-side memory encryption and sync integration are not implemented. The server adapter requires a private GitHub repository and a fine-grained token configured only on the orchestrator host. It currently supports one personal vault, not customer multi-tenancy. Conflict recovery, pagination beyond the first 100 entries, restore UX, retrieval and rebuildable index pipeline remain incomplete.
-- Cloudflare web console source/config is committed but has not been redeployed or externally smoke-tested after these changes.
-- The Cloudflare gateway has no configured inference providers; online chat cannot generate answers until real providers are connected.
-- Android Gradle build, APK, signing and CI result remain unverified. The app now targets Android 13+ (minSdk 33) to use the selected Arm AI Chat runtime.
-- The Qwen GGUF candidate is not yet downloaded; immutable revision, SHA-256, runtime-load test and device benchmarks remain outstanding.
-- Production auth, customer identity/tenant isolation, quotas, rate limits, audit persistence, monitoring, retention controls, restore drills and security testing remain release gates.
+- Worker `wasti-nexus-gateway` has been redeployed through the Cloudflare API.
+- The Worker serves the web console at `/` from its embedded HTML response. The canonical HTML source remains `cloudflare/public/index.html`.
+- `/healthz`, OpenAI-compatible chat routes and encrypted GitHub memory routes are in the deployed Worker source.
+- The existing `NEXUS_API_KEY` secret was preserved during deployment.
+- Plain-text variables point the memory adapter at `Nabeelwasti/Wasti-AI-Agent`, branch `main`, under `memory/personal/encrypted`.
+- No Cloudflare KV, D1, R2, Durable Objects, Vectorize or model-weight storage is configured.
+- The GitHub memory token is not configured and no inference providers are configured. Consequently online chat cannot generate answers and remote memory sync is unavailable until those credentials/configurations are supplied.
+- Deployment was accepted by the Cloudflare control plane, but an external HTTP smoke test of the public workers.dev endpoint has not been verified in this environment.
 
-A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not complete until an installed model answers a prompt with networking disabled.
+## CI and verification
+
+- CI now has Python tests/source validation, Worker JavaScript syntax/unit tests and Android debug-build jobs.
+- CI skips documentation-only, memory-only and dataset-only changes; it runs for code, tests, registry and workflow changes.
+- The latest GitHub combined commit-status lookup returned no status entries, and no workflow run result was available. CI is therefore **unverified**, not passed.
+- The Android APK has not been built successfully in a verified CI run. No real-device offline inference test has passed.
+
+## Release blockers
+
+1. Add the GitHub fine-grained token as Worker secret `NEXUS_GITHUB_TOKEN` (Contents read/write only for this repository).
+2. Configure at least one inference provider and its API secret. Free providers have request/token caps and changing model availability; there is no unlimited free online inference.
+3. Run CI and fix any failing Python, Worker or Android job.
+4. Build/install the APK and test Qwen GGUF on the Redmi with networking disabled; benchmark RAM, context, speed, heat and battery.
+5. Implement memory recovery/export, decrypt/restore, indexing/retrieval and sync retry/conflict handling before treating GitHub as a durable personal memory system.
+6. Complete customer authentication, tenant isolation, quotas, rate limits, monitoring, retention and legal model-licence review before commercial release.
+
+A successful GitHub commit is not a successful build. A deployed gateway is not a functioning inference service. Offline support is not verified until an installed model answers with networking disabled.
