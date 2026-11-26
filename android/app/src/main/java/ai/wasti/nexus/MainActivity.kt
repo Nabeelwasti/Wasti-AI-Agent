@@ -737,7 +737,7 @@ private fun NexusScreen(
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
     var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
-    var driveWorkspaceName by remember { mutableStateOf("Not connected") }
+    var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
