@@ -71,8 +71,15 @@ async def call_agent(agent_id: str, config: dict[str, Any], messages: list[dict[
         payload["temperature"] = temperature
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
-    timeout = float(os.getenv("NEXUS_DEFAULT_TIMEOUT_SECONDS", "45"))
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    from urllib.parse import urlsplit
+    parsed = urlsplit(base_url)
+    local_http = os.getenv("NEXUS_ALLOW_LOCAL_HTTP", "0") == "1" and parsed.hostname in {"127.0.0.1", "localhost"}
+    if parsed.scheme != "https" and not local_http:
+        raise ValueError("Provider endpoints must use HTTPS (loopback HTTP is development-only)")
+    if parsed.username or parsed.password or not parsed.hostname:
+        raise ValueError("Provider URL is invalid")
+    timeout = max(5.0, min(float(os.getenv("NEXUS_DEFAULT_TIMEOUT_SECONDS", "45")), 90.0))
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
         response = await client.post(endpoint_for(base_url), json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
@@ -189,6 +196,36 @@ async def chat_completions(req: ChatRequest):
         if not good_reviews:
             break
         review_rounds_completed += 1
+
+    review_results: list[dict[str, Any]] = []
+    review_rounds_completed = 0
+    for round_number in range(req.nexus.review_rounds):
+        review_prompt = (
+            "Review the peer answers for factual gaps, unsupported assumptions, contradictions, practical risks "
+            "and missing steps. Suggest corrections. Do not invent evidence or reveal private chain-of-thought.\\n\\n"
+            + "USER TASK:\\n" + json.dumps(user_messages, ensure_ascii=False)
+            + "\\n\\nPEER ANSWERS:\\n"
+            + "\\n\\n".join(f"[{x['agent']}]\\n{x['content']}" for x in successful)
+        )
+        review_messages = [{"role": "user", "content": review_prompt}]
+        round_results = await asyncio.gather(*(
+            call_agent(x["agent"], cfg[x["agent"]], review_messages, 0.2, min(req.max_tokens or 700, 900))
+            for x in successful
+        ), return_exceptions=True)
+        for agent_id, result in zip([x["agent"] for x in successful], round_results):
+            if isinstance(result, Exception):
+                review_results.append({"round": round_number + 1, "agent": agent_id,
+                                       "ok": False, "error": type(result).__name__})
+            else:
+                review_results.append({"round": round_number + 1, "agent": agent_id,
+                                       "ok": True, "content": result["content"]})
+        review_rounds_completed += 1
+    if review_results:
+        review_text = "\\n\\n".join(
+            f"[Round {x['round']} / {x['agent']}]\\n{x.get('content', '[review unavailable]')}"
+            for x in review_results
+        )
+        user_messages.append({"role": "system", "content": "PEER REVIEW FINDINGS (consider these in synthesis):\\n" + review_text})
 
     synth_id = req.nexus.synthesis_agent
     if not synth_id:
