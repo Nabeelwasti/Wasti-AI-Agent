@@ -769,7 +769,7 @@ private fun NexusScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Save connection") }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid — all brains") })
+                    FilterChip(selected = hybrid, onClick = { hybrid = true }, label = { Text("Hybrid orchestration") })
                     FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
                 }
                 OutlinedButton(
@@ -868,7 +868,7 @@ private fun NexusScreen(
                     when {
                         busy -> "Working…"
                         offlineMode -> "✦ RUN LOCALLY — NO INTERNET"
-                        hybrid -> "✦ HYBRID — ALL BRAINS"
+                        hybrid -> "✦ HYBRID ORCHESTRATION"
                         else -> "Send to online brain"
                     }
                 )
