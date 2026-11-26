@@ -1,43 +1,47 @@
-# WASTI NEXUS orchestration and remote-compute strategy
+# WASTI NEXUS orchestration and self-hosted compute
 
-## Target architecture
+## Primary architecture
 
-Android chat UI
-- Local policy engine: available RAM, battery, thermal state, storage and network
-- Local llama.cpp runtime for compatible installed GGUF models
-- Optional paired Termux companion with loopback access and explicit grants
-- Authenticated NEXUS gateway
-  - Edge auth, quotas, validation, routing and streaming relay
-  - Optional Workers AI providers
-  - Dedicated GPU/CPU inference-host adapters
-  - Durable job queue and status polling
-  - Encrypted personal-memory relay
+- Android native local GGUF engine.
+- Optional Termux llama.cpp server bound to `127.0.0.1:8088`.
+- Optional owner-controlled HTTPS inference host for larger models.
+- Python orchestrator with task classification, capability matching, commercial licence gates and sequential fallback.
+- Google Drive SAF as the user-controlled archive for model weights, datasets, adapters and exports.
+- Cloudflare Worker, if retained, is only an optional relay/control plane. Workers AI inference is disabled; R2/KV/D1 and other Cloudflare storage are not used.
 
-Google Drive SAF is the private model/dataset/adapter archive only.
+## Runtime decision order
 
-## Decision policy
-- Offline: local only; never fall through to network.
-- Auto: local first only when a compatible model is installed and measured resource headroom is sufficient. Otherwise use a configured remote route after connectivity, privacy, quota and budget checks.
-- Online: remote route by explicit user choice. Do not silently change privacy mode.
-- Vision/audio/image/training tasks require a provider with that exact capability.
-- Unload idle models, cap context/generation, and never load multiple large models concurrently on the phone.
-- Remote fallback uses bounded retries, exponential backoff with jitter, provider circuit breakers, deadlines and idempotency keys.
-- If every route fails, preserve the prompt locally and report a recoverable error.
+1. Determine task capability: general chat, reasoning, coding, vision, image generation, speech-to-text, text-to-speech or training.
+2. Read Android runtime state: validated internet, Wi-Fi/mobile-data transport, metered state, free RAM, battery, charging and thermal status.
+3. Offline mode permits only native local inference or the loopback Termux server.
+4. Auto mode uses the native model when the task is supported and measured RAM/thermal/battery headroom is safe.
+5. If native inference is unsuitable, use a reachable loopback Termux server for supported text tasks.
+6. If no local route is suitable and validated internet exists, use an explicitly configured owner-controlled HTTPS self-hosted orchestrator. Auto mode requires `nexus-auto` to be advertised.
+7. If no valid route exists, preserve the prompt and return a truthful blocked/unavailable result.
 
-## Cloudflare's role
-Use Workers/Pages for gateway, auth, rate limiting, routing, streaming relay and job coordination. Workers are not GPU servers. The current published Workers limits include 128 MB memory and up to five minutes CPU per invocation on Paid; Paid starts at $5/month plus metered usage. A separately provisioned GPU/CPU host is required for large-model inference.
+## Safety thresholds
 
-## Termux integration
-Termux is optional. A future paired bridge must bind only to loopback, require explicit pairing, expose a narrow allowlist, use one-time challenges and per-request approval, and maintain an audit trail. Termux:API exposes selected APIs only after Android permission flows. It cannot remove Android sandbox restrictions or grant unrestricted root access. Root-only actions remain unavailable unless the device is rooted and the user explicitly configures them.
+- Native model loading uses a conservative estimate based on GGUF file size plus a fixed reserve; the actual native load check remains authoritative.
+- Severe thermal status and critically low battery block new local loads even when a model is already loaded.
+- Only one local chat model should be loaded at a time.
+- Metered cellular internet is detected and called out. Model-weight downloads are never silently started by Auto inference.
+- Termux server defaults to CPU-only, one parallel request, bounded threads and a 4096-token context.
+- Termux server binds to loopback only. Do not bind to `0.0.0.0` or expose it publicly.
 
-## Google Drive only
-Use Storage Access Framework folder grants for model archives, datasets, LoRA adapters, evaluation reports and exported GGUFs. Do not use R2, KV, D1 or other Cloudflare products as model/object storage. Drive is not an inference runtime or continuously mounted server filesystem.
+## Provider fallback
 
-## Safety and reliability
-- No model auto-download over mobile data without consent.
-- No inference if estimated working set exceeds conservative memory budget.
-- Avoid concurrent local and remote generation unless multi-agent comparison is requested.
-- Require approval for SMS, calls, file deletion, app installation, accessibility actions, shell commands and other sensitive operations.
-- Never expose a general-purpose shell endpoint to the public internet.
-- Keep credentials in Android Keystore/server secret stores.
-- Provide local-only, remote-route, kill-switch and export/delete controls.
+The Python router selects only configured, enabled and licence-approved providers whose declared capabilities match the task. It tries candidates in priority order and reports failed agents. Vision, audio, image generation and training tasks fail closed if no matching specialist exists. A generic chat model is not silently substituted for a missing modality.
+
+Provider configuration should declare `capabilities`, `license`, `license_status`, `commercial_allowed`, `enabled`, `priority`, `base_url`, `model` and optional `api_key_env`. Customer mode requires explicit commercial clearance and approved/verified licence status. Keep secrets in server-side secret stores.
+
+## Cloudflare and long-running work
+
+Cloudflare Workers AI is not used. The Worker relay is optional and has platform request/CPU/memory limits; long-running tasks should connect directly to the self-hosted inference host. No task depends on Cloudflare availability. Heavy inference requires an owner-operated GPU server or cluster with authenticated HTTPS, queueing, bounded concurrency, health checks, cancellation and resource monitoring.
+
+## Termux and Android boundary
+
+Termux is a separate Android app sandbox. Its local llama.cpp server can use model files in Termux `$HOME/models`; it cannot silently read the Android app's private model directory. The Android app connects to the loopback server via `localhost`. Termux:API exposes selected APIs after their own permission flows; it does not bypass Android sandbox restrictions or grant unrestricted root/device control.
+
+## Google Drive archive
+
+Drive is the archive, not inference. Use SAF folder permissions; validate file size and SHA-256; atomically install verified artifacts into app-private storage. No Cloudflare object storage is introduced. Keep model manifests separate from the runtime model registry: a candidate is not downloadable until the exact artifact is pinned and verified.

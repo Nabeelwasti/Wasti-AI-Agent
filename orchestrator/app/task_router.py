@@ -7,7 +7,7 @@ TASK_PATTERNS = (
     ("image_generation", ("generate image", "create image", "draw", "illustration", "flux")),
     ("speech_to_text", ("transcribe", "speech to text", "voice note", "audio transcription")),
     ("text_to_speech", ("read aloud", "text to speech", "speak this", "voice output")),
-    ("vision", ("analyze image", "what is in this picture", "image input", "photo", "visual inspection")),
+    ("vision", ("analyze image", "this image", "attached image", "image of", "what is in this picture", "image input", "photo", "visual inspection")),
     ("coding", ("write code", "debug", "program", "python", "kotlin", "javascript", "compile", "stack trace")),
     ("fine_tuning", ("fine tune", "fine-tune", "lora", "qlora", "train an adapter", "dataset")),
     ("reasoning", ("compare", "evaluate", "plan", "strategy", "analyze", "research", "reason")),
@@ -20,13 +20,31 @@ TASK_CAPABILITIES = {
     "reasoning": {"reasoning"}, "general": {"chat"},
 }
 
+def _flatten_content(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        kind = str(value.get("type", "")).lower()
+        if kind in {"image", "image_url"} or "image_url" in value:
+            return " [attached image] "
+        if kind in {"audio", "input_audio", "audio_url"} or "audio" in value:
+            return " [attached audio] "
+        return " " + " ".join(_flatten_content(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return " ".join(_flatten_content(item) for item in value)
+    return ""
+
 def classify_task(messages: list[dict[str, Any]]) -> str:
-    text = " ".join(str(m.get("content", "")) for m in messages if m.get("role") in {"user", "system"}).lower()
+    content_values = [m.get("content", "") for m in messages if m.get("role") in {"user", "system"}]
+    text = " ".join(_flatten_content(value) for value in content_values).lower()
+    if "[attached image]" in text:
+        return "vision"
+    if "[attached audio]" in text:
+        return "speech_to_text"
     for task, phrases in TASK_PATTERNS:
-        if any(re.search(r"(?<!\w)" + re.escape(p) + r"(?!\w)", text) for p in phrases):
+        if any(re.search(r"(?<!\\w)" + re.escape(p) + r"(?!\\w)", text) for p in phrases):
             return task
     return "general"
-
 def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]], allowed: Callable[[dict[str, Any]], bool]) -> tuple[str, list[str]]:
     task = classify_task(messages)
     required = TASK_CAPABILITIES[task]
@@ -37,8 +55,10 @@ def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]
         capabilities = {str(v).lower() for v in agent.get("capabilities", ["chat"])}
         if task != "general" and required.isdisjoint(capabilities):
             continue
+        task_priorities = agent.get("task_priority", {})
+        raw_priority = task_priorities.get(task, agent.get("priority", 100)) if isinstance(task_priorities, dict) else agent.get("priority", 100)
         try:
-            priority = int(agent.get("priority", 100))
+            priority = int(raw_priority)
         except (TypeError, ValueError):
             priority = 100
         ranked.append((priority, 0 if task in capabilities else 1, agent_id))
@@ -50,8 +70,10 @@ def rank_agents(messages: list[dict[str, Any]], config: dict[str, dict[str, Any]
             if agent_id in known or not allowed(agent):
                 continue
             if "chat" in {str(v).lower() for v in agent.get("capabilities", ["chat"])}:
+                task_priorities = agent.get("task_priority", {})
+                raw_priority = task_priorities.get(task, agent.get("priority", 100)) if isinstance(task_priorities, dict) else agent.get("priority", 100)
                 try:
-                    priority = int(agent.get("priority", 100))
+                    priority = int(raw_priority)
                 except (TypeError, ValueError):
                     priority = 100
                 fallbacks.append((priority, 2, agent_id))

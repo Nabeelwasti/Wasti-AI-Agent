@@ -1,7 +1,7 @@
 const MAX_AGENTS = 12;
 const MAX_MESSAGES = 40;
 const MAX_REQUEST_CHARS = 30000;
-const CONSOLE_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"theme-color\" content=\"#10131b\"><title>WASTI NEXUS — AI Brain</title>\n<style>\n:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}\nmain{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}\nh1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}\nlabel{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}\n.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}\n.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}\n@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}\n</style></head>\n<body><main>\n<header><div class=\"brand\"><div class=\"mark\">N</div><h1>WASTI NEXUS</h1></div><p class=\"sub\">One universal brain API · Multiple model providers · Hybrid intelligence</p></header>\n<section class=\"panel\">\n<div class=\"row\"><div><label for=\"key\">NEXUS API key</label><input id=\"key\" type=\"password\" autocomplete=\"off\" placeholder=\"Enter your API key\"></div><div><label for=\"model\">Brain</label><select id=\"model\"><option value=\"nexus-hybrid\">NEXUS Hybrid</option></select></div></div>\n<div class=\"actions\"><button id=\"refresh\" class=\"secondary\">Refresh model catalogue</button><span id=\"status\" class=\"status\">Connecting to gateway…</span></div>\n<p class=\"muted\">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>\n</section>\n<section class=\"panel\">\n<label for=\"prompt\">Ask NEXUS</label><textarea id=\"prompt\" placeholder=\"What would you like the AI brains to work on?\"></textarea>\n<div class=\"actions\"><button id=\"send\">Send request</button><span class=\"pill\" id=\"mode\">Hybrid orchestration</span></div>\n</section>\n<section class=\"panel\"><label>Response</label><div id=\"answer\" class=\"answer\">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>\n<p class=\"muted\">NEXUS gateway: same-origin /v1 · Model availability depends on configured providers and their licences.</p>\n</main>\n<script>\nconst $=id=>document.getElementById(id), key=()=>$(\"key\").value.trim();\nfunction status(s){$(\"status\").textContent=s}\nasync function loadModels(){status(\"Loading configured brains…\");try{const r=await fetch(\"/v1/models\",{headers:{Authorization:\"Bearer \"+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||\"HTTP \"+r.status);const list=d.data||[];const options=[...(list.length>=2?[{id:\"nexus-hybrid\",owned_by:\"WASTI NEXUS\"}]:[]),...list.filter(m=>m.id!==\"nexus-hybrid\")];$(\"model\").replaceChildren(...options.map(m=>{const o=document.createElement(\"option\");o.value=m.id;o.textContent=m.id+(m.owned_by?\" · \"+m.owned_by:\"\");return o}));if(!options.some(m=>m.id===$(\"model\").value))$(\"model\").value=options[0]?.id||\"\";$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":\"Single brain\";status(list.length>=2?list.length+\" brains available. Hybrid is enabled.\":list.length===1?\"1 brain available. Hybrid is disabled until a second distinct model is configured.\":\"Gateway is online, but no inference models are configured yet.\");}catch(e){status(\"Catalogue unavailable: \"+e.message)}}\n$(\"refresh\").addEventListener(\"click\",loadModels);\n$(\"model\").addEventListener(\"change\",()=>{$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":\"Single brain\"});\n$(\"send\").addEventListener(\"click\",async()=>{const prompt=$(\"prompt\").value.trim();if(!prompt)return; if(!key()){status(\"Enter your API key first.\");return}const btn=$(\"send\");btn.disabled=true;$(\"answer\").textContent=\"Working…\";try{const model=$(\"model\").value;const body={model,messages:[{role:\"user\",content:prompt}],stream:false};if(model===\"nexus-hybrid\")body.nexus={mode:\"hybrid\",review_rounds:1};const r=await fetch(\"/v1/chat/completions\",{method:\"POST\",headers:{\"Authorization\":\"Bearer \"+key(),\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||\"HTTP \"+r.status);$(\"answer\").textContent=d.choices?.[0]?.message?.content||\"No answer returned.\";status(\"Completed.\");}catch(e){$(\"answer\").textContent=\"Request failed: \"+e.message;status(\"Check provider setup and API key.\")}finally{btn.disabled=false}});\nloadModels();\n</script></body></html>";
+const CONSOLE_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"theme-color\" content=\"#10131b\"><title>WASTI NEXUS — AI Brain</title>\n<style>\n:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}\nmain{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}\nh1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}\nlabel{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}\n.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}\n.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}\n@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}\n</style></head>\n<body><main>\n<header><div class=\"brand\"><div class=\"mark\">N</div><h1>WASTI NEXUS</h1></div><p class=\"sub\">Self-hosted inference · Local-first routing · Hybrid intelligence</p></header>\n<section class=\"panel\">\n<div class=\"row\"><div><label for=\"key\">NEXUS API key</label><input id=\"key\" type=\"password\" autocomplete=\"off\" placeholder=\"Enter your API key\"></div><div><label for=\"model\">Brain</label><select id=\"model\"><option value=\"nexus-hybrid\">NEXUS Hybrid</option></select></div></div>\n<div class=\"actions\"><button id=\"refresh\" class=\"secondary\">Refresh model catalogue</button><span id=\"status\" class=\"status\">Connecting to gateway…</span></div>\n<p class=\"muted\">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>\n</section>\n<section class=\"panel\">\n<label for=\"prompt\">Ask NEXUS</label><textarea id=\"prompt\" placeholder=\"What would you like the AI brains to work on?\"></textarea>\n<div class=\"actions\"><button id=\"send\">Send request</button><span class=\"pill\" id=\"mode\">Hybrid orchestration</span></div>\n</section>\n<section class=\"panel\"><label>Response</label><div id=\"answer\" class=\"answer\">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>\n<p class=\"muted\">Self-hosted provider relay only · No Cloudflare Workers AI inference or model storage.</p>\n</main>\n<script>\nconst $=id=>document.getElementById(id), key=()=>$(\"key\").value.trim();\nfunction status(s){$(\"status\").textContent=s}\nasync function loadModels(){status(\"Loading configured brains…\");try{const r=await fetch(\"/v1/models\",{headers:{Authorization:\"Bearer \"+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||\"HTTP \"+r.status);const list=d.data||[];const options=[...(list.length>=2?[{id:\"nexus-hybrid\",owned_by:\"WASTI NEXUS\"}]:[]),...list.filter(m=>m.id!==\"nexus-hybrid\")];$(\"model\").replaceChildren(...options.map(m=>{const o=document.createElement(\"option\");o.value=m.id;o.textContent=m.id+(m.owned_by?\" · \"+m.owned_by:\"\");return o}));if(!options.some(m=>m.id===$(\"model\").value))$(\"model\").value=options[0]?.id||\"\";$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":\"Single brain\";status(list.length>=2?list.length+\" brains available. Hybrid is enabled.\":list.length===1?\"1 brain available. Hybrid is disabled until a second distinct model is configured.\":\"Gateway is online, but no inference models are configured yet.\");}catch(e){status(\"Catalogue unavailable: \"+e.message)}}\n$(\"refresh\").addEventListener(\"click\",loadModels);\n$(\"model\").addEventListener(\"change\",()=>{$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":\"Single brain\"});\n$(\"send\").addEventListener(\"click\",async()=>{const prompt=$(\"prompt\").value.trim();if(!prompt)return; if(!key()){status(\"Enter your API key first.\");return}const btn=$(\"send\");btn.disabled=true;$(\"answer\").textContent=\"Working…\";try{const model=$(\"model\").value;const body={model,messages:[{role:\"user\",content:prompt}],stream:false};if(model===\"nexus-hybrid\")body.nexus={mode:\"hybrid\",review_rounds:1};const r=await fetch(\"/v1/chat/completions\",{method:\"POST\",headers:{\"Authorization\":\"Bearer \"+key(),\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||\"HTTP \"+r.status);$(\"answer\").textContent=d.choices?.[0]?.message?.content||\"No answer returned.\";status(\"Completed.\");}catch(e){$(\"answer\").textContent=\"Request failed: \"+e.message;status(\"Check provider setup and API key.\")}finally{btn.disabled=false}});\nloadModels();\n</script></body></html>";
 
 class GatewayError extends Error {
   constructor(message, status = 502, details = undefined) {
@@ -32,57 +32,16 @@ function configuredProviders(env) {
 }
 
 function modelAllowed(model, env) {
+  if (model.enabled === false) return false;
   const deploymentMode = String(env.NEXUS_DEPLOYMENT_MODE || "customer").toLowerCase();
-  return deploymentMode !== "customer" || model.commercial_allowed === true;
-}
-
-const BUILTIN_WORKERS_AI_MODELS = [
-  {
-    id: "nexus-gemma-4-26b-a4b",
-    upstream_model: "@cf/google/gemma-4-26b-a4b-it",
-    agent: "generalist-reasoning-vision",
-    license: "Apache-2.0",
-    commercial_allowed: true,
-    license_url: "https://ai.google.dev/gemma/docs/gemma_4_license",
-    context_window: 256000,
-    pricing_usd_per_million_tokens: { input: 0.10, output: 0.30 },
-  },
-  {
-    id: "nexus-qwen-3.8-27b",
-    upstream_model: "@cf/qwen/qwen3.8-27b",
-    agent: "reasoning-multimodal",
-    license: "Apache-2.0",
-    commercial_allowed: true,
-    license_url: "https://huggingface.co/Qwen/Qwen3.8-27B",
-    context_window: 262144,
-    pricing_usd_per_million_tokens: { input: 0.45, output: 3.20 },
-  },
-];
-
-function workersAiModels(env) {
-  if (!env.AI || typeof env.AI.run !== "function") return [];
-  return BUILTIN_WORKERS_AI_MODELS
-    .filter(model => modelAllowed(model, env))
-    .map(model => ({
-      ...model,
-      provider: "cloudflare-workers-ai",
-      type: "workers_ai",
-    }));
+  const licenseStatus = String(model.license_status || "unknown").toLowerCase();
+  if (["restricted", "revoked", "pending", "review_required", "unknown"].includes(licenseStatus)) return false;
+  return deploymentMode !== "customer" ||
+    (model.commercial_allowed === true && ["approved", "verified"].includes(licenseStatus));
 }
 
 function modelCatalog(env) {
-  const native = workersAiModels(env).map(model => ({
-    id: model.id,
-    object: "model",
-    owned_by: "cloudflare-workers-ai",
-    agent: model.agent,
-    license: model.license,
-    license_url: model.license_url,
-    context_window: model.context_window,
-    pricing_usd_per_million_tokens: model.pricing_usd_per_million_tokens,
-    inference: "Cloudflare Workers AI binding; no third-party provider key",
-  }));
-  const external = configuredProviders(env).flatMap(provider =>
+  return configuredProviders(env).flatMap(provider =>
     provider.models
       .filter(model => model && model.enabled === true && typeof model.id === "string" && modelAllowed(model, env))
       .map(model => ({
@@ -90,11 +49,14 @@ function modelCatalog(env) {
         object: "model",
         owned_by: provider.id,
         agent: model.agent || "generalist",
+        capabilities: Array.isArray(model.capabilities) ? model.capabilities : ["chat"],
+        license: model.license || "review-required",
+        license_status: model.license_status || "unknown",
+        commercial_allowed: model.commercial_allowed === true,
+        inference: "Self-hosted OpenAI-compatible endpoint; no Cloudflare AI inference",
       }))
   );
-  return [...native, ...external];
 }
-
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
   const allowed = (env.ALLOWED_ORIGINS || "")
@@ -200,48 +162,19 @@ function validateMessages(body) {
 }
 
 function findModel(env, modelId) {
-  const native = workersAiModels(env).find(item => item.id === modelId);
-  if (native) return { provider: { id: native.provider, type: native.type }, model: native };
   for (const provider of configuredProviders(env)) {
-    const model = provider.models.find(item => item && item.id === modelId && item.enabled === true && modelAllowed(item, env));
+    const model = provider.models.find(item =>
+      item && item.id === modelId && item.enabled === true && modelAllowed(item, env)
+    );
     if (model) return { provider, model };
   }
   return null;
 }
-
 async function invoke(env, modelId, messages, options = {}) {
   const selected = findModel(env, modelId);
   if (!selected) throw new GatewayError(`Model '${modelId}' is not configured`, 404);
 
   const { provider, model } = selected;
-  if (provider.type === "workers_ai") {
-    if (!env.AI || typeof env.AI.run !== "function") {
-      throw new GatewayError("Cloudflare Workers AI binding is unavailable", 503);
-    }
-    try {
-      const result = await env.AI.run(model.upstream_model, {
-        messages,
-        temperature: options.temperature ?? 0.3,
-        max_tokens: Math.min(Number(options.max_tokens || 1200), 4096),
-        stream: false,
-      });
-      const content = typeof result === "string"
-        ? result
-        : result?.response ?? result?.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || !content.trim()) {
-        throw new GatewayError("Cloudflare Workers AI returned no text answer", 502);
-      }
-      return {
-        id: model.id,
-        provider: provider.id,
-        content: content.trim(),
-        usage: result?.usage || null,
-      };
-    } catch (error) {
-      if (error instanceof GatewayError) throw error;
-      throw new GatewayError("Cloudflare Workers AI inference failed", 502);
-    }
-  }
   const baseUrl = String(provider.base_url || "").replace(/\/$/, "");
   const apiKeyName = provider.api_key_env;
   const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
@@ -715,6 +648,9 @@ export default {
         service: "wasti-nexus-gateway",
         configured_models: models.length,
         model_ids: models.map(model => model.id),
+        inference_backend: "self-hosted-provider-relay-only",
+        cloudflare_ai_enabled: false,
+        storage_backend: "google-drive-only-client-managed",
       }, 200, headers);
     }
 

@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -91,12 +92,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 NexusScreen(
-                    initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "https://wasti-nexus-gateway.wastinabeel99.workers.dev",
+                    initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "http://localhost:8088",
                     initialPrompt = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty().take(12000),
                     initialKey = decryptSecret(),
                     initialModelPath = prefs.getString("local_model_path", "") ?: "",
                     initialModels = installedModels(),
                     initialWorkspaceModels = DriveModelWorkspace.loadCatalog(this),
+                    initialRegistryModels = NexusModelRegistry.load(this),
+                    initialModelNotices = NexusModelRegistry.loadNotices(this),
+                    initialLicenseTexts = NexusModelRegistry.loadLicenseTexts(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
                     onListModels = { installedModels() },
@@ -311,7 +315,7 @@ class MainActivity : ComponentActivity() {
     ): List<Pair<String, String>> = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-        require(key.length >= 32) { "API key must be at least 32 characters." }
+        require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
         val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
         val listRequest = Request.Builder()
             .url("$apiRoot/memory/snapshots?limit=1")
@@ -631,14 +635,13 @@ class MainActivity : ComponentActivity() {
     private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
         withContext(Dispatchers.IO) {
             val root = url.trim().trimEnd('/')
-            require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-            require(key.length >= 32) { "API key must be at least 32 characters." }
+            val local = NexusRuntimePolicy.isLoopbackHttp(root)
+            require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
+            require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
             val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
-            val request = Request.Builder()
-                .url("$apiRoot/models")
-                .header("Authorization", "Bearer $key")
-                .get()
-                .build()
+            val requestBuilder = Request.Builder().url("$apiRoot/models").get()
+            if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
+            val request = requestBuilder.build()
             http.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) throw IllegalStateException("Model catalogue returned HTTP ${response.code}: $body")
@@ -659,8 +662,9 @@ class MainActivity : ComponentActivity() {
         agentId: String
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
-        require(root.startsWith("https://")) { "Gateway URL must use HTTPS." }
-        require(key.length >= 32) { "API key must be at least 32 characters." }
+        val local = NexusRuntimePolicy.isLoopbackHttp(root)
+        require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
+        require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
 
         // Bound the remote context so a long chat cannot exceed gateway request limits.
         // Only the online conversation is supplied; local-only turns never leave the device.
@@ -678,19 +682,21 @@ class MainActivity : ComponentActivity() {
             messages.put(JSONObject().put("role", "assistant").put("content", assistant))
         }
         messages.put(JSONObject().put("role", "user").put("content", prompt))
+        val automatic = agentId == "nexus-auto"
         val payload = JSONObject()
-            .put("model", if (hybrid) "nexus-hybrid" else agentId)
+            .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
             .put("messages", messages)
             .put("stream", false)
+        if (automatic) payload.put("nexus", JSONObject().put("mode", "auto"))
         if (hybrid) {
             payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
         }
         val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url("$apiRoot/chat/completions")
-            .header("Authorization", "Bearer $key")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
+        if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
+        val request = requestBuilder.build()
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
@@ -715,6 +721,9 @@ private fun NexusScreen(
     initialModelPath: String,
     initialModels: List<String>,
     initialWorkspaceModels: List<WorkspaceModel>,
+    initialRegistryModels: List<NexusCapabilityModel>,
+    initialModelNotices: String,
+    initialLicenseTexts: String,
     initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
     onListModels: () -> List<String>,
@@ -741,6 +750,9 @@ private fun NexusScreen(
     var localModelPath by remember { mutableStateOf(initialModelPath) }
     var installedModels by remember { mutableStateOf(initialModels) }
     var workspaceModels by remember { mutableStateOf(initialWorkspaceModels) }
+    var registryDialog by remember { mutableStateOf(false) }
+    var noticesDialog by remember { mutableStateOf(false) }
+    var licenseTextsDialog by remember { mutableStateOf(false) }
     var driveWorkspaceUri by remember { mutableStateOf(initialDriveWorkspaceUri) }
     var driveWorkspaceName by remember { mutableStateOf(if (initialDriveWorkspaceUri.isBlank()) "Not connected" else "Google Drive workspace") }
     var freeStorageBytes by remember { mutableLongStateOf(initialFreeStorageBytes) }
@@ -763,9 +775,11 @@ private fun NexusScreen(
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
     var localReady by remember { mutableStateOf(false) }
+    var loadedModelPath by remember { mutableStateOf("") }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
@@ -793,6 +807,7 @@ private fun NexusScreen(
                 try {
                     if (localReady) onUnloadLocal()
                     localReady = false
+                    loadedModelPath = ""
                     localModelPath = onImportModel(uri)
                     installedModels = onListModels()
                     freeStorageBytes = onFreeStorage()
@@ -854,43 +869,98 @@ private fun NexusScreen(
                             enabled = !busy
                         )
                         Button(
-                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady),
+                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
                                 busy = true
                                 scope.launch {
                                     var usedRemote = false
                                     try {
-                                        val localFirst = offlineMode || (
-                                            autoMode &&
-                                                localModelPath.isNotBlank() &&
-                                                localModelPath in installedModels
+                                        val mode = when {
+                                            offlineMode -> NexusMode.OFFLINE
+                                            autoMode -> NexusMode.AUTO
+                                            else -> NexusMode.ONLINE
+                                        }
+                                        val task = NexusRuntimePolicy.classify(submittedPrompt)
+                                        val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
+                                        val remoteConfigured = remoteModels.isNotEmpty() &&
+                                            (loopback || (key.length >= 32 && url.startsWith("https://"))) &&
+                                            (!autoMode || loopback || remoteModels.contains("nexus-auto"))
+                                        val beforeSelection = NexusRuntimeProbe.read(context, localModelPath, localReady && loadedModelPath == localModelPath)
+                                        val reclaimableBytes = if (localReady && loadedModelPath.isNotBlank()) {
+                                            (NexusRuntimePolicy.estimatedLocalWorkingSet(loadedModelPath).coerceAtMost(beforeSelection.totalRamBytes) * 3L) / 4L
+                                        } else 0L
+                                        val preferredLocalPath = if (mode == NexusMode.AUTO) {
+                                            NexusRuntimePolicy.chooseLocalModelPath(
+                                                task, installedModels, beforeSelection.availableRamBytes + reclaimableBytes, localModelPath
                                             )
-                                        val result = if (localFirst) {
-                                            try {
-                                                if (!localReady) {
-                                                    onLoadLocal(localModelPath)
-                                                    localReady = true
+                                        } else localModelPath
+                                        if (mode == NexusMode.AUTO && preferredLocalPath.isNotBlank() && preferredLocalPath != loadedModelPath) {
+                                            if (localReady) onUnloadLocal()
+                                            localReady = false
+                                            loadedModelPath = ""
+                                            localModelPath = preferredLocalPath
+                                            onSelectModel(preferredLocalPath)
+                                        }
+                                        val effectiveLocalPath = if (mode == NexusMode.AUTO) preferredLocalPath else localModelPath
+                                        val snapshot = NexusRuntimeProbe.read(
+                                            context, effectiveLocalPath, localReady && loadedModelPath == effectiveLocalPath
+                                        )
+                                        val localServerAvailable = loopback && remoteModels.isNotEmpty() &&
+                                            NexusRuntimePolicy.localServerCanHandle(task, remoteModels.first())
+                                        val decision = NexusRuntimePolicy.decide(
+                                            mode = mode,
+                                            snapshot = snapshot,
+                                            remoteConfigured = remoteConfigured && !loopback,
+                                            localServerAvailable = localServerAvailable,
+                                            prompt = submittedPrompt
+                                        )
+                                        val result = when (decision.route) {
+                                            NexusRoute.LOCAL -> {
+                                                try {
+                                                    if (!localReady || loadedModelPath != effectiveLocalPath) {
+                                                        if (localReady) onUnloadLocal()
+                                                        onLoadLocal(effectiveLocalPath)
+                                                        localReady = true
+                                                        loadedModelPath = effectiveLocalPath
+                                                    }
+                                                    streamingResponse = ""
+                                                    onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                                } catch (localError: Exception) {
+                                                    localReady = false
+                                                    loadedModelPath = ""
+                                                    if (mode != NexusMode.AUTO) throw localError
+                                                    when {
+                                                        localServerAvailable -> {
+                                                            usedRemote = true
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                                        }
+                                                        snapshot.internetValidated && remoteConfigured -> {
+                                                            onSave(url, key)
+                                                            usedRemote = true
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto")
+                                                        }
+                                                        else -> throw localError
+                                                    }
                                                 }
-                                                streamingResponse = ""
-                                                onSendLocal(submittedPrompt) { token -> streamingResponse += token }
-                                            } catch (localError: Exception) {
-                                                localReady = false
-                                                if (offlineMode || !autoMode) throw localError
-                                                onSave(url, key)
-                                                val remoteAnswer = onSendRemote(
-                                                    url, key, remoteConversation, submittedPrompt, hybrid, agentId
-                                                )
-                                                usedRemote = true
-                                                remoteAnswer
                                             }
-                                        } else {
-                                            onSave(url, key)
-                                            val remoteAnswer = onSendRemote(
-                                                url, key, remoteConversation, submittedPrompt, hybrid, agentId
-                                            )
-                                            usedRemote = true
-                                            remoteAnswer
+                                            NexusRoute.TERMUX -> {
+                                                if (localReady) onUnloadLocal()
+                                                localReady = false
+                                                loadedModelPath = ""
+                                                usedRemote = true
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                            }
+                                            NexusRoute.REMOTE -> {
+                                                if (localReady) onUnloadLocal()
+                                                localReady = false
+                                                loadedModelPath = ""
+                                                onSave(url, key)
+                                                usedRemote = true
+                                                val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent)
+                                            }
+                                            NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
                                         conversation = conversation + (submittedPrompt to result)
                                         streamingResponse = ""
@@ -898,7 +968,7 @@ private fun NexusScreen(
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
-                                        answer = "Ready"
+                                        answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (error: Exception) {
                                         streamingResponse = ""
                                         answer = "Request failed: ${error.message}"
@@ -918,7 +988,90 @@ private fun NexusScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (settingsExpanded) {
-                            Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+                Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
+                Text("MODEL GOVERNANCE", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${initialRegistryModels.size} model families and tools are catalogued with their licence, capability, hosting and hardware status. Catalogue entries are not automatically installable.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedButton(
+                    onClick = { registryDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Browse extended model and licence registry") }
+                OutlinedButton(
+                    onClick = { noticesDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Open Source Licences & Upstream Notices") }
+                OutlinedButton(
+                    onClick = { licenseTextsDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Read full Apache 2.0 & MIT licence texts") }
+                if (licenseTextsDialog) {
+                    AlertDialog(
+                        onDismissRequest = { licenseTextsDialog = false },
+                        title = { Text("Apache 2.0 & MIT Licence Texts") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
+                            ) {
+                                Text(initialLicenseTexts, style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { licenseTextsDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
+                if (noticesDialog) {
+                    AlertDialog(
+                        onDismissRequest = { noticesDialog = false },
+                        title = { Text("Open Source Licences & Notices") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
+                            ) {
+                                Text(initialModelNotices, style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { noticesDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
+                if (registryDialog) {
+                    AlertDialog(
+                        onDismissRequest = { registryDialog = false },
+                        title = { Text("WASTI NEXUS · Model Governance") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                initialRegistryModels.forEach { item ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(item.name, style = MaterialTheme.typography.titleSmall)
+                                        Text("${item.creator} · ${item.license}", style = MaterialTheme.typography.bodySmall)
+                                        Text("${item.placement.replace('_', ' ')} · ${item.licenseStatus} · ${item.status}", style = MaterialTheme.typography.labelSmall)
+                                        Text(item.notes, style = MaterialTheme.typography.bodySmall)
+                                        Text(item.commercialUse, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            "Open upstream source",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable {
+                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.sourceUrl))) }
+                                            }
+                                        )
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { registryDialog = false }) { Text("Close") }
+                        }
+                    )
+                }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = autoMode,
@@ -959,6 +1112,7 @@ private fun NexusScreen(
                                     try {
                                         if (localReady) onUnloadLocal()
                                         localReady = false
+                                        loadedModelPath = ""
                                         localModelPath = modelPath
                                         onSelectModel(modelPath)
                                         answer = "Selected model. Load it to start offline inference."
@@ -1021,6 +1175,7 @@ private fun NexusScreen(
                                                     onSelectModel(downloadedPath)
                                                     onLoadLocal(downloadedPath)
                                                     localReady = true
+                                                    loadedModelPath = downloadedPath
                                                     offlineMode = true
                                                     autoMode = false
                                                     freeStorageBytes = onFreeStorage()
@@ -1105,9 +1260,11 @@ private fun NexusScreen(
                                 answer = try {
                                     onLoadLocal(localModelPath)
                                     localReady = true
+                                    loadedModelPath = localModelPath
                                     "Local model loaded. You can chat without internet."
                                 } catch (error: Exception) {
                                     localReady = false
+                                    loadedModelPath = ""
                                     "Could not load local model: ${error.message}"
                                 } finally {
                                     busy = false
@@ -1134,6 +1291,7 @@ private fun NexusScreen(
                                     try {
                                         if (localReady) onUnloadLocal()
                                         localReady = false
+                                        loadedModelPath = ""
                                         onDeleteModel(localModelPath)
                                         installedModels = onListModels()
                                         localModelPath = installedModels.firstOrNull().orEmpty()
@@ -1162,6 +1320,7 @@ private fun NexusScreen(
                                 try {
                                     onUnloadLocal()
                                     localReady = false
+                                    loadedModelPath = ""
                                     answer = "Local model unloaded and native memory released."
                                 } catch (error: Exception) {
                                     answer = "Could not unload local model: ${error.message}"
@@ -1181,11 +1340,11 @@ private fun NexusScreen(
                 Text("ONLINE GATEWAY", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     url, { url = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Gateway HTTPS URL") }, singleLine = true
+                    label = { Text("Self-hosted endpoint (Termux / LAN / server)") }, singleLine = true
                 )
                 OutlinedTextField(
                     key, { key = it }, Modifier.fillMaxWidth(),
-                    label = { Text("Gateway API key") },
+                    label = { Text("Termux pairing token / remote server bearer key") },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )

@@ -1,70 +1,83 @@
 # WASTI NEXUS
 
-**One project. One repository. Many AI brains. One reusable brain API.**
+**One Android app. One monorepo. Local-first intelligence. Self-hosted models. Google Drive archive.**
 
-WASTI NEXUS is an offline-first Android assistant and a reusable multi-model orchestration platform for future products. Local model downloads and offline inference do not require provider API keys. Hosted inference is optional and uses a separately authenticated NEXUS gateway.
+WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Status: active release candidate — not yet production-certified.** PR #16 (resumable verified Qwen downloads) and PR #17 (Gemini-style Android chat interface) are merged into `main`. PR #17 pre-merge CI passed Android compilation/JVM tests, Python validation and Worker tests. The latest post-merge main CI run [completed successfully](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45859639925) for Android build/JVM tests, Python checks, Worker tests, public gateway health/protection checks and CI-only signing validation. The authenticated chat smoke test was skipped because `NEXUS_API_KEY` is not configured; this remains an open release gate. Physical-device certification, authenticated deployed chat-generation, permanent owner release signing and customer-grade tenant controls remain open gates. See [docs/STATUS.md](docs/STATUS.md).
+> **Status: active engineering release candidate — not yet production-certified.** The twelve original pinned GGUF entries remain intact. PR #30 added task-aware provider routing and an expanded model registry. The current milestone adds resource-aware Android routing, a loopback-only Termux server, self-hosted-only edge relay policy and licence governance for 50 model families/tools. Device performance, all new checkpoint downloads, multimodal runtimes and long-running server benchmarks remain validation gates.
+
+## Runtime hierarchy
+
+1. **Android native inference:** use an installed compatible GGUF only when measured free RAM, thermal state and battery headroom are safe.
+2. **Termux local server:** optional llama.cpp `llama-server` on `localhost:8088`, bound to loopback only. It works without internet and uses the same phone hardware.
+3. **Owner-controlled inference host:** optional direct HTTPS connection to a workstation/server/cluster you operate. Use this for models too large for the phone.
+4. **Optional Cloudflare relay:** edge authentication and request relay only. Cloudflare Workers AI inference has been removed; the relay is never required for offline or critical work.
+
+Auto mode checks validated internet, Wi-Fi/mobile-data transport, metered status, available RAM, thermal state and battery before choosing a route. Offline mode never falls through to internet. Unsupported tasks such as image generation, speech or training are blocked unless an installed specialist runtime actually supports them.
+
+## Storage policy
+
+Google Drive via Android Storage Access Framework is the sole user-controlled archive for model weights, datasets, LoRA adapters, evaluation reports and exported GGUFs. No Cloudflare R2/KV/D1 or other Cloudflare model storage is used. Drive is an archive, not an inference runtime.
 
 ## What is implemented
 
-- **Android app:** native Kotlin + Jetpack Compose chat experience, settings area, Auto/Online/Offline modes, model manager, GGUF import and native inference through Arm AI Chat/llama.cpp. Termux is not required for app runtime.
-- **Offline model install:** one-tap Qwen2.5-0.5B-Instruct Q4_K_M installer from a pinned upstream revision, with resumable HTTP Range download, progress, SHA-256 verification, GGUF metadata validation and safe finalization. Downloads and offline chat do not require an AI/provider API key.
-- **Online gateway:** Cloudflare Worker with protected model catalogue/chat routes and two configured Workers AI model IDs: `nexus-gemma-4-26b-a4b` and `nexus-qwen-3.8-27b`. Cloudflare usage is metered and subject to plan limits.
-- **Hybrid routing:** two distinct configured model IDs can participate; Worker logic rejects Hybrid if fewer than two distinct models are configured.
-- **Orchestration/API:** Python service, OpenAI-compatible API foundations, TypeScript/Python SDKs, schemas and tests are included in this monorepo.
-- **Encrypted memory:** Android snapshot encryption uses PBKDF2-HMAC-SHA256 and AES-256-GCM. Worker-backed sync stores ciphertext in a public GitHub repository; only ciphertext and non-sensitive metadata may be stored there.
+- Native Kotlin/Jetpack Compose Android app with local GGUF model management and offline chat.
+- Google Drive SAF workspace with persistent folder permission, size/SHA-256 checks and atomic installation.
+- Twelve original pinned model entries preserved in `nexus-model-catalog.json`.
+- Task-aware Python orchestrator with `nexus-auto`, provider capability matching, licence gates and sequential fallback.
+- Android runtime policy for network, metering, RAM, heat and battery-aware routing.
+- Termux `llama-cpp` server setup and CLI, bound to loopback with one concurrent request and conservative defaults.
+- Extended in-app governance catalogue with 48 model/tool entries, licences, capabilities, placement and activation gates.
+- Optional Cloudflare Worker relay with Workers AI removed from code and Wrangler configuration.
+- Existing encrypted-memory snapshot features and tests.
 
-## Important boundaries
+## Model activation is deliberately gated
 
-- Twelve model families are research candidates, **not twelve ready-to-install models**. Only the first Qwen local candidate currently has a pinned revision and expected SHA-256. Each additional model needs immutable provenance, checksum, runtime/device compatibility and exact licence review.
-- The app supports resumable retry when the user reopens it and starts the download again; this is not a background WorkManager download.
-- Arbitrary manually imported GGUF files receive metadata validation, not proof of publisher provenance or registry hash.
-- Authenticated live chat generation through the deployed Worker has not yet been verified. CI currently skips that smoke test because the repository secret `NEXUS_API_KEY` is not configured. Never use the Worker master key in a public APK or browser bundle.
-- Encrypted memory remote round-trip and cross-device recovery need a live drill. The public GitHub repository exposes paths and metadata; it is a personal vault, not customer-isolated storage.
-- A CI ephemeral keystore validates signing configuration only. A permanent owner-controlled release keystore and real-device signed install/upgrade test are still required.
-- A successful CI build does not certify real-device UI, offline model performance, RAM, heat, battery or customer security.
+The 48-entry registry is not a claim that 48 weights are already downloaded or runnable. Each new model needs an exact official checkpoint, immutable revision, SHA-256, licence and usage-policy capture, runtime adapter, task-specific evaluation and device/server benchmark before it becomes installable. Large 27B–763B models are not phone downloads merely because they are open-weight.
+
+Apache-2.0 and MIT weights can generally be used commercially with their required notices, but the model licence does not make hosted API inference free or unlimited. Usage policies, voice-pack licences, community licences, trademarks and third-party rights still matter. See [models/extended-model-registry.json](models/extended-model-registry.json) and [docs/MODEL_LICENSING_AND_HOSTING.md](docs/MODEL_LICENSING_AND_HOSTING.md).
+
+## Termux quick start
+
+```bash
+pkg update && pkg upgrade -y
+pkg install -y curl python llama-cpp
+mkdir -p "$HOME/models"
+```
+
+Copy one tested GGUF into `$HOME/models/`, configure `termux/env.example` as `~/.config/wasti-nexus/env`, then:
+
+```bash
+nexus server start "$HOME/models/your-model.gguf"
+nexus server status
+nexus models
+nexus chat <model-id-from-list> "Hello in Urdu and English"
+```
+
+See [termux/README.md](termux/README.md) for setup, model placement, safety and Android integration.
 
 ## Repository layout
 
 ```
-android/       Native Android client and local inference integration
-cloudflare/    Worker-hosted web console and API gateway
-orchestrator/  Python orchestration API
-models/        Model registry, licensing notes and acquisition tools
-memory/        Encrypted-memory schemas and contracts
+android/       Native Android client, model manager and local runtime
+cloudflare/    Optional edge relay and web console (no Workers AI inference)
+orchestrator/  Python model routing API
+models/        Model, licence and capability registries
+termux/        Local llama.cpp server and CLI
+memory/        Encrypted-memory schemas
 datasets/      Evaluation/training data manifests
 sdks/          TypeScript and Python clients
-docs/          Architecture, API, deployment, security and status
-tests/         Cross-component tests
-termux/        Optional developer companion
+docs/          Architecture, security, licensing and status
 ```
 
-## Universal brain API
+## Important limits
 
-Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
+- A phone is not an unlimited GPU server. Android may terminate hot or memory-heavy processes.
+- Termux runs on the same mobile hardware; it is an alternate process/runtime, not extra compute.
+- Self-hosting avoids model-vendor token charges but still consumes hardware, power, bandwidth and maintenance.
+- Colab free GPU sessions are not guaranteed and are not part of the core inference path.
+- Do not expose llama-server on `0.0.0.0` or the public internet without a separate authenticated TLS reverse proxy and firewall.
+- Android sandbox and Termux:API permissions remain in force. No unrestricted shell, root bypass or silent device control is claimed.
+- Passing CI does not certify real-device inference quality, sustained thermals, battery life, Urdu quality or server uptime.
 
-- `GET /v1/models`
-- `POST /v1/chat/completions`
-- `GET /v1/memory/snapshots`
-- `POST /v1/memory/snapshots`
-- `GET /v1/memory/snapshots/{snapshot_id}`
-
-Configured model IDs: `nexus-gemma-4-26b-a4b` and `nexus-qwen-3.8-27b`. Hybrid uses both distinct IDs. Hosted calls require a NEXUS bearer credential with appropriate scope. Future public apps should call the API from a trusted backend and use per-app scoped keys or short-lived tokens; never embed a master or long-lived secret in public JavaScript or an APK.
-
-See [docs/API.md](docs/API.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [cloudflare/README.md](cloudflare/README.md).
-
-## Models and licensing
-
-The registry includes candidate families Llama, Qwen, Gemma, DeepSeek, Mistral, Phi, Granite, GLM, Command R, Falcon, SmolLM and StableLM. Their licences are not interchangeable; some candidates are non-commercial or require additional terms review. Do not download, redistribute or expose a candidate to customers until its exact checkpoint, provenance and licence are approved.
-
-See [models/README.md](models/README.md) and [models/LICENSE_REVIEW.md](models/LICENSE_REVIEW.md).
-
-## Build and release
-
-- Android: open `android/` in Android Studio or follow [android/README.md](android/README.md).
-- Release signing: follow [docs/RELEASE.md](docs/RELEASE.md). Never commit keystores, passwords, API keys or tokens.
-- Deployment: follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-- Verified implementation and outstanding gates: [docs/STATUS.md](docs/STATUS.md).
-
-WASTI NEXUS should only be described as production-ready after authenticated gateway tests, physical-device certification, permanent signing, memory recovery verification, model licence/provenance checks and customer-grade security/operations have passed.
+See [docs/STATUS.md](docs/STATUS.md), [docs/ORCHESTRATION_AND_COMPUTE.md](docs/ORCHESTRATION_AND_COMPUTE.md), and [docs/SECURITY.md](docs/SECURITY.md).

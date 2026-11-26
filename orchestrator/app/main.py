@@ -16,9 +16,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .github_memory import GitHubMemoryError, GitHubMemoryStore
+from .circuit_breaker import ProviderCircuitBreaker
 from .task_router import rank_agents
 
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
+provider_circuits = ProviderCircuitBreaker(failure_threshold=2, cooldown_seconds=30.0)
 app = FastAPI(title="WASTI NEXUS Orchestrator", version=APP_VERSION)
 
 
@@ -107,7 +109,14 @@ def agents_config() -> dict[str, dict[str, Any]]:
 
 def model_allowed(config: dict[str, Any]) -> bool:
     deployment_mode = os.getenv("NEXUS_DEPLOYMENT_MODE", "customer").strip().lower()
-    return deployment_mode != "customer" or config.get("commercial_allowed") is True
+    if config.get("enabled") is False:
+        return False
+    license_status = str(config.get("license_status", "unknown")).strip().lower()
+    if license_status in {"restricted", "revoked", "pending", "review_required", "unknown"}:
+        return False
+    if deployment_mode == "customer":
+        return config.get("commercial_allowed") is True and license_status in {"approved", "verified"}
+    return True
 
 
 def authenticate(authorization: str | None = Header(default=None)) -> None:
@@ -203,7 +212,16 @@ async def list_agents():
     cfg = agents_config()
     return {
         "data": [
-            {"id": key, "model": value.get("model"), "configured": bool(value.get("base_url"))}
+            {
+                "id": key,
+                "model": value.get("model"),
+                "configured": bool(value.get("base_url")),
+                "capabilities": value.get("capabilities", ["chat"]),
+                "license": value.get("license", "review-required"),
+                "license_status": value.get("license_status", "unknown"),
+                "commercial_allowed": value.get("commercial_allowed") is True,
+                "inference": "self-hosted",
+            }
             for key, value in cfg.items() if model_allowed(value)
         ]
     }
@@ -212,13 +230,25 @@ async def list_agents():
 @app.get("/v1/models", dependencies=[Depends(authenticate)])
 async def list_models():
     cfg = agents_config()
+    eligible = [(key, value) for key, value in cfg.items() if model_allowed(value)]
     data = [
-        {"id": key, "object": "model", "owned_by": "configured-provider", "name": value.get("model")}
-        for key, value in cfg.items() if model_allowed(value)
+        {
+            "id": key,
+            "object": "model",
+            "owned_by": "self-hosted-provider",
+            "name": value.get("model"),
+            "capabilities": value.get("capabilities", ["chat"]),
+            "license": value.get("license", "review-required"),
+            "license_status": value.get("license_status", "approved"),
+            "commercial_allowed": value.get("commercial_allowed") is True,
+            "inference": "self-hosted",
+        }
+        for key, value in eligible
     ]
-    data.append(
-        {"id": "nexus-hybrid", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS Hybrid collective"}
-    )
+    if eligible:
+        data.append({"id": "nexus-auto", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS automatic task router"})
+    if len(eligible) >= 2:
+        data.append({"id": "nexus-hybrid", "object": "model", "owned_by": "wasti-nexus", "name": "NEXUS Hybrid collective"})
     return {"object": "list", "data": data}
 
 
@@ -266,16 +296,23 @@ async def chat_completions(req: ChatRequest):
     started = time.perf_counter()
 
     if req.nexus.mode == "auto" or req.model == "nexus-auto":
-        task, ranked_agents = rank_agents(user_messages, cfg, model_allowed)
+        eligible_cfg = {
+            agent_id: agent for agent_id, agent in cfg.items()
+            if model_allowed(agent) and provider_circuits.available(agent_id)
+        }
+        task, ranked_agents = rank_agents(user_messages, eligible_cfg, model_allowed)
         if not ranked_agents:
+            configured = [agent_id for agent_id, agent in cfg.items() if model_allowed(agent)]
+            detail = "All approved providers are temporarily in circuit-breaker cooldown." if configured else "No enabled provider has an approved licence and matching configuration."
             raise HTTPException(
                 status_code=503,
-                detail={"message": "No eligible provider supports this task", "task": task, "trace_id": trace_id},
+                detail={"message": detail, "task": task, "trace_id": trace_id, "provider_health": provider_circuits.snapshot()},
             )
         failures = []
         for agent_id in ranked_agents:
             try:
                 result = await call_agent(agent_id, cfg[agent_id], user_messages, req.temperature, req.max_tokens)
+                provider_circuits.record_success(agent_id)
                 return {
                     "id": f"nexus-{trace_id}",
                     "object": "chat.completion",
@@ -289,14 +326,16 @@ async def chat_completions(req: ChatRequest):
                         "selected_agent": agent_id,
                         "fallback_order": ranked_agents,
                         "failed_agents": failures,
+                        "provider_health": provider_circuits.snapshot(),
                         "latency_ms": int((time.perf_counter() - started) * 1000),
                     },
                 }
             except Exception as exc:
+                provider_circuits.record_failure(agent_id, exc)
                 failures.append({"agent": agent_id, "error": str(exc)[:240]})
         raise HTTPException(
             status_code=502,
-            detail={"message": "All eligible providers failed", "task": task, "failed_agents": failures, "trace_id": trace_id},
+            detail={"message": "All eligible providers failed", "task": task, "failed_agents": failures, "provider_health": provider_circuits.snapshot(), "trace_id": trace_id},
         )
 
     if req.nexus.mode == "single" and req.model != "nexus-hybrid":
