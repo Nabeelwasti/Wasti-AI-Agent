@@ -1,77 +1,93 @@
-# Verified implementation status
+# WASTI NEXUS — verified implementation status
 
-Evidence snapshot: 2026-11-26. PR #27 (versionCode 3 / versionName 0.3.0) merged as `2aaf539b4ee0ad6c76b42a37b4a03edc1a8ab5d2`. PR #25 selected Google Drive as the sole model archive; PR #26 added the Android SAF folder picker, verified Qwen Drive installer, twelve-model catalogue UI and local-first Auto routing. PR #27 makes the Drive-enabled app an upgrade over the previous 0.2.0 APK.
+**Snapshot:** 2026-11-26  
+**Current main commit:** `7bbb6058e082fba6390fc249714f16d7098dce2f`  
+**Android release:** `0.4.0` (`versionCode 4`)  
+**State:** <badge>release candidate — physical-device validation pending</badge>
 
-## Executive status
+## Latest merged work and CI evidence
 
-WASTI NEXUS is an active, tested release candidate in one monorepo. It is **not yet production-certified**. PR #16 (resumable verified Qwen model downloads) and PR #17 (Gemini-style Android chat interface) are merged into `main`.
+- [PR #28 — Complete twelve-model WASTI NEXUS library and Google Drive archive](https://github.com/Nabeelwasti/Wasti-AI-Agent/pull/28) merged to `main` as `7bbb6058e082fba6390fc249714f16d7098dce2f`.
+- [Main CI run #45874322916](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45874322916) completed successfully: Python/registry tests, 12/12 Hugging Face model-manifest audit, Cloudflare Worker syntax/tests, Android debug build, Android JVM tests and deployed authenticated gateway smoke test all passed.
+- [Signed Android release run #45874322911](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45874322911) completed successfully. The protected permanent keystore was decoded, the 0.4.0 release APK was assembled, APK signature verification passed, and the signed artifact was uploaded.
+- [Download signed APK artifact](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45874322911/artifacts/15144522128) — artifact `wasti-nexus-signed-release-apk`, 17,327,456 bytes, expires **2026-12-26**. Open the artifact link, download the ZIP and extract the APK.
+- APK signature: v2 verified; RSA 4096-bit key. Certificate SHA-256 is `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`, matching the previously established permanent signing certificate. Subject: `CN=Syed Nabeel wasti, OU=Wasti Nexus, O=ThriveBridge Growth Solutions, L=Lahore, ST=Punjab, C=PK`.
+- The signed-release workflow now runs automatically on trusted pushes that change Android/Gradle build inputs; manual dispatch remains available. Documentation-only changes do not trigger another APK build.
 
-- PR #16: https://github.com/Nabeelwasti/Wasti-AI-Agent/pull/16
-- PR #17: https://github.com/Nabeelwasti/Wasti-AI-Agent/pull/17
-- Latest post-merge main CI: https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45859639925 (run #300, commit `348201f11383c6fe3a533881d1d96339a6670459`) completed successfully. Android debug APK assembly, Android JVM tests, ephemeral CI signing validation, Python tests/source validation, Cloudflare Worker syntax/unit tests, deployed gateway health and protected-route rejection all passed.
-- New post-PR-27 main CI run `45871427587` completed successfully. Python tests/source validation, Cloudflare Worker syntax/unit tests, Android debug APK assembly, Android JVM tests, ephemeral release-signing validation, and the deployed gateway health/protection plus authenticated generation smoke test all passed.
-- A separate owner-controlled signed release workflow completed successfully on 2026-11-26 (run #1, commit `4df9d4b971128eeaf7d207fd6ed49dee173c3909`). The permanent keystore was decoded, the release APK assembled, `apksigner verify --verbose --print-certs` passed, and artifact `wasti-nexus-signed-release-apk` was uploaded (17,277,969 bytes; expires 2026-12-26). The signing certificate is RSA 4096, subject `CN=Syed Nabeel wasti, OU=Wasti Nexus, O=ThriveBridge Growth Solutions, L=Lahore, ST=Punjab, C=PK`, certificate SHA-256 `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`. **This signed APK is from an earlier application commit**, before the dependency refresh now on `main`; rebuild the permanent signed APK from the current `main` before treating it as the latest release.
-- The CI debug APK artifact `wasti-nexus-debug-apk` was uploaded successfully (20,508,214 bytes; SHA-256 `c08af05480f17c7145614dab8702eac47a99fee15b1fb0f2cfcfa3bcc824e7b5`); it expires 2026-12-03. This is a debug artifact, not a signed production release.
+## Product architecture
 
-## Repository and architecture
+- One monorepo: https://github.com/Nabeelwasti/Wasti-AI-Agent, default branch `main`.
+- Native Kotlin/Jetpack Compose Android app, package `ai.wasti.nexus`, min SDK 33, target SDK 36.
+- Arm AI Chat `com.arm:ai-chat:0.1.0` provides in-process GGUF/llama.cpp local inference. Termux is not required at runtime.
+- Google Drive is the sole private model archive. No model weights are stored in GitHub or Cloudflare R2.
+- Modes: **Auto** prefers a compatible installed local model and may use the optional authenticated hosted gateway if local inference fails; **Offline** uses local inference only; **Online** explicitly uses the hosted gateway.
+- Drive is storage, not an inference server. The twelve Drive models run locally on the phone. An online endpoint for all twelve models in future customer products would require a compute host; Drive alone cannot execute model inference. There is no unlimited free hosted GPU service.
 
-- Canonical repository: https://github.com/Nabeelwasti/Wasti-AI-Agent, default branch `main`.
-- One monorepo contains the native Android client, model registry/acquisition tools, Python orchestration API, Cloudflare Worker gateway/web console, SDKs, schemas, tests and documentation.
-- No model weights, provider credentials, GitHub tokens, or plaintext personal memory are committed.
-- Android toolchain: AGP 9.5.3, Gradle 9.7.0, Kotlin/Compose compiler 2.4.21, Android SDK/Build Tools 36, JDK 17.
+## Twelve-model library
 
-## Android client
+The curated collection contains twelve compact open-weight models under Apache-2.0 or MIT licence evidence:
 
-- Native Kotlin/Jetpack Compose app, package `ai.wasti.nexus`, min SDK 33, target SDK 36, version 0.4.0 (versionCode 4) on the PR #28 release candidate.
-- Arm AI Chat `com.arm:ai-chat:0.1.0` supplies in-process GGUF/llama.cpp inference; Termux is not required at runtime.
-- The latest UI milestone provides a focused chat screen with app identity/status, New chat, Settings, user/assistant turns, welcome state, persistent composer, keyboard-aware layout, auto-scroll, request progress and visible errors. Model, gateway, hybrid and encrypted-memory controls remain in Settings.
-- Modes: Auto is local-first and uses an installed compatible local model before any hosted inference. If local inference fails, Auto may use the optional authenticated gateway. Online explicitly uses the gateway. Offline uses the local runtime without sending inference prompts to the gateway.
-- Local-only/fallback turns are excluded from later cloud conversation context.
-- Model management supports GGUF import, metadata validation, listing/selection, load/unload/removal, RAM/storage preflight and native-memory release.
-- Google Drive workspace access uses Android's Storage Access Framework folder picker. The owner selects one private Drive folder and NEXUS persists read access only to that folder; no AI API key, Google API key, OAuth client or service-account key is required for local model storage.
-- The twelve-model Drive workflow streams each pinned public GGUF into the selected Drive folder, verifies exact source byte length and SHA-256, and then supports verified Drive-to-app-private installation. Transfers run sequentially; interrupted transfers restart from zero. The owner must select a writable Drive folder and run the archive-all action.
-- JVM tests cover gateway fallback policy and model Content-Range parsing. CI build success does not certify UI, model runtime, speed, thermal behaviour or battery on a physical device.
-- **Not yet device-certified:** Google Drive provider access and large-file transfer on the target Redmi, interruption/retry, permission revocation/reconnect, checksum rejection, airplane-mode generation, model unload/reload, RAM/thermal/battery/latency, app upgrade and small-screen/keyboard visual QA.
+1. Qwen2.5 0.5B Instruct
+2. Qwen2.5 1.5B Instruct
+3. Qwen2.5 Coder 1.5B
+4. Qwen3 0.6B
+5. Qwen3 1.7B
+6. SmolLM2 135M
+7. SmolLM2 360M
+8. SmolLM2 1.7B
+9. TinyLlama 1.1B Chat
+10. Granite 3.1 2B Instruct
+11. DeepSeek R1 Distill 1.5B
+12. OLMo 2 1B Instruct
 
-## Model catalogue and licensing
+All twelve exact GGUF artefacts now have:
+- Immutable 40-character Hugging Face source revisions.
+- Exact filenames and Q3_K_M or Q4_K_M quantization.
+- Exact byte lengths and SHA-256 values.
+- Permissive base-model/GGUF licence metadata evidence.
+- A minimum available-RAM estimate and a separate `pending_device_test` runtime marker.
 
-- The app catalogue now curates twelve compact open-weight candidates with permissive upstream licence families (Apache-2.0 or MIT, including the inherited Qwen base terms for DeepSeek R1 Distill): Qwen2.5 0.5B, Qwen2.5 1.5B, Qwen2.5 Coder 1.5B, Qwen3 0.6B, Qwen3 1.7B, SmolLM2 135M, SmolLM2 360M, SmolLM2 1.7B, TinyLlama 1.1B, Granite 3.1 2B, DeepSeek R1 Distill 1.5B and OLMo 2 1B Instruct.
-- WASTI NEXUS is the product and collection identity; upstream model names, authors, source repositories, licences and required notices are preserved. NEXUS does not claim to have trained or authored these third-party models. See `docs/WASTI_NEXUS_MODEL_LIBRARY.md`.
-- This is **not** twelve verified downloadable local models. All twelve model entries now have immutable GGUF source revisions, exact byte lengths and SHA-256 values pinned, with permissive upstream licence evidence. CI audits every pinned file against Hugging Face. All twelve are marked downloadable from the owner's private Drive archive; Android runtime/device validation remains pending.
-- Google Drive is the sole owner model archive. No model weights are committed to Git or stored in Cloudflare. Cloudflare Workers AI remains optional hosted inference only.
-- Manual import currently validates GGUF metadata; it does not establish publisher provenance or registry-hash identity for arbitrary imported files.
+The total exact model-file size is **9,586,646,112 bytes (about 8.93 GiB)**. CI audits all twelve pinned files against their immutable public source revisions and confirms size, SHA-256, licence evidence and non-gated access. All twelve are marked ready for archive/download; this does **not** certify inference performance on the Redmi Note 14 Pro.
 
-## Cloudflare gateway
+WASTI NEXUS is the app and collection brand, not the original model author. Original names, authors, repositories, licences and notices are preserved. “Open-weight” does not guarantee that every training-data/process element meets every formal Open Source AI definition. See:
+- [Model library](WASTI_NEXUS_MODEL_LIBRARY.md)
+- [Third-party model notices and exact manifests](THIRD_PARTY_MODEL_NOTICES.md)
+
+## Google Drive archive and offline install
+
+- The app uses Android's system folder picker (Storage Access Framework) to grant access only to the selected private Drive folder.
+- The app attempts to persist read/write access. Read-only access still permits installation from files already in Drive; the archive-all action requires write permission.
+- The **Archive all 12 models to Drive · 9.59 GB** action streams one pinned public Hugging Face GGUF at a time into the selected Drive folder. It requires internet and Drive write permission, but no Hugging Face token, AI API key, Google Drive API key, OAuth client or service-account key.
+- Each source transfer checks exact byte length and SHA-256 before promoting its temporary file. Existing files are SHA-256 checked before being skipped. Incomplete temporary files are removed; interrupted transfers restart from zero rather than claiming byte-range resume.
+- **Download from Drive** copies a selected file into app-private storage and verifies exact size and SHA-256 again before installation.
+- Wi-Fi is strongly recommended for the 9.59 GB archive. Keep the app open during the sequential archive. If the Drive provider does not grant write access or cannot handle large streamed files, the app reports this and the same pinned filenames can be uploaded through the Google Drive app/desktop client.
+- Local inference after installation works without Drive, an AI API key or Cloudflare availability.
+
+## Cloudflare hosted gateway
 
 - Worker: `wasti-nexus-gateway`; base URL: https://wasti-nexus-gateway.wastinabeel99.workers.dev
-- Canonical source: `cloudflare/src/index.js`; config: `cloudflare/wrangler.toml`.
-- Two Cloudflare Workers AI model IDs are configured: `nexus-gemma-4-26b-a4b` (`@cf/google/gemma-4-26b-a4b-it`) and `nexus-qwen-3.8-27b` (`@cf/qwen/qwen3.8-27b`). Both are first-party Cloudflare-hosted model routes and do not require third-party provider API keys. Cloudflare usage is metered; free-tier allowances are not unlimited and can change.
-- The Worker supports model listing, chat completion and Hybrid dispatch across two distinct model IDs. Unit tests cover single-model and Hybrid dispatch and reject Hybrid when fewer than two distinct models are available.
-- Public health/catalogue checks and unauthenticated rejection for protected model-list routes have passed in earlier deployed smoke runs. Direct account-level model tests are not proof that the deployed authenticated Worker route works.
-- The latest main CI deployed authenticated generation smoke was skipped because the GitHub Actions repository secret `NEXUS_API_KEY` is absent. The same run did pass public health and unauthenticated-protection checks; those do not prove authenticated chat generation. Treat authenticated end-to-end generation as **unverified** until a dedicated scoped key is configured and both live model routes return non-empty responses through the Worker.
-- The Worker has a configured per-location rate limiter (60 requests / 60 seconds / key); it is approximate, not a strict global quota or billing control.
-- `NEXUS_CLIENT_KEYS_JSON` is not populated with application-specific client keys. Never ship the master key in an APK or browser bundle. Public customer deployments need end-user authentication, short-lived token exchange, per-tenant authorization, strict quotas and abuse monitoring.
+- Two optional Cloudflare Workers AI routes are configured: `@cf/google/gemma-4-26b-a4b-it` and `@cf/qwen/qwen3.8-27b`.
+- The post-merge main CI authenticated generation smoke test passed for the deployed gateway. No raw provider key is embedded in the APK.
+- Cloudflare usage is metered; free-tier allowances are not unlimited and may change. The gateway is optional and is not required for Drive storage or local inference.
+- The two hosted gateway models are not the same thing as the twelve GGUF files archived in Google Drive. To serve all twelve remotely, a separately hosted inference runtime with suitable compute is required.
 
-## Memory and customer data
+## Memory, security and operational boundaries
 
-- Android memory snapshots use PBKDF2-HMAC-SHA256 (600,000 iterations) and AES-256-GCM with a user-controlled recovery passphrase.
-- The Worker transports encrypted envelopes; the passphrase is not sent to the Worker. The backing GitHub repository is public, so paths, timestamps and non-secret metadata remain visible. Only ciphertext and non-sensitive metadata may be stored there.
-- The app includes local encrypted snapshot save/restore and Worker-backed ciphertext sync/restore flows. A live remote write/list/read/restore and cross-device recovery drill has not been recorded.
-- This is a personal vault, not a tenant-isolated customer memory service. Do not put customer memory in the public personal repository.
-- The chat UI's visible conversation state is not a substitute for a tested durable encrypted chat-history store. Confirm persistence behaviour on process death/restart before promising durable chat history.
+- Android memory snapshots use PBKDF2-HMAC-SHA256 and AES-256-GCM with a user-controlled recovery passphrase.
+- The Worker transports encrypted envelopes; the passphrase is not sent to the Worker. Live remote write/list/read/restore and cross-device recovery still need a full drill.
+- The personal repository is not a tenant-isolated customer data service. Before public customer use, implement end-user authentication, short-lived token exchange, tenant isolation, strict quotas, abuse controls, monitoring, privacy/retention disclosures, incident response and recovery procedures.
+- Preserve all upstream licence/copyright notices. The registry conservatively does not approve redistribution. Do not expose or redistribute model binaries to customers until exact licence texts and intended distribution rights receive a separate review.
 
-## Release and production gates
+## Remaining production gates
 
-Do not label this build a production-certified customer service until the following evidence exists:
+1. **Drive provider test:** on the Redmi, connect the private Drive folder, confirm persisted write permission, run Archive all 12 over Wi-Fi, interrupt one transfer and retry, then verify all twelve files appear.
+2. **Integrity test:** install at least the Qwen2.5 0.5B starter from Drive, then deliberately test a wrong-size/wrong-checksum file and confirm rejection.
+3. **Offline inference:** enable airplane mode and run a local chat turn. Test unload/reload and process restart.
+4. **All-model device fit:** load each model individually and record available RAM, load success, context length, latency, thermal behaviour and battery impact. The 2B-class model may not fit comfortably on every Redmi Note 14 Pro variant.
+5. **Upgrade/signing:** install the signed 0.4.0 APK over the previously signed app and confirm the permanent signing certificate allows the upgrade.
+6. **Memory recovery:** complete encrypted snapshot write/list/read/restore and cross-device recovery.
+7. **Customer service readiness:** complete authentication, tenant isolation, quotas, abuse controls, monitoring, privacy and incident response before exposing customer-facing service.
 
-1. **Authenticated live gateway:** create a dedicated chat-only client key (not the master key), configure its hash in Worker secret `NEXUS_CLIENT_KEYS_JSON`, configure the raw key as GitHub Actions secret `NEXUS_API_KEY`, then verify authenticated chat-completion through the deployed Worker for both configured models. The CI smoke test must run, not skip.
-2. **Customer security:** implement end-user authentication, short-lived client token exchange, tenant isolation at every data boundary, strict global quotas, abuse controls, monitoring and incident response before exposing customer-facing keys.
-3. **Device certification:** install the app on the target Android phone; connect the private Drive folder through the system picker; test Qwen file discovery/transfer, interruption and restart, checksum rejection, permission revocation/reconnect, airplane-mode generation, local-first Auto behaviour, model lifecycle, upgrade, RAM, thermal, latency and battery.
-4. **Permanent release signing:** the permanent owner keystore and four GitHub signing secrets have been successfully used once; the signed artifact from commit `4df9d4b` passed APK signature verification. The signed-release workflow now also runs automatically on trusted pushes to `main` (while retaining manual dispatch). After this PR merges, confirm the new signed build run and artifact, then test install/upgrade on the target phone. CI's ephemeral keystore validates the signing pipeline but is not the permanent owner key.
-5. **Memory verification:** complete live encrypted snapshot write/list/read/restore, cross-device recovery, backup/retention/deletion documentation and verify that no plaintext reaches Worker/GitHub.
-6. **Model archive:** all twelve GGUF source artifacts now have immutable revisions, exact byte lengths, SHA-256 values and permissive base-model licence evidence pinned in the app catalogue and registry. All twelve are marked ready for Drive-to-device installation. The owner must select the private Drive folder and run the new archive-all action; then validate provider write behaviour, transfer integrity and local inference on the Redmi. Do not claim device certification until runtime, RAM, thermal, latency and battery tests pass.
-7. **Operational readiness:** add production monitoring, alerting, incident response, privacy/retention disclosures, service ownership and documented recovery procedures.
+## Honest conclusion
 
-## Current honest conclusion
-
-The repository now includes a native Android app release candidate at version 0.4.0, a twelve-model permissive open-weight shortlist, a scoped Google Drive folder picker, a twelve-model Drive-to-device installer with pinned integrity manifests, local-first Auto routing, and an optional two-model Cloudflare inference gateway. PR #27 passed its pull-request CI. Post-merge main CI run `45871427587` passed Python validation, Worker syntax/tests and the deployed gateway checks including authenticated live generation; Android build/JVM tests, ephemeral signing validation and the authenticated hosted-generation smoke test all completed successfully. The signed-release workflow now runs automatically on trusted pushes to `main`; confirm the post-merge 0.4.0 signed artifact and signature verification. This does not certify real Drive-provider transfers or phone performance. The owner must select the private Drive folder and run **Archive all 12 models to Drive** (9,586,646,112 bytes total) in the app. All twelve manifests are pinned and downloadable; physical-device inference and performance certification remain outstanding. Physical-device testing, encrypted memory recovery and customer-grade security remain separate gates. This is an improved **release candidate, not yet fully production-certified**.
+The 0.4.0 app is merged into `main`, the twelve model manifests are pinned and CI-audited, the one-tap Drive archive path is implemented, the main CI is green, and a permanent RSA-4096-signed APK with the established certificate has been built and uploaded. It is a strong **release candidate**, not yet fully production-certified: actual Google Drive provider writes and local inference/performance on the physical Redmi remain untested. Those are now the remaining owner-side validation steps.
