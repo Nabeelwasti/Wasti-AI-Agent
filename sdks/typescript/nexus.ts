@@ -11,6 +11,23 @@ export type EncryptedMemorySnapshot = {
   content_type?: "conversation-summary" | "fact" | "preference" | "project-note" | "knowledge-reference";
   tags?: string[];
 };
+export type StoredMemorySnapshot = {
+  schema_version: string;
+  record_id: string;
+  tenant_scope: "personal";
+  created_at: string;
+  content_type: string;
+  tags: string[];
+  cipher: {
+    algorithm: "AES-256-GCM";
+    kdf: "PBKDF2-HMAC-SHA256";
+    iterations: 600000;
+    salt: string;
+    key_id: string;
+    nonce: string;
+    ciphertext: string;
+  };
+};
 export type NexusResponse = {
   id: string;
   choices: Array<{ message: { role: "assistant"; content: string } }>;
@@ -45,7 +62,7 @@ export class NexusClient {
 
   memorySnapshots(limit = 100) {
     const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
-    return this.request<{ data: Array<{ snapshot_id: string; sha: string }> }>(
+    return this.request<{ data: Array<{ snapshot_id: string; sha: string; created_at: string }> }>(
       "/v1/memory/snapshots?limit=" + safeLimit
     );
   }
@@ -60,7 +77,7 @@ export class NexusClient {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId)) {
       throw new Error("Invalid memory snapshot UUID");
     }
-    return this.request<{ object: string; data: EncryptedMemorySnapshot }>(
+    return this.request<{ object: string; data: StoredMemorySnapshot }>(
       "/v1/memory/snapshots/" + snapshotId
     );
   }
