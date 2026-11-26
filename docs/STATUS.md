@@ -32,7 +32,8 @@ Last updated: 2026-11-26.
 - The Worker has an `AI` binding and a protected OpenAI-compatible API.
 - **Critical upstream lifecycle finding:** Cloudflare deprecated both previous built-in model IDs, `@cf/meta/llama-3.2-1b-instruct` and `@cf/meta/llama-3.2-3b-instruct`, effective 2026-11-20. The prior successful CI only checked the binding/catalogue count and therefore did not detect that the upstream models no longer generated responses.
 - The current repair branch replaces those retired IDs with `@cf/google/gemma-4-26b-a4b-it`, exposes its Apache-2.0 licence, context and published token pricing metadata, and updates the unit test to verify dispatch to that exact ID.
-- That repair is not yet deployed or proven by a live authenticated generation request. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
+- The repair branch also adds hashed per-application API keys with `models`/`chat` scopes; the master key alone can access the personal memory endpoints. This is an initial least-privilege boundary, not complete tenant isolation or quota enforcement.
+- The updated model has been called successfully through the authenticated Cloudflare account API, returning `NEXUS_LIVE_MODEL_OK`. This verifies the model is available to the connected Cloudflare account, but it does not yet prove the deployed NEXUS Worker is updated or its route returns the answer. The repair branch is not yet deployed or proven by a live authenticated Worker generation request. Cloudflare's documented Gemma 4 price is USD 0.10 per million input tokens and USD 0.30 per million output tokens; free-tier allocation and account eligibility must not be interpreted as unlimited free inference.
 - The existing `NEXUS_API_KEY` and `NEXUS_GITHUB_TOKEN` bindings were observed as configured secrets; secret values were not read or exposed.
 
 ## Memory
@@ -47,7 +48,7 @@ Last updated: 2026-11-26.
 The project must not be advertised as a fully production-ready multi-customer service until all of the following have evidence:
 
 1. Deploy the current Worker source and run authenticated real model generation against the live endpoint.
-2. Provide per-application/customer credentials, revocation, quotas and robust distributed rate limiting. The current shared bearer secret is suitable only for controlled owner testing; it must not be embedded in a public browser bundle or distributed APK.
+2. Deploy and configure `NEXUS_CLIENT_KEYS_JSON` with unique per-application keys. The branch includes a 256-bit key generator, SHA-256 hash validation, `models`/`chat` scopes and master-only memory access. Add robust quotas, distributed rate limiting and customer identity/tenant isolation before multi-customer use.
 3. Add tenant isolation and authorization for memory and any future customer data. The current GitHub memory path is a single personal vault, not a customer memory service.
 4. Complete privacy/retention disclosures, abuse controls, monitoring/alerting, backup/restore drills and operational incident procedures.
 5. Install the APK on the target Android device, test with networking disabled, validate at least one GGUF model's actual generation, and record RAM, thermal, latency and battery results.
