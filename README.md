@@ -4,7 +4,7 @@
 
 WASTI NEXUS is an offline-first Android AI assistant and a self-hostable multi-model orchestration platform. It is designed to let personal apps and future customer-facing products connect to one API while selecting individual model backends or requesting a collective Hybrid answer.
 
-> Project status: foundation in progress. This repository does not yet represent a production release. Features are only considered complete after implementation, automated tests, device/deployment verification and documented evidence.
+> Project status: active foundation. The Cloudflare gateway is deployed at `https://wasti-nexus-gateway.wastinabeel99.workers.dev`, but no model provider is connected yet. The Android build, model archive and production release remain unverified.
 
 ## Product goals
 
@@ -23,7 +23,8 @@ WASTI NEXUS is an offline-first Android AI assistant and a self-hostable multi-m
 android/                 Native Android application
 orchestrator/            OpenAI-compatible multi-model API
 models/                  Family registry, manifests and acquisition tools
-cloudflare/              Optional Worker deployment adapter
+cloudflare/              Deployed Cloudflare Worker gateway source
+sdks/                    TypeScript and Python integration clients
 docs/                    Architecture, security, operations and API guide
 tests/                   Cross-component and contract tests
 .github/workflows/       CI workflows
@@ -41,10 +42,20 @@ source .venv/bin/activate
 # Windows PowerShell:
 # .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+export NEXUS_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export NEXUS_AGENTS_JSON='{}'
 uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
-The API is then available at `http://127.0.0.1:8080`. Configure provider endpoints and credentials through environment variables; never commit secrets.
+The local API is then available at `http://127.0.0.1:8080`. Protected endpoints require `Authorization: Bearer $NEXUS_API_KEY`. Configure trusted provider endpoints and credentials through environment variables; never commit secrets.
+
+## Deployed gateway
+
+Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev` (do not append `/v1`). The Worker is deployed and the workers.dev subdomain is enabled. No model providers are configured yet, so `/v1/models` currently reports no available inference brains. See [docs/API.md](docs/API.md) for provider setup and examples.
+
+## Reusable SDKs
+
+See [sdks/README.md](sdks/README.md), [sdks/typescript/nexus.ts](sdks/typescript/nexus.ts) and [sdks/python/nexus_client.py](sdks/python/nexus_client.py).
 
 ## Hybrid API
 
