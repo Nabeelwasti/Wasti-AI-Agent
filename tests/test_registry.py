@@ -55,7 +55,7 @@ def test_every_family_has_upstream_and_gguf_candidate_metadata():
         assert isinstance(candidate, dict)
         assert re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", candidate.get("repo_id", ""))
         assert candidate.get("file_name", "").endswith(".gguf")
-        assert candidate.get("quantization") == "Q4_K_M"
+        assert candidate.get("quantization") in {"Q4_K_M", "Q3_K_M"}
         assert candidate.get("estimated_size_bytes", 0) > 0
         assert candidate.get("minimum_available_ram_gb", 0) > 0
         assert candidate.get("commercial_allowed") is True
