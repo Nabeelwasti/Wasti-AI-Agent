@@ -1,10 +1,25 @@
 # WASTI NEXUS Cloudflare gateway
 
-This Worker provides a provider-neutral API and routes to configured HTTPS OpenAI-compatible inference endpoints. It does not host large model weights.
+Deployed Worker: `wasti-nexus-gateway`
 
-Set Worker secrets:
-- `NEXUS_API_KEY`: random secret of at least 32 characters.
-- `NEXUS_PROVIDERS_JSON`: JSON object with a `providers` array. Each provider includes `id`, `base_url`, `api_key_env`, and `models` with `id`, `agent`, `enabled`.
-- One secret per referenced `api_key_env`.
+Base URL: `https://wasti-nexus-gateway.wastinabeel99.workers.dev`
 
-Set `ALLOWED_ORIGINS` to exact browser origins. Deploy with Wrangler. No model is enabled until a real provider is configured. Endpoints: `/healthz`, `/v1/models`, `/v1/chat/completions`, `/v1/hybrid/chat/completions`.
+The Worker is deployed and its workers.dev subdomain is enabled. Its API key is stored as a Cloudflare secret. No model provider is configured yet, so the current model list is empty.
+
+## Configure providers
+
+Set Worker secret `NEXUS_PROVIDERS_JSON` to an object with a `providers` array. Each provider includes:
+- `id`: provider identifier;
+- `base_url`: trusted HTTPS OpenAI-compatible inference endpoint ending in `/v1`;
+- `api_key_env`: name of another Worker secret;
+- `models`: array of `id`, `agent` and `enabled` values.
+
+Create a Worker secret for every referenced `api_key_env`. Do not store credentials in this repository. No arbitrary client-supplied provider URLs are accepted.
+
+## Endpoints
+- `GET /healthz` — public liveness.
+- `GET /v1/models` — authenticated model list.
+- `POST /v1/chat/completions` — single model or `model: nexus-hybrid`.
+- `POST /v1/hybrid/chat/completions` — explicit Hybrid endpoint.
+
+The Worker orchestrates configured inference services; it does not host large model weights or provide GPU inference itself. Offline Android operation must use the separate local runtime.
