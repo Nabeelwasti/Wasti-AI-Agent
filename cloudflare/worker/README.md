@@ -26,13 +26,15 @@ Set Worker variable `NEXUS_PROVIDERS_JSON` to a JSON object. Example only:
           "id": "qwen",
           "upstream_model": "provider-specific-model-id",
           "agent": "reasoning",
-          "enabled": true
+          "enabled": true,
+          "commercial_allowed": true
         },
         {
           "id": "llama",
           "upstream_model": "another-provider-model-id",
           "agent": "generalist",
-          "enabled": true
+          "enabled": true,
+          "commercial_allowed": true
         }
       ]
     }
