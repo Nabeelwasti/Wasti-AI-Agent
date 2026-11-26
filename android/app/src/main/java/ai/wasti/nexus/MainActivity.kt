@@ -116,6 +116,9 @@ class MainActivity : ComponentActivity() {
                     onInstallDriveModel = { uri, model, progress ->
                         DriveModelWorkspace.installModel(this, uri, model, progress)
                     },
+                    onArchiveAllModelsToDrive = { uri, models, progress ->
+                        DriveModelWorkspace.archiveAllModelsToDrive(this, uri, models, progress)
+                    },
                     onLoadLocal = { path -> loadLocalModel(path) },
                     onUnloadLocal = { unloadLocalModel() },
                     onSendLocal = { prompt, onToken -> sendLocal(prompt, onToken) },
@@ -721,6 +724,7 @@ private fun NexusScreen(
     onImportModel: suspend (Uri) -> String,
     onConnectDriveWorkspace: (Uri) -> String,
     onInstallDriveModel: suspend (Uri, WorkspaceModel, (Long, Long) -> Unit) -> String,
+    onArchiveAllModelsToDrive: suspend (Uri, List<WorkspaceModel>, (Long, Long) -> Unit) -> Int,
     onLoadLocal: suspend (String) -> Unit,
     onUnloadLocal: suspend () -> Unit,
     onSendLocal: suspend (String, (String) -> Unit) -> String,
@@ -751,6 +755,9 @@ private fun NexusScreen(
     var settingsExpanded by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadingModel by remember { mutableStateOf(false) }
+    var archivingModels by remember { mutableStateOf(false) }
+    var archiveProgress by remember { mutableFloatStateOf(0f) }
+    var confirmArchiveAll by remember { mutableStateOf(false) }
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
@@ -969,7 +976,7 @@ private fun NexusScreen(
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    "The Qwen download uses a pinned public upstream revision. NEXUS verifies SHA-256 and GGUF metadata before installation. No AI API key is used for downloading or offline inference.",
+                    "All twelve open-weight model files have pinned public source revisions, exact sizes and SHA-256 values. NEXUS verifies the checksum before installation. Public-source downloads and offline inference require no AI API key.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text("GOOGLE DRIVE MODEL WORKSPACE", style = MaterialTheme.typography.titleMedium)
@@ -980,6 +987,16 @@ private fun NexusScreen(
                 ) { Text(if (driveWorkspaceUri.isBlank()) "Connect Google Drive folder" else "Change Google Drive folder") }
                 if (driveWorkspaceUri.isNotBlank()) {
                     Text("Connected folder: ${driveWorkspaceName.ifBlank { "Google Drive workspace" }}", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(
+                        enabled = !busy && workspaceModels.size == 12 && workspaceModels.all { it.downloadable },
+                        onClick = { confirmArchiveAll = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Archive all 12 models to Drive · 9.59 GB") }
+                    Text("Copies the pinned public GGUF files into your private Drive folder. Wi-Fi is recommended. Requires Drive write permission; no AI API key is needed.", style = MaterialTheme.typography.bodySmall)
+                    if (archivingModels) {
+                        LinearProgressIndicator(progress = { archiveProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                        Text("Archiving all models: ${(archiveProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                    }
                     workspaceModels.forEach { model ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1029,6 +1046,48 @@ private fun NexusScreen(
                     }
                 } else {
                     Text("Choose the WASTI-NEXUS-MODEL-WORKSPACE folder from Google Drive. NEXUS receives access only to the folder you select.", style = MaterialTheme.typography.bodySmall)
+                }
+                if (confirmArchiveAll) {
+                    AlertDialog(
+                        onDismissRequest = { if (!busy) confirmArchiveAll = false },
+                        title = { Text("Archive all twelve models?") },
+                        text = {
+                            Text("This transfers 9.59 GB of public model files into the selected private Google Drive folder. Use Wi-Fi and keep the app open. Files are checked against pinned sizes and SHA-256 values. If Drive write access is unavailable, the app will explain the manual upload fallback.")
+                        },
+                        confirmButton = {
+                            Button(
+                                enabled = !busy,
+                                onClick = {
+                                    confirmArchiveAll = false
+                                    busy = true
+                                    archivingModels = true
+                                    archiveProgress = 0f
+                                    scope.launch {
+                                        try {
+                                            val count = onArchiveAllModelsToDrive(
+                                                Uri.parse(driveWorkspaceUri),
+                                                workspaceModels
+                                            ) { completed, total ->
+                                                archiveProgress = if (total > 0L) completed.toFloat() / total.toFloat() else 0f
+                                            }
+                                            answer = "Archived $count model files to your private Google Drive folder. Each source file passed its pinned size and SHA-256 checks. Select Download from Drive on any model to install it locally."
+                                        } catch (error: Exception) {
+                                            answer = "Google Drive model archive failed: ${error.message}"
+                                        } finally {
+                                            archivingModels = false
+                                            busy = false
+                                        }
+                                    }
+                                }
+                            ) { Text("Start archive") }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                enabled = !busy,
+                                onClick = { confirmArchiveAll = false }
+                            ) { Text("Cancel") }
+                        }
+                    )
                 }
                 OutlinedButton(
                     enabled = !busy,
