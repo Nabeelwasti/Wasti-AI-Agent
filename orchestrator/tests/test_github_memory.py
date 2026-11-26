@@ -88,3 +88,18 @@ def test_save_snapshot_writes_one_immutable_encrypted_file(monkeypatch):
     assert seen["url"].endswith(f"memory/personal/encrypted/{snapshot_id}.json")
     stored = json.loads(__import__("base64").b64decode(seen["body"]["content"]))
     assert stored["cipher"]["ciphertext"] == "MDEyMzQ1Njc4OWFiY2RlZg"
+
+def test_public_repository_is_rejected_before_memory_write(monkeypatch):
+    configure_memory(monkeypatch)
+
+    async def handler(request):
+        return httpx.Response(200, json={"private": False})
+
+    store = GitHubMemoryStore(transport=httpx.MockTransport(handler))
+    record = {
+        "record_id": str(uuid.uuid4()),
+        "cipher": {"ciphertext": "encrypted"},
+    }
+    with pytest.raises(GitHubMemoryError, match="must be private"):
+        asyncio.run(store.save(record))
+
