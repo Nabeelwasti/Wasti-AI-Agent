@@ -7,8 +7,8 @@ One repository, one app identity and one reusable brain API. Runtime components 
 ### Android client
 
 - Kotlin/Jetpack Compose application.
-- Local inference through the official `llama.cpp` Android binding/runtime for compatible GGUF checkpoints.
-- Model catalogue, download manager, integrity verification, install/uninstall, runtime selection and memory-aware model loading.
+- Local inference through Arm AI Chat (`com.arm:ai-chat:0.1.0`), backed by llama.cpp, for compatible GGUF checkpoints.
+- Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. A full model catalogue, in-app downloader, checksum verification and uninstall manager remain planned.
 - Encrypted local memory and conversation history.
 - Network-aware routing: local model first when offline or when the user selects local-only; remote provider routing when online and permitted.
 - The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
@@ -91,4 +91,4 @@ The app downloads only the user's selected model. Storage availability is necess
 
 ## Current implementation status
 
-The repository currently contains a remote-only Android prototype and an edge gateway shell. Local inference, GitHub-backed memory sync, model lifecycle UI and production tenant controls are not yet complete. Do not claim offline operation or production readiness until device builds and end-to-end tests pass.
+The Android source now includes Arm AI Chat/llama.cpp integration, manual GGUF import and a local chat path, alongside remote single/Hybrid routing. The APK has not yet built successfully in verified CI and no real-device offline inference test has passed. GitHub-backed memory client encryption/sync, full model catalogue/downloader and production tenant controls remain incomplete. Do not claim offline operation verified or production readiness until the build and device tests pass.
