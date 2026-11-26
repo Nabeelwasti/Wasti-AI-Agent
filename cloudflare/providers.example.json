@@ -1,0 +1,18 @@
+{
+  "providers": [
+    {
+      "id": "openrouter-free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "NEXUS_OPENROUTER_API_KEY",
+      "models": [
+        {
+          "id": "openrouter/free",
+          "upstream_model": "openrouter/free",
+          "agent": "generalist",
+          "enabled": true,
+          "commercial_allowed": false
+        }
+      ]
+    }
+  ]
+}
