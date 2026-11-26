@@ -63,10 +63,10 @@ test("Workers AI binding provides first-party brains without third-party provide
   const catalogue = await worker.fetch(authedRequest("/v1/models"), configured);
   assert.equal(catalogue.status, 200);
   const ids = (await catalogue.json()).data.map(item => item.id);
-  assert.deepEqual(ids, ["nexus-llama-3.2-1b", "nexus-llama-3.2-3b"]);
+  assert.deepEqual(ids, ["nexus-gemma-4-26b-a4b"]);
   const response = await worker.fetch(
     authedRequest("/v1/chat/completions", "POST", {
-      model: "nexus-llama-3.2-1b",
+      model: "nexus-gemma-4-26b-a4b",
       messages: [{ role: "user", content: "Hello" }],
       stream: false,
     }),
@@ -76,7 +76,7 @@ test("Workers AI binding provides first-party brains without third-party provide
   const data = await response.json();
   assert.equal(data.choices[0].message.content, "A local test answer from Workers AI.");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].model, "@cf/meta/llama-3.2-1b-instruct");
+  assert.equal(calls[0].model, "@cf/google/gemma-4-26b-a4b-it");
   assert.equal(calls[0].input.messages[0].content, "Hello");
 });
 
