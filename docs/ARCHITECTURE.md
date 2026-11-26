@@ -47,7 +47,7 @@ memory/
   schemas/
     memory-record.schema.json
     dataset-manifest.schema.json
-  personal/                 # encrypted blobs only; private repository
+  personal/                 # encrypted blobs only; public repo means paths/metadata are visible
   projects/
   tenants/                  # strict tenant-scoped paths; no cross-tenant reads
   knowledge/                # curated, non-sensitive Markdown/JSON
@@ -58,7 +58,7 @@ datasets/
 ```
 
 Rules:
-- The repository containing personal memory must be private. Never store secrets, API keys, raw credentials or unencrypted sensitive data in Git.
+- A private repository is preferred for personal memory. This deployment intentionally keeps the repository public, so only authenticated, client-encrypted ciphertext may be stored under personal paths; filenames and non-sensitive metadata remain visible. Never store secrets, API keys, raw credentials or unencrypted sensitive data in Git.
 - Encrypt personal/customer records on the client before upload; keep encryption keys outside GitHub.
 - Use tenant-scoped paths and enforce authorization before any retrieval.
 - Batch writes into immutable time-bucketed files; avoid a commit per token or message.
