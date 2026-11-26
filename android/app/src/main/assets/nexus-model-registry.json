@@ -47,7 +47,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gemma4-e4b",
@@ -90,7 +94,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gemma4-12b",
@@ -133,7 +141,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gemma4-26b-a4b",
@@ -175,7 +187,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gemma4-31b",
@@ -217,7 +233,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen3-1.7b",
@@ -259,7 +279,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen3-4b",
@@ -301,7 +325,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen38-27b",
@@ -344,7 +372,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen35-4b",
@@ -387,7 +419,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "deepseek-r1-distill-1.5b",
@@ -429,7 +465,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "deepseek-v41-flash",
@@ -472,7 +512,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "deepseek-v41-pro",
@@ -515,7 +559,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gpt-oss-20b",
@@ -558,7 +606,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "gpt-oss-120b",
@@ -601,7 +653,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "ministral-3b",
@@ -643,7 +699,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "mistral-small-4",
@@ -687,7 +747,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "devstral-small-2",
@@ -729,7 +793,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "phi4-mini",
@@ -771,7 +839,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "phi4-14b",
@@ -813,7 +885,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "glm52",
@@ -856,7 +932,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "glm53-flash",
@@ -900,7 +980,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite41-3b",
@@ -943,7 +1027,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite41-8b",
@@ -986,7 +1074,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite41-30b",
@@ -1029,7 +1121,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite42-3b",
@@ -1072,7 +1168,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite42-8b",
@@ -1115,7 +1215,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "granite42-30b",
@@ -1158,7 +1262,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "olmo31-7b",
@@ -1200,7 +1308,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_with_open_training_materials_for_exact_checkpoint",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "olmo31-32b",
@@ -1242,7 +1354,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_with_open_training_materials_for_exact_checkpoint",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "muse-glimmer",
@@ -1286,7 +1402,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "mimo-v26-flash",
@@ -1331,7 +1451,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "mimo-v26-pro",
@@ -1376,7 +1500,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "hunyuan-hy3",
@@ -1419,7 +1547,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "hunyuan-1-8b",
@@ -1460,7 +1592,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "hunyuan-4b",
@@ -1501,7 +1637,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "flux-schnell",
@@ -1541,7 +1681,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_not_a_claim_that_all_training_data_or_pipeline_is_open",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "flux-dev",
@@ -1581,7 +1725,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "whisper-tiny",
@@ -1621,7 +1769,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_source_code_and_weights",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "whisper-base",
@@ -1661,7 +1813,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_source_code_and_weights",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "whisper-small",
@@ -1701,7 +1857,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_source_code_and_weights",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "piper-tts",
@@ -1741,7 +1901,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_source_engine_voice_assets_have_separate_licences",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "kokoro-82m",
@@ -1781,7 +1945,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_weights_and_open_inference_code",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "unsloth-colab",
@@ -1821,7 +1989,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "open_source_training_tool_colab_is_a_separate_hosted_service",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "kimi-k3",
@@ -1863,7 +2035,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "minimax-m3",
@@ -1905,7 +2081,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "llama4-scout",
@@ -1947,7 +2127,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "llama4-maverick",
@@ -1989,7 +2173,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen-flash-next",
@@ -2031,7 +2219,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen38-8b",
@@ -2073,7 +2265,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     },
     {
       "id": "qwen38-30b-a3b",
@@ -2115,7 +2311,11 @@
         "run offline smoke tests and task-specific quality evaluations",
         "benchmark target hardware for latency, temperature, battery and crash stability",
         "only then mark installable and permit automatic routing"
-      ]
+      ],
+      "openness_class": "custom_or_review_gated_not_approved_as_permissive_open_source",
+      "hosted_api_free_unlimited": false,
+      "internet_required_for_hosted_api": true,
+      "self_hosting_cost": "No vendor per-token inference fee when permitted weights run on owner hardware; hardware, electricity, cooling, storage, network and maintenance remain finite costs."
     }
   ]
 }
