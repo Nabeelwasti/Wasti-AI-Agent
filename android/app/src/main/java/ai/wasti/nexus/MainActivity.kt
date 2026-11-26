@@ -629,15 +629,10 @@ class MainActivity : ComponentActivity() {
         }
 
 
-    private fun isLoopbackHttp(root: String): Boolean = runCatching {
-        val uri = java.net.URI(root)
-        uri.scheme == "http" && uri.host?.lowercase() == "localhost"
-    }.getOrDefault(false)
-
     private suspend fun fetchRemoteModels(url: String, key: String): List<String> =
         withContext(Dispatchers.IO) {
             val root = url.trim().trimEnd('/')
-            val local = isLoopbackHttp(root)
+            val local = NexusRuntimePolicy.isLoopbackHttp(root)
             require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
             require(local || key.length >= 32) { "Remote self-hosted endpoints require a strong bearer key." }
             val apiRoot = if (root.endsWith("/v1")) root else "$root/v1"
@@ -878,7 +873,7 @@ private fun NexusScreen(
                                             else -> NexusMode.ONLINE
                                         }
                                         val snapshot = NexusRuntimeProbe.read(context, localModelPath, localReady)
-                                        val loopback = isLoopbackHttp(url.trim().trimEnd('/'))
+                                        val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
                                             (loopback || (key.length >= 32 && url.startsWith("https://"))) &&
                                             (!autoMode || loopback || remoteModels.contains("nexus-auto"))
