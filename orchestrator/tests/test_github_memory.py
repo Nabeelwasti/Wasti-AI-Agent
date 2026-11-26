@@ -37,7 +37,7 @@ def test_snapshot_input_is_client_encrypted_and_timezone_aware():
         created_at=datetime.now(timezone.utc),
         key_id="device-key-2026",
         nonce="YWJjZGVmZ2hpamts",
-        ciphertext="YWJjZA",
+        ciphertext="MDEyMzQ1Njc4OWFiY2RlZg",
     ).encrypted_record()
     assert record["tenant_scope"] == "personal"
     assert record["cipher"]["algorithm"] == "AES-256-GCM"
@@ -51,7 +51,7 @@ def test_snapshot_input_rejects_naive_datetime():
             created_at=datetime(2026, 1, 1),
             key_id="device-key-2026",
             nonce="YWJjZGVmZ2hpamts",
-            ciphertext="YWJjZA",
+            ciphertext="MDEyMzQ1Njc4OWFiY2RlZg",
         ).encrypted_record()
 
 
@@ -76,7 +76,7 @@ def test_save_snapshot_writes_one_immutable_encrypted_file(monkeypatch):
             "algorithm": "AES-256-GCM",
             "key_id": "device-key-2026",
             "nonce": "YWJjZGVmZ2hpamts",
-            "ciphertext": "YWJjZA",
+            "ciphertext": "MDEyMzQ1Njc4OWFiY2RlZg",
         },
     }
     result = asyncio.run(store.save(record))
@@ -85,4 +85,4 @@ def test_save_snapshot_writes_one_immutable_encrypted_file(monkeypatch):
     assert seen["method"] == "PUT"
     assert seen["url"].endswith(f"memory/personal/encrypted/{snapshot_id}.json")
     stored = json.loads(__import__("base64").b64decode(seen["body"]["content"]))
-    assert stored["cipher"]["ciphertext"] == "YWJjZA"
+    assert stored["cipher"]["ciphertext"] == "MDEyMzQ1Njc4OWFiY2RlZg"
