@@ -4,7 +4,7 @@
 
 Google Drive is the owner's model-file archive. WASTI NEXUS Android uses the Android Storage Access Framework (SAF) to let the owner select one dedicated Drive folder. The app receives scoped permission to that folder, reads the approved model catalogue, copies a selected GGUF into app-private storage, verifies it, and runs it locally.
 
-The owner reports approximately 250 GB available in a 400 GB subscription. The twelve Q4_K_M candidates are estimated at approximately 26 GB combined, before future versions. This provides ample archive capacity for the current candidate set. Storage capacity does not make a model compatible with the phone or grant redistribution rights.
+The owner reports approximately 250 GB available in a 400 GB subscription. The curated twelve-model Q4_K_M collection has a preliminary combined size of roughly 10 GB using rounded public model-card figures; exact total bytes will be known only after each artifact is pinned. This is comfortably within the reported Drive capacity. Storage capacity does not make a model compatible with the phone or grant redistribution rights.
 
 ## Folder layout
 
@@ -33,7 +33,7 @@ Official Android references:
 
 ## Catalogue and integrity contract
 
-The app currently bundles `android/app/src/main/assets/nexus-model-catalog.json`. It contains twelve families, but only a model with status `ready`, an exact filename, exact byte length and a 64-character SHA-256 is downloadable. All other entries remain visible as pending verification or restricted; the app refuses to download them.
+The app currently bundles `android/app/src/main/assets/nexus-model-catalog.json`. It contains twelve curated open-weight candidates selected for permissive upstream licences (Apache-2.0 or MIT, including inherited base-model notices). Only a model with status `ready`, an exact filename, exact byte length and a 64-character SHA-256 is downloadable. Eleven candidates remain pending verification; the app refuses to download them.
 
 The Qwen2.5-0.5B-Instruct Q4_K_M entry is pinned to upstream revision `12145bd1d629190a4d44254073650877954d02c9`, file size 491,400,032 bytes, and SHA-256 `74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db`. The owner must place this exact file in the selected Drive workspace. A similarly named file with a different size or hash is rejected.
 
@@ -53,7 +53,7 @@ Each future downloadable entry must include stable model ID, family, exact filen
 
 ## Current implementation state
 
-The Android app now includes a scoped Drive folder picker, persisted folder read permission, a twelve-family catalogue UI, a verified Qwen Drive copy path, exact length/SHA-256 checks and local install/load. The other eleven catalogue entries are deliberately pending until their exact GGUF artifact, immutable revision, licence and checksum are validated.
+The Android app now includes a scoped Drive folder picker, persisted folder read permission, a twelve-model branded catalogue UI, a verified Qwen Drive copy path, exact length/SHA-256 checks and local install/load. The WASTI NEXUS collection preserves every upstream model's name, creator, source and licence; it does not claim that NEXUS trained these models. The other eleven catalogue entries are deliberately pending until their exact GGUF artifact, immutable revision, byte length, licence and checksum are validated. See [WASTI NEXUS model library](WASTI_NEXUS_MODEL_LIBRARY.md) for the curated list and sources.
 
 The owner still needs to create the folder and upload the exact Qwen GGUF file. This repository connection cannot upload binaries into the owner's Drive. A real Drive-provider transfer, cancellation, permission revocation and airplane-mode install drill must be performed on the target Redmi before this feature is called device-certified.
 
