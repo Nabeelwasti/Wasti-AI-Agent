@@ -63,17 +63,15 @@ def test_every_family_has_upstream_and_gguf_candidate_metadata():
         assert candidate.get("download_status") == "not-downloaded"
 
 
-def test_only_qwen_starter_has_a_pinned_integrity_manifest():
-    by_id = {item["id"]: item for item in load_registry()}
-    candidate = by_id["qwen"]["local_candidate"]
-    assert candidate["revision"] == "12145bd1d629190a4d44254073650877954d02c9"
-    assert candidate["sha256"] == "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
-    assert candidate["estimated_size_bytes"] == 491400032
-
-    for model_id, item in by_id.items():
-        if model_id != "qwen":
-            assert item["local_candidate"]["revision"] is None
-            assert item["local_candidate"]["sha256"] is None
+def test_all_twelve_candidates_have_pinned_immutable_integrity_manifests():
+    for family in load_registry():
+        candidate = family["local_candidate"]
+        assert re.fullmatch(r"[0-9a-f]{40}", candidate["revision"]), family["id"]
+        assert isinstance(candidate["estimated_size_bytes"], int)
+        assert candidate["estimated_size_bytes"] > 0
+        assert re.fullmatch(r"[0-9a-f]{64}", candidate["sha256"]), family["id"]
+        assert candidate["estimated_size_is_approximate"] is False
+        assert candidate["runtime_validation"] == "pending_device_test"
 
 
 def test_registry_and_android_catalogue_reference_the_same_twelve_gguf_files():
