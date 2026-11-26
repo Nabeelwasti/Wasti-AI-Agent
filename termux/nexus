@@ -19,6 +19,7 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/wasti-nexus"
 PID_FILE="$STATE_DIR/llama-server.pid"
 LOG_FILE="$STATE_DIR/llama-server.log"
 mkdir -p "$STATE_DIR"
+if [[ -z "${NEXUS_MODEL_ID:-}" && -f "$STATE_DIR/model-id" ]]; then MODEL_ID="$(cat "$STATE_DIR/model-id")"; fi
 
 is_loopback() {
   [[ "$1" == http://localhost:* || "$1" == http://127.0.0.1:* ]]
@@ -66,6 +67,7 @@ server_start() {
   if [[ -z "${NEXUS_MODEL_ID:-}" ]]; then
     MODEL_ID="$(basename "$model" .gguf | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9._-')"
   fi
+  printf '%s' "$MODEL_ID" > "$STATE_DIR/model-id"
   command -v llama-server >/dev/null || { echo "Run: nexus server install"; exit 2; }
   if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     echo "NEXUS local server is already running (PID $(cat "$PID_FILE"))."
