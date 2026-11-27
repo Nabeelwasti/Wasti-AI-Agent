@@ -291,7 +291,7 @@ async function invokeStream(env, modelId, messages, options = {}) {
   const selected = findModel(env, modelId);
   if (!selected) throw new GatewayError(`Model '${modelId}' is not configured`, 404);
   const { provider, model } = selected;
-  const baseUrl = String(provider.base_url || "").replace(/\\/$/, "");
+  const baseUrl = String(provider.base_url || "").replace(/\/$/, "");
   const apiKeyName = provider.api_key_env;
   const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
   let parsedBaseUrl;
