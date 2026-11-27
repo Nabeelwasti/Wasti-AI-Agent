@@ -58,6 +58,21 @@ class NexusFileSearchTest {
         }
     }
 
+    @Test fun boundedTextReaderRejectsFilesThatExceedTheReadLimit() {
+        val directory = Files.createTempDirectory("nexus-bounded-read").toFile()
+        val valid = File(directory, "valid.txt").apply { writeText("safe text") }
+        val oversized = File(directory, "oversized.txt").apply {
+            writeBytes(ByteArray(128 * 1024 + 1) { 'x'.code.toByte() })
+        }
+        try {
+            assertEquals("safe text", NexusFileSearch.readTextBounded(valid)?.first)
+            assertEquals(9, NexusFileSearch.readTextBounded(valid)?.second)
+            assertEquals(null, NexusFileSearch.readTextBounded(oversized))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     @Test fun emptyResultsAreExplicit() {
         val context = NexusFileSearch.formatForModel("Find missing file", emptyList())
         assertTrue(context.contains("No matching supported files"))
