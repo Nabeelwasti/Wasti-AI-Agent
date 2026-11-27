@@ -1435,7 +1435,7 @@ private fun NexusScreen(
                             Column(
                                 Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
                             ) {
-                                Text(initialLicenseTexts, style = MaterialTheme.typography.bodySmall)
+                                SelectionContainer { Text(initialLicenseTexts, style = MaterialTheme.typography.bodySmall) }
                             }
                         },
                         confirmButton = {
@@ -1451,7 +1451,7 @@ private fun NexusScreen(
                             Column(
                                 Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())
                             ) {
-                                Text(initialModelNotices, style = MaterialTheme.typography.bodySmall)
+                                SelectionContainer { Text(initialModelNotices, style = MaterialTheme.typography.bodySmall) }
                             }
                         },
                         confirmButton = {
@@ -1606,9 +1606,9 @@ private fun NexusScreen(
                                             enabled = !busy,
                                             onClick = { driveWorkspacePicker.launch(null) }
                                         ) { Text("Connect Drive to download") }
-                                    }
+                                    } else {
                                     Button(
-                                        enabled = !busy && driveWorkspaceUri.isNotBlank(),
+                                        enabled = !busy,
                                         onClick = {
                                             downloadingModel = true
                                             downloadProgress = 0f
@@ -1638,6 +1638,7 @@ private fun NexusScreen(
                                             }
                                         }
                                     ) { Text("Download from Drive") }
+                                    }
                                     if (downloadingModel && downloadProgress > 0f) {
                                         LinearProgressIndicator(progress = { downloadProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                                         Text("Transfer and verification: ${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
@@ -1653,7 +1654,9 @@ private fun NexusScreen(
                         onDismissRequest = { if (!busy) confirmArchiveAll = false },
                         title = { Text("Archive all twelve models?") },
                         text = {
-                            Text("This transfers 9.59 GB of public model files into the selected private Google Drive folder. Use Wi-Fi and keep the app open. Files are checked against pinned sizes and SHA-256 values. If Drive write access is unavailable, the app will explain the manual upload fallback.")
+                            SelectionContainer {
+                                Text("This transfers 9.59 GB of public model files into the selected private Google Drive folder. Use Wi-Fi and keep the app open. Files are checked against pinned sizes and SHA-256 values. If Drive write access is unavailable, the app will explain the manual upload fallback.")
+                            }
                         },
                         confirmButton = {
                             Button(
@@ -1730,7 +1733,7 @@ private fun NexusScreen(
                     AlertDialog(
                         onDismissRequest = { confirmDeleteModel = false },
                         title = { Text("Remove downloaded model?") },
-                        text = { Text("This deletes the selected GGUF file from this app's private storage. The original file is not affected.") },
+                        text = { SelectionContainer { Text("This deletes the selected GGUF file from this app's private storage. The original file is not affected.") } },
                         confirmButton = {
                             TextButton(onClick = {
                                 confirmDeleteModel = false
@@ -2139,7 +2142,7 @@ private fun NexusScreen(
                     AlertDialog(
                         onDismissRequest = { deleteSessionId = null },
                         title = { Text("Delete conversation?") },
-                        text = { Text("This permanently removes the selected encrypted conversation from this device. Export it first if you need a copy.") },
+                        text = { SelectionContainer { Text("This permanently removes the selected encrypted conversation from this device. Export it first if you need a copy.") } },
                         confirmButton = {
                             TextButton(onClick = {
                                 val targetId = deleteSessionId ?: return@TextButton
