@@ -15,12 +15,14 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Local token streaming and Stop action.
 - [x] Remote HTTP cancellation.
 - [x] Copy/select/edit chat message controls.
+- [x] Safe Markdown rendering for headings, emphasis, quotes, lists and fenced/inline code.
 - [x] Gateway collaboration metadata panel using real provider outputs and orchestration metadata.
 - [x] Bounded text/code attachments for local and remote prompts.
 - [x] Bounded JPEG/PNG/WebP attachments for remote vision-capable providers.
 - [ ] Real-device regression suite: install/upgrade, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN, mobile data and encrypted history recovery.
 - [x] Encrypted local conversation history, search, open, rename, delete and Markdown export (AES-256-GCM / Android Keystore; local-only; no cross-device restore).
-- [x] SSE remote token streaming for explicitly selected single models with upstream cancellation.\n- [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.
+- [x] SSE remote token streaming for explicitly selected single models with upstream cancellation.
+- [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.
 - [ ] Permission-scoped tools, approvals, sandboxing, audit and revocation.
 - [ ] PDF parsing, audio, offline vision, image generation and training runtimes (only when a verified implementation and licence exists).
 
@@ -33,12 +35,15 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Truthful collaboration metadata and failure reporting.
 - [x] Authentication, request size limits, provider timeouts and CORS allowlist.
 - [x] Vision payload validation, capability-gated routing and bounded base64/image-size checks in Worker source.
-- [x] Propagate client cancellation to upstream provider requests.\n- [x] Single-model SSE stream proxy and Android incremental rendering.\n- [x] Reject private/reserved provider endpoint addresses; require HTTPS and reject credential-bearing URLs.\n- [x] Default customer-mode rate limiting and master-only personal-memory access.
+- [x] Propagate client cancellation to upstream provider requests.
+- [x] Single-model SSE stream proxy and Android incremental rendering.
+- [x] Reject private/reserved provider endpoint addresses; require HTTPS and reject credential-bearing URLs.
+- [x] Default customer-mode rate limiting and master-only personal-memory access.
 - [x] Deploy latest Worker source and verify deployed version while preserving secrets/rate-limit bindings.
 - [ ] Configure an owner-controlled provider catalogue and provider secret; the deployed Worker currently has no inference models configured.
 - [ ] Authenticated end-to-end text inference smoke test against a real configured provider.
 - [ ] Authenticated end-to-end vision inference smoke test against a verified vision provider (requires provider configuration).
-- [ ] SSE progress and provider streaming with cancellation propagation.
+- [ ] Auto/Hybrid SSE progress and live inter-agent events; single-model SSE is complete.
 - [ ] Per-customer tenant isolation, quotas, operational monitoring and alerting.
 
 ## Model archive and governance
