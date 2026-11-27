@@ -1083,7 +1083,7 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it } { collaborationTrace = it }
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
