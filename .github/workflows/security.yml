@@ -35,13 +35,13 @@ jobs:
   analyze:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
           - language: java-kotlin
-            build-mode: autobuild
+            build-mode: manual
           - language: python
             build-mode: none
           - language: javascript-typescript
@@ -50,6 +50,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Set up Android build environment
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        if: matrix.language == 'java-kotlin'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
+
+      - name: Install Android SDK packages
+        if: matrix.language == 'java-kotlin'
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        if: matrix.language == 'java-kotlin'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.7.0"
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -57,9 +80,9 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
-      - name: Autobuild
-        if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@v4
+      - name: Build Android project for CodeQL
+        if: matrix.language == 'java-kotlin'
+        run: gradle -p android --no-daemon assembleDebug
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
