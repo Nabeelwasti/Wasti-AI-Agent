@@ -1,7 +1,7 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Validated application code commit:** pending final 0.5.5 CI run  
+**Validated application code commit:** `d061d8b1369fb8064e846ec88d6d3fdcbc4a263d`  
 **Android release:** 0.5.5 (`versionCode 10`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
 **Workflow:** PR #35 was merged earlier; all subsequent work in this task was committed directly to `main`. No new PR was opened.
@@ -13,12 +13,14 @@
 - Automatic selected-model loading, per-model install/load/verification state and visible failures.
 - Task-aware local model selection and network/RAM/thermal/battery-aware route policy. Offline mode does not send inference prompts to the gateway.
 - Local generation streams tokens and supports Stop. Remote single-model chat supports SSE token streaming; Auto and Hybrid remain non-streaming. HTTP cancellation closes the Android request.
-- The local model preflight estimate was reduced from 2.5× model size + 1.2 GB to 1.2× + 512 MB, and model selection uses the same estimate. This removes the old conservative false rejection; native runtime memory remains device/model dependent.
-- A source index is generated at build time from the app, gateway, orchestrator, SDKs, Termux companion, model registry, tests and docs. Relevant snippets are retrieved and added to each local/remote prompt, within each model's actual context window.
-- Selectable text across the chat/settings surface, copy/select/edit chat messages and safe Markdown rendering for headings, bold, italic, inline/fenced code, quotes and lists. Model output is rendered as text; HTML is not executed and links are not automatically opened.
+- The local model preflight estimate was reduced from 2.5× model size + 1.2 GB to 1.2× + 512 MB, and model selection uses the same estimate. This removes the old conservative false rejection; the Arm native runtime still uses an 8,192-token context and 512-token batch, so real memory use remains model/device dependent and the estimate is not a guarantee.
+- A source index is generated at build time from Android Kotlin/UI resources/tests, gateway/configuration, orchestrator, SDKs, Termux companion, model scripts/registry, workflows and docs. App-related prompts retrieve relevant excerpts for every local or configured remote brain; the complete source index is on-device, but each request receives only relevant excerpts within the model's finite context window.
+- Selectable text across the full Scaffold, chat/settings surface and key dialogs; copy/select/edit chat messages; safe Markdown rendering for headings, bold, italic, inline/fenced code, quotes and lists. Model output is rendered as text; HTML is not executed and links are not automatically opened.
 - Durable local chat history: AES-256-GCM encrypted with a non-exportable Android Keystore key; atomic file writes with backup recovery; no artificial session/turn/5 MB caps; search includes remote turns, open, rename, delete and Markdown export.
-- Chat history no longer has app-imposed session, turn or 5 MB caps. The encrypted file remains subject to available device storage and process memory. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
+- Chat history no longer has app-imposed session, turn or 5 MB caps. The encrypted file remains subject to available device storage and process memory; the current single-file JSON store may become slower as it grows. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
 - Chat history remains on this device. It is not silently uploaded or included in the GitHub memory snapshot system. Markdown export writes to a destination explicitly selected by the user.
+- Model library cards are visible without first connecting Drive. Each card carries its own on-device load/install status and its action; the standalone model-health list was removed. Drive download actions prompt for folder access when not yet connected.
+- The header now uses compact icon actions for new chat, history and settings; system dynamic light/dark colors; composer attachment, Hybrid team quick control, Send/Stop icons. Hybrid team is described in plain language and requires at least two distinct online brains.
 - Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG; each file up to 128 KB. No app-level combined text prompt character cap; model/provider context and request limits still apply.
 - JPEG, PNG and WebP attachments: each image up to 1 MB, at most two images per request and four attachments total. Images route only to online/Auto vision-capable providers, never to local text-only inference.
 
@@ -35,13 +37,13 @@
 
 ## CI, release and deployment evidence
 
-- Latest application CI: [run 45968917026](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917026), completed successfully on validated code commit `ff5543e5d66ae0f1899d83cb3c7351d2d96ed1ef`. All four jobs passed: Android debug build/JVM tests, Python and source validation, Cloudflare Worker syntax/unit tests, and deployed relay-policy smoke test.
-- Android JVM suite: **34 tests completed, zero failures** on the successful run.
+- Latest application CI: [run 45987949978](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45987949978), completed successfully on code commit `d061d8b1369fb8064e846ec88d6d3fdcbc4a263d`. All four jobs passed: Android debug build/JVM tests, Python/source validation, Cloudflare Worker syntax/unit tests, and deployed relay-policy smoke test.
+- Android JVM suite: **37 tests passed, zero failures** (34 prior tests plus 3 new large-model/history regression tests).
 - Cloudflare Worker suite: **30 tests passed, zero failures** on the tested Worker source, including SSE, unsupported Auto/Hybrid stream behavior, memory-scope isolation, customer rate-limit default and private/reserved provider endpoint rejection.
-- Three-language CodeQL security-extended workflow: [run 45968917138](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917138), all Java/Kotlin, Python and JavaScript/TypeScript jobs completed successfully. Successful analysis does not itself mean every alert is resolved; alert triage remains open.
-- Owner-signed Android 0.5.4 APK: [release run 45968917127](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917127), artifact `wasti-nexus-signed-release-apk`, artifact ID `15184321293` (17,429,148 bytes). APK Signature Scheme v2 verification passed.
-- Signing certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`; it matches the previous 0.5.2/0.5.3 signing identity. Install 0.5.4 over the existing app without uninstalling or clearing data.
-- Debug APK from the same CI run: artifact ID `15183554724`; use the signed release artifact for normal installation.
+- Three-language CodeQL security-extended workflow: [run 45987949917](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45987949917), all Java/Kotlin, Python and JavaScript/TypeScript jobs completed successfully. Successful analysis does not itself mean every alert is resolved; alert triage remains open.
+- Owner-signed Android 0.5.5 APK: [release run 45987949934](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45987949934), artifact `wasti-nexus-signed-release-apk`, artifact ID `15193295298` (21,812,491 bytes). APK Signature Scheme v2 verification passed.
+- Signing certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`; it matches the previous signing identity, so 0.5.5 can upgrade over the existing app without uninstalling or clearing data.
+- Debug APK from the same CI run: artifact ID `15192187055`; use the signed release artifact for normal installation.
 - Worker `wasti-nexus-gateway` was updated through Cloudflare's content-only API on 2026-11-27 at `08:39:54Z` (deployment ID `0222800e42194dcfb6bd8b14d139f374`). The API read-back confirmed the deployed source contains SSE, provider-address validation, personal-memory scope isolation and customer-default rate limiting.
 - The content-only deployment preserved existing Worker settings and bindings: `ALLOWED_ORIGINS`, `MAX_HYBRID_AGENTS`, `NEXUS_API_KEY`, `NEXUS_DEPLOYMENT_MODE`, `NEXUS_GITHUB_TOKEN`, memory repository/branch/prefix, `NEXUS_RATE_LIMIT` and `REQUEST_TIMEOUT_MS`. Secret values were not read or exposed.
 
@@ -50,14 +52,16 @@
 - **No inference provider is configured in the deployed Worker.** `NEXUS_PROVIDERS_JSON` is absent and the live model catalogue has no configured inference model. The relay and SSE code are deployed and mocked/unit-tested, but no live authenticated text or vision round-trip is possible yet.
 - The provider setup requires an owner-controlled HTTPS OpenAI-compatible inference server. The provider's credential, if enabled, is stored as a Worker secret. This is not a paid model-vendor API requirement; local GGUF inference remains key-free. Remote gateway authentication still requires the owner's NEXUS bearer key.
 - Vision code is deployed and tested, but no live vision provider is configured.
-- No physical Redmi Note 14 Pro regression suite has been run from this environment. APK build/signing does not prove device behavior.
+- No physical Redmi Note 14 Pro regression suite has been run from this environment. APK build/signing does not prove device behavior. The 1.2× + 512 MB preflight reduces false rejections but cannot force unsupported architectures or models whose native working set exceeds the phone's actual process budget.
 - Chat history is encrypted at rest locally, but there is no cross-device encrypted chat-history sync/restore workflow. Markdown export is plaintext at the user-selected destination.
-- Auto/Hybrid remote streaming and live inter-agent progress are not implemented; only explicitly selected single-model requests stream tokens.
+- Auto/Hybrid remote streaming and live inter-agent progress are not implemented; only explicitly selected single-model requests stream tokens. Hybrid also remains unavailable until at least two online provider models are configured.
+
+- The UI now follows familiar modern Material chat patterns, but this is not complete Gemini feature parity or a pixel-for-pixel copy. Deep Research, full web search, audio/video, image generation and arbitrary tool execution are not implemented; no fake controls are exposed.
 
 ## Production gates still open
 
 1. **Provider readiness and live E2E:** deploy an owner-controlled HTTPS inference endpoint; set `NEXUS_PROVIDERS_JSON` and provider secret(s); verify exact model IDs, immutable checkpoints, licences, capabilities, TLS, quotas and capacity. Then test authenticated text inference and a real vision request.
-2. **Physical Android validation:** install 0.5.4 over the existing app; test all model load states, generation, Stop, Activity recreation, low RAM, thermal/battery, airplane mode, Wi-Fi/LAN, mobile data, attachments, encrypted history recovery and upgrade signing on the actual Redmi Note 14 Pro.
+2. **Physical Android validation:** install 0.5.5 over the existing app; test all model load states, generation, Stop, Activity recreation, low RAM, thermal/battery, airplane mode, Wi-Fi/LAN, mobile data, attachments, encrypted history recovery and upgrade signing on the actual Redmi Note 14 Pro.
 3. **CodeQL alert triage:** inspect GitHub Security findings from the successful scan, resolve confirmed high/critical issues and document justified suppressions.
 4. **Remote streaming completeness:** SSE is single-model only. Add resumable/error-aware Auto and Hybrid progress streaming if required by the product.
 5. **History recovery:** add a tested encrypted export/import and cross-device recovery design if users need chat migration. Current Markdown export is readable plaintext, not a restorable encrypted backup.
@@ -70,4 +74,4 @@
 
 ## Release decision
 
-**Status: signed 0.5.4 release candidate; not fully production-certified.** Current main application CI, 34 Android JVM tests, 30 Worker tests, three-language CodeQL execution and signed release build pass. The Worker source is deployed with existing bindings preserved. However, no inference provider is configured and no physical-device validation evidence exists. Persistent history, Markdown chat rendering and single-model remote streaming are now implemented; several customer-grade, recovery, tool and multimodal gates remain open. Do not advertise the whole product as production-ready until the open gates are closed with evidence.
+**Status: signed 0.5.5 release candidate; not fully production-certified.** Current main application CI, 37 Android JVM tests, 30 Worker tests, three-language CodeQL execution and signed release build pass. The Worker source is deployed with existing bindings preserved. However, no inference provider is configured and no physical-device validation evidence exists. Persistent history, Markdown chat rendering and single-model remote streaming are now implemented; several customer-grade, recovery, tool and multimodal gates remain open. Do not advertise the whole product as production-ready until the open gates are closed with evidence.
