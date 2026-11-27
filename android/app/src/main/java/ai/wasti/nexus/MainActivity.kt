@@ -1470,6 +1470,11 @@ private fun NexusScreen(
                                                 } catch (localError: Exception) {
                                                     localReady = false
                                                     loadedModelPath = ""
+                                                    // AUTO may normally fall back to a remote brain, but a local file-search
+                                                    // excerpt must never leave the device without the explicit sharing opt-in.
+                                                    if (!NexusFileSearch.maySendFileContextRemotely(fileSearchRequest, allowFileContextOnline)) {
+                                                        throw localError
+                                                    }
                                                     if (mode != NexusMode.AUTO) throw localError
                                                     when {
                                                         localServerAvailable -> {
