@@ -1550,6 +1550,56 @@ private fun NexusScreen(
                         }
                     )
                 }
+                Text("ANDROID ACCESS & INTEGRATIONS", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "NEXUS opens Android's own consent screens and apps when a task needs them. Grant access only for a feature you choose. Android does not offer a safe or supported grant-everything switch.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openAppDetails(context)) "Opened NEXUS app permissions. Enable only the access you need."
+                    else "Android app settings are unavailable on this device."
+                }, modifier = Modifier.fillMaxWidth()) { Text("App permissions & notifications") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openOverlayAccess(context)) "Opened Display over other apps settings. Allow only if you later enable a floating assistant."
+                    else "Overlay settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Display over other apps · optional") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openNotificationListenerSettings(context)) "Opened notification access settings. Notification reading is not enabled by this build."
+                    else "Notification access settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Notification access settings") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openUsageAccessSettings(context)) "Opened usage access settings. NEXUS does not currently collect app-usage history."
+                    else "Usage access settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Usage access settings") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openBatterySettings(context)) "Opened battery optimization settings. Exempt NEXUS only if background tasks need it."
+                    else "Battery settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Background & battery settings") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.createAlarm(context)) "Opened Android Clock to create an alarm. Review and save it there."
+                    else "No compatible Clock app was found."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Create an alarm in Clock") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.createCalendarEvent(context)) "Opened the Calendar event form. Review details and save it there."
+                    else "No compatible Calendar app was found."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Create a Calendar event") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openContacts(context)) "Opened Contacts. Choose and share a contact yourself when ready."
+                    else "No compatible Contacts app was found."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Open Contacts") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openWifiSettings(context)) "Opened Android Wi-Fi settings. Confirm network changes in system settings."
+                    else "Wi-Fi settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Wi-Fi settings") }
+                OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.openLocationSettings(context)) "Opened Android Location settings. App location permission can be managed under App permissions."
+                    else "Location settings are unavailable."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Location settings") }
+                Text(
+                    "Not requested by default: All files access, SMS/call logs, premium SMS, device-admin privileges, install-unknown-apps, body sensors, health data, unrestricted data, system-setting writes and background location. These are either unnecessary for current features, highly sensitive, restricted, or require a separate core feature and explicit design. Files use Android's document picker; photos use the system photo picker; alarms and calendar events use user-confirmed app forms.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
                 Text("MODEL GOVERNANCE", style = MaterialTheme.typography.titleMedium)
                 Text(
