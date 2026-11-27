@@ -66,16 +66,20 @@ internal object NexusReminderStore {
 
     fun load(context: Context): List<NexusReminder> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ITEMS, "[]") ?: "[]"
-        return runCatching {
-            val array = JSONArray(raw)
-            (0 until array.length()).mapNotNull { index ->
-                val item = array.optJSONObject(index) ?: return@mapNotNull null
-                val id = item.optInt("id", -1)
-                val title = item.optString("title", "").trim()
-                val time = item.optLong("triggerAtMillis", 0L)
-                if (id > 0 && title.isNotBlank() && time > 0L) NexusReminder(id, title, time) else null
-            }.sortedBy { it.triggerAtMillis }
-        }.getOrDefault(emptyList())
+        val array = try { JSONArray(raw) } catch (failure: Exception) {
+            throw IllegalStateException("Saved reminder data is unreadable. It has been left untouched; do not clear app data.", failure)
+        }
+        return (0 until array.length()).map { index ->
+            val item = array.optJSONObject(index)
+                ?: throw IllegalStateException("Saved reminder entry $index is invalid. Existing data has been left untouched.")
+            val id = item.optInt("id", -1)
+            val title = item.optString("title", "").trim()
+            val time = item.optLong("triggerAtMillis", 0L)
+            require(id > 0 && title.isNotBlank() && time > 0L) {
+                "Saved reminder entry $index is incomplete. Existing data has been left untouched."
+            }
+            NexusReminder(id, title, time)
+        }.distinctBy { it.id }.sortedBy { it.triggerAtMillis }
     }
 
     fun save(context: Context, reminders: List<NexusReminder>) {
@@ -136,7 +140,7 @@ class NexusReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> {
-                NexusReminderStore.restore(context)
+                runCatching { NexusReminderStore.restore(context) }
                 return
             }
         }
@@ -185,8 +189,10 @@ class NexusReminderActivity : ComponentActivity() {
             var showDelete by remember { mutableStateOf<NexusReminder?>(null) }
             LaunchedEffect(Unit) {
                 reminders.clear()
-                reminders.addAll(NexusReminderStore.load(this@NexusReminderActivity))
-                NexusReminderStore.restore(this@NexusReminderActivity)
+                runCatching {
+                    reminders.addAll(NexusReminderStore.load(this@NexusReminderActivity))
+                    NexusReminderStore.restore(this@NexusReminderActivity)
+                }.onFailure { error = it.message ?: "Could not load saved reminders." }
             }
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
@@ -230,7 +236,7 @@ class NexusReminderActivity : ComponentActivity() {
                                 error = problem
                             } else {
                                 val reminder = NexusReminder(
-                                    (System.currentTimeMillis() % Int.MAX_VALUE).toInt().coerceAtLeast(1),
+                                    NexusReminderParser.nextId(reminders.toList(), System.currentTimeMillis()),
                                     title.trim(), selectedAt
                                 )
                                 val updated = (reminders.filterNot { it.id == reminder.id } + reminder).sortedBy { it.triggerAtMillis }
