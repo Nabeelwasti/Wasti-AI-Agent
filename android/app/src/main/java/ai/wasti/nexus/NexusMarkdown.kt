@@ -73,7 +73,9 @@ internal fun parseNexusMarkdown(source: String): AnnotatedString {
 }
 
 private fun appendInlineMarkdown(builder: AnnotatedString.Builder, text: String) {
-    val token = Regex("(\\*\\*.+?\\*\\*|\\x60[^\\x60]+\\x60|(?<!\\*)\\*[^*]+\\*(?!\\*))")
+    val tick = 0x60.toChar().toString()
+    val escapedTick = Regex.escape(tick)
+    val token = Regex("(\\*\\*.+?\\*\\*|${escapedTick}[^${tick}]+${escapedTick}|(?<!\\*)\\*[^*]+\\*(?!\\*))")
     var cursor = 0
     token.findAll(text).forEach { match ->
         if (match.range.first > cursor) builder.append(text.substring(cursor, match.range.first))
@@ -84,7 +86,7 @@ private fun appendInlineMarkdown(builder: AnnotatedString.Builder, text: String)
                 builder.append(value.substring(2, value.length - 2))
                 builder.pop()
             }
-            value.startsWith(0x60.toChar()) && value.endsWith(0x60.toChar()) -> {
+            value.startsWith(tick) && value.endsWith(tick) -> {
                 builder.pushStyle(
                     SpanStyle(
                         fontFamily = FontFamily.Monospace,
