@@ -6,6 +6,29 @@ import org.junit.Test
 
 class NexusChatHistoryTest {
     @Test
+    fun chatHistoryHasNoArbitraryHundredSessionOrFiveHundredTurnCap() {
+        val longTurns = (0..650).map { "Question $it" to "Answer $it" }
+        val session = NexusChatSession.createOrUpdate(null, longTurns, longTurns)
+        assertEquals(651, session.turns.size)
+        assertEquals(651, session.remoteTurns.size)
+
+        val manySessions = (0..150).map { index ->
+            NexusChatSession("session-$index", "Conversation $index", index.toLong(), emptyList())
+        }
+        assertEquals(151, NexusChatHistory.search(manySessions, "").size)
+    }
+
+    @Test
+    fun searchIncludesRemoteConversationTurns() {
+        val session = NexusChatSession(
+            "remote", "Online session", 1,
+            turns = emptyList(),
+            remoteTurns = listOf("Remote-only question" to "Remote-only answer")
+        )
+        assertEquals(listOf("remote"), NexusChatHistory.search(listOf(session), "Remote-only answer").map { it.id })
+    }
+
+    @Test
     fun createsStableReadableTitleFromFirstPrompt() {
         val session = NexusChatSession.createOrUpdate(
             existing = null,
