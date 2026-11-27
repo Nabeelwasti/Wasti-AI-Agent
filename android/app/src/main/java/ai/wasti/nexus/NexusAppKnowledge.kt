@@ -18,6 +18,13 @@ internal object NexusAppKnowledge {
     )
 
     fun enrich(context: Context, prompt: String): String {
+        val appQuestionHints = listOf(
+            "wasti", "nexus", "this app", "the app", "application", "screen", "button",
+            "settings", "ui", "ux", "code", "source", "architecture", "repository", "repo",
+            "android", "apk", "gguf", "model", "runtime", "gateway", "cloudflare",
+            "orchestrator", "termux", "hybrid", "chat history", "memory"
+        )
+        if (appQuestionHints.none { prompt.contains(it, ignoreCase = true) }) return prompt
         val chunks = runCatching { load(context.applicationContext) }.getOrDefault(emptyList())
         if (chunks.isEmpty()) return prompt
         val terms = Regex("[\\p{L}\\p{N}_]{3,}")
@@ -43,7 +50,11 @@ internal object NexusAppKnowledge {
             chunk to score
         }.sortedWith(compareByDescending<Pair<Chunk, Int>> { it.second }.thenBy { it.first.path })
         val selected = ranked.filter { it.second > 0 }.take(6).map { it.first }.ifEmpty {
-            chunks.filter { it.path == "README.md" || it.path == "docs/ARCHITECTURE.md" }.take(4)
+            chunks.filter {
+                it.path == "README.md" || it.path == "docs/ARCHITECTURE.md" ||
+                    it.path.endsWith("/MainActivity.kt") ||
+                    it.path.endsWith("/NexusRuntimePolicy.kt")
+            }.take(6)
         }
         val sourceContext = selected.joinToString("\n\n") { chunk ->
             "[SOURCE: ${chunk.path} · section ${chunk.part}]\n${chunk.text}"
