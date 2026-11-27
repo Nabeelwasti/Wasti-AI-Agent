@@ -33,8 +33,8 @@ android {
         applicationId = "ai.wasti.nexus"
         minSdk = 33
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.5.10"
+        versionCode = 16
+        versionName = "0.5.11"
     }
     buildTypes {
         getByName("release") {
