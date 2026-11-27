@@ -31,6 +31,7 @@ import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
 import com.arm.aichat.gguf.GgufMetadataReader
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -803,6 +804,7 @@ private fun NexusScreen(
     var loadedModelPath by remember { mutableStateOf("") }
     var autoLoadAttemptedPath by remember { mutableStateOf("") }
     var modelLoadError by remember { mutableStateOf("") }
+    var activeGenerationJob by remember { mutableStateOf<Job?>(null) }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
@@ -949,12 +951,14 @@ private fun NexusScreen(
                             maxLines = 5,
                             enabled = !busy
                         )
-                        Button(
+                        if (activeGenerationJob != null) {
+                            OutlinedButton(onClick = { activeGenerationJob?.cancel() }) { Text("Stop") }
+                        } else Button(
                             enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
                                 busy = true
-                                scope.launch {
+                                activeGenerationJob = scope.launch {
                                     var usedRemote = false
                                     var attemptedLocalInference = false
                                     try {
@@ -1052,6 +1056,10 @@ private fun NexusScreen(
                                         }
                                         prompt = ""
                                         answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
+                                    } catch (cancelled: CancellationException) {
+                                        streamingResponse = ""
+                                        answer = "Generation stopped by user."
+                                        throw cancelled
                                     } catch (error: Exception) {
                                         streamingResponse = ""
                                         if (attemptedLocalInference) {
@@ -1060,6 +1068,7 @@ private fun NexusScreen(
                                         }
                                         answer = "Request failed: ${error.message}"
                                     } finally {
+                                        activeGenerationJob = null
                                         busy = false
                                     }
                                 }
