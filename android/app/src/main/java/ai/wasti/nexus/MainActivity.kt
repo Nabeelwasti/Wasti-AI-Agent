@@ -1012,6 +1012,8 @@ private fun NexusScreen(
     var drawerDestination by remember { mutableStateOf("Chat") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val context = androidx.compose.ui.platform.LocalContext.current
+    var showDeviceControlDisclosure by remember { mutableStateOf(false) }
+    var deviceControlEnabled by remember { mutableStateOf(NexusAccessibilityService.isEnabled(context)) }
     val clipboardManager = LocalClipboardManager.current
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
@@ -1506,6 +1508,48 @@ private fun NexusScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (settingsExpanded) {
+                Text("DEVICE CONTROL", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (deviceControlEnabled) "Accessibility service is enabled in Android Settings."
+                    else "Optional Android permission. The service is a foundation only; the AI action executor is not connected yet.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedButton(
+                    onClick = { deviceControlEnabled = NexusAccessibilityService.isEnabled(context) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Refresh device-control status") }
+                OutlinedButton(
+                    onClick = { showDeviceControlDisclosure = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (deviceControlEnabled) "Review device-control permission" else "Set up device control") }
+                if (showDeviceControlDisclosure) {
+                    AlertDialog(
+                        onDismissRequest = { showDeviceControlDisclosure = false },
+                        title = { Text("WASTI NEXUS device-control access") },
+                        text = {
+                            SelectionContainer {
+                                Text(
+                                    "If you enable this optional Android Accessibility Service, WASTI NEXUS can read interface labels and controls exposed by the active app and perform requested taps, text entry, scrolling and navigation. Password fields are redacted. Android may restrict sensitive screens and some apps may not expose their controls. The service does not continuously record the screen or send screen content to a server by itself. The AI action executor is not connected in this build, so enabling the service alone will not make chat commands control your phone. You can disable the service at any time in Android Accessibility settings."
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showDeviceControlDisclosure = false
+                                context.getSharedPreferences("nexus-accessibility", android.content.Context.MODE_PRIVATE)
+                                    .edit().putBoolean("disclosure_accepted", true).apply()
+                                runCatching {
+                                    context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                }.onFailure {
+                                    answer = "Could not open Android Accessibility settings: ${it.message}"
+                                }
+                            }) { Text("I understand · Open settings") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeviceControlDisclosure = false }) { Text("Cancel") }
+                        }
+                    )
+                }
                 Text("One intelligence. Many brains.", style = MaterialTheme.typography.headlineSmall)
                 Text("MODEL GOVERNANCE", style = MaterialTheme.typography.titleMedium)
                 Text(
