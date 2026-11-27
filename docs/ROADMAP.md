@@ -27,10 +27,12 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Hybrid parallel independent answers, bounded peer review and synthesis.
 - [x] Truthful collaboration metadata and failure reporting.
 - [x] Authentication, request size limits, provider timeouts and CORS allowlist.
-- [x] Vision payload validation and capability-gated routing in Worker source.
-- [ ] Deploy latest Worker source and verify deployed version.
+- [x] Vision payload validation, capability-gated routing and bounded base64/image-size checks in Worker source.
+- [x] Propagate client cancellation to upstream provider requests.
+- [x] Deploy latest Worker source and verify deployed version while preserving secrets/rate-limit bindings.
+- [ ] Configure an owner-controlled provider catalogue and provider secret; the deployed Worker currently has no inference models configured.
 - [ ] Authenticated end-to-end text inference smoke test against a real configured provider.
-- [ ] Authenticated end-to-end vision inference smoke test against a verified vision provider.
+- [ ] Authenticated end-to-end vision inference smoke test against a verified vision provider (requires provider configuration).
 - [ ] SSE progress and provider streaming with cancellation propagation.
 - [ ] Per-customer tenant isolation, quotas, operational monitoring and alerting.
 
