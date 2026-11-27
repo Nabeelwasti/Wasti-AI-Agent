@@ -214,6 +214,28 @@ function containsImages(messages) {
     message.content.some(part => part.type === "image_url"));
 }
 
+function isPublicProviderHostname(hostname) {
+  const host = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") ||
+      host.endsWith(".local") || host.endsWith(".internal") || host.includes(":")) return false;
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const octets = ipv4.slice(1).map(Number);
+    if (octets.some(value => value > 255)) return false;
+    const [a, b, d] = octets;
+    if (a === 0 || a === 10 || a === 127 || a >= 224 ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && (b === 168 || (b === 0 && (d === 0 || d === 2))) ) ||
+        (a === 100 && b >= 64 && b <= 127) ||
+        (a === 198 && (b === 18 || b === 19 || b === 51)) ||
+        (a === 203 && b === 0 && d === 113)) return false;
+    return true;
+  }
+  if (host.length > 253 || !host.includes(".")) return false;
+  return host.split(".").every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+}
+
 function findModel(env, modelId) {
   for (const provider of configuredProviders(env)) {
     const model = provider.models.find(item =>
@@ -237,7 +259,8 @@ async function invoke(env, modelId, messages, options = {}) {
   } catch {
     throw new GatewayError(`Provider for model '${modelId}' has an invalid base URL`, 503);
   }
-  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password || !apiKey) {
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password ||
+      parsedBaseUrl.search || parsedBaseUrl.hash || !isPublicProviderHostname(parsedBaseUrl.hostname) || !apiKey) {
     throw new GatewayError(`Provider for model '${modelId}' is not configured correctly`, 503);
   }
 
@@ -300,7 +323,8 @@ async function invokeStream(env, modelId, messages, options = {}) {
   try { parsedBaseUrl = new URL(baseUrl); } catch {
     throw new GatewayError(`Provider for model '${modelId}' has an invalid base URL`, 503);
   }
-  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password || !apiKey) {
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password ||
+      parsedBaseUrl.search || parsedBaseUrl.hash || !isPublicProviderHostname(parsedBaseUrl.hostname) || !apiKey) {
     throw new GatewayError(`Provider for model '${modelId}' is not configured correctly`, 503);
   }
 
