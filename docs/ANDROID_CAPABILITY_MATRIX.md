@@ -17,10 +17,12 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Files | On-demand shared-storage search with bounded filename/text matching and metadata for media/PDF/Office files | Optional MANAGE_EXTERNAL_STORAGE; user must grant Android All files access in Settings. Android/data and Android/obb are excluded. |
 | File context in chat | Natural-language file-search requests append bounded local excerpts to the active prompt | On-device route by default; sending excerpts to remote brains requires a separate opt-in in Settings |
 | Voice input | Android speech-recognition activity | User starts recognition; speech provider may require its own network/service |
-| Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |\n| NEXUS reminders | Local reminder manager; strict natural-language parser with confirmation; SharedPreferences persistence; AlarmManager inexact alarms; notification channel; boot/time-change rescheduling; delete/cancel | User creates and deletes reminders in NEXUS; Android notification permission controls visible alerts; alarms may be delayed by Doze/battery policy |
+| Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |
+| NEXUS reminders | Local reminder manager; strict natural-language parser with confirmation; SharedPreferences persistence; AlarmManager inexact alarms; notification channel; boot/time-change rescheduling; delete/cancel | User creates and deletes reminders in NEXUS; Android notification permission controls visible alerts; alarms may be delayed by Doze/battery policy |
 | Calendar event | Calendar ACTION_INSERT | User reviews and saves in Calendar |
 | Contacts | Opens Contacts app | User selects/shares manually; no contacts database permission |
-| Notification content | On-demand snapshot of up to 25 active notifications through NotificationListenerService; no event cache or background persistence | User manually enables Notification access and approves the chat command; content is shown locally and saved only in the user-requested encrypted chat history |\n| Wi-Fi / location / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
+| Notification content | On-demand snapshot of up to 25 active notifications through NotificationListenerService; no event cache or background persistence | User manually enables Notification access and approves the chat command; content is shown locally and saved only in the user-requested encrypted chat history |
+| Wi-Fi / location / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
 
 ## Not requested and why
 
@@ -35,7 +37,14 @@ This document is the source of truth for Android access requests. NEXUS must req
 - Background location, contacts/calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
 - Exact alarm scheduling is not enabled. NEXUS reminders use inexact AlarmManager scheduling and can be delayed by Android power management; they are not a replacement for safety-critical alarms.
 
-## Approved device action boundaries\n\n- Supported exact chat commands: `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`, and `read my notifications` (requires separately enabled Notification access). The app displays an action summary and waits for a separate approval before execution.\n- Label-click actions require an exact visible text/content-description match and a clickable, enabled control. Destructive/high-impact labels (delete/remove/send/submit/pay/transfer/install/allow/permission/credentials, etc.) are rejected by the parser.\n- Screen text and notification content are returned in the chat locally and are not passed to a model by these commands. Password fields remain redacted by the AccessibilityService. Secure windows and app-specific accessibility restrictions still apply.\n- Android accepting a click/gesture does not prove the target app completed the requested business operation. The user must inspect the screen after each action. No chained or autonomous action plans are supported.\n\n## Shared-storage search boundaries
+## Approved device action boundaries
+
+- Supported exact chat commands: `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`, and `read my notifications` (requires separately enabled Notification access). The app displays an action summary and waits for a separate approval before execution.
+- Label-click actions require an exact visible text/content-description match and a clickable, enabled control. Destructive/high-impact labels (delete/remove/send/submit/pay/transfer/install/allow/permission/credentials, etc.) are rejected by the parser.
+- Screen text and notification content are returned in the chat locally and are not passed to a model by these commands. Password fields remain redacted by the AccessibilityService. Secure windows and app-specific accessibility restrictions still apply.
+- Android accepting a click/gesture does not prove the target app completed the requested business operation. The user must inspect the screen after each action. No chained or autonomous action plans are supported.
+
+## Shared-storage search boundaries
 
 - The user must explicitly grant Android's special All files access in Settings. NEXUS does not grant it silently.
 - Search is on demand, bounded to 12,000 filesystem entries and at most ten results.
@@ -43,7 +52,14 @@ This document is the source of truth for Android access requests. NEXUS must req
 - Android/data, Android/obb, other apps' private sandboxes, caches and inaccessible external volumes are excluded.
 - Excerpts are marked as untrusted data in the model context. They are not executed as instructions.
 - Remote file-context sharing is disabled by default. It requires a separate opt-in; otherwise the request must route to an on-device model.
-- The app does not silently index the full contents of all files into long-term memory.\n\n## Reminder scheduling limits\n\n- Supported chat syntax: `Remind me to <task> in 15 minutes`, `... in 2 hours`, `... in 3 days`, `... tomorrow at 5:30 pm`, and `... today at 8 am`. The parsed reminder is shown in a confirmation dialog before saving. Unsupported or ambiguous phrasing is not executed.\n- Reminders are stored locally and restored after reboot/time/time-zone changes. Deleting a reminder cancels its pending alarm.\n- Scheduling uses `AlarmManager.setAndAllowWhileIdle` (inexact). Android can defer alerts for Doze, battery restrictions, OEM task management, or force-stop. Notifications require the user to grant Android notification permission. This is not suitable for medical, emergency, financial-deadline, or other safety-critical alerts.\n- There is no exact-alarm special access request and no claim of exact-to-the-minute delivery.
+- The app does not silently index the full contents of all files into long-term memory.
+
+## Reminder scheduling limits
+
+- Supported chat syntax: `Remind me to <task> in 15 minutes`, `... in 2 hours`, `... in 3 days`, `... tomorrow at 5:30 pm`, and `... today at 8 am`. The parsed reminder is shown in a confirmation dialog before saving. Unsupported or ambiguous phrasing is not executed.
+- Reminders are stored locally and restored after reboot/time/time-zone changes. Deleting a reminder cancels its pending alarm.
+- Scheduling uses `AlarmManager.setAndAllowWhileIdle` (inexact). Android can defer alerts for Doze, battery restrictions, OEM task management, or force-stop. Notifications require the user to grant Android notification permission. This is not suitable for medical, emergency, financial-deadline, or other safety-critical alerts.
+- There is no exact-alarm special access request and no claim of exact-to-the-minute delivery.
 
 ## Safety and confirmation rules
 
