@@ -41,6 +41,9 @@ import com.arm.aichat.gguf.GgufMetadataReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -1006,6 +1009,24 @@ private fun NexusScreen(
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
+    // Native token callbacks can arrive hundreds of times per second. Buffer them away from
+    // Compose state and publish one snapshot every 40 ms instead of recomposing the full screen
+    // for every token.
+    val streamTokens = remember { Channel<String>(Channel.UNLIMITED) }
+    val streamBuffer = remember { StringBuilder() }
+    LaunchedEffect(streamTokens) {
+        while (isActive) {
+            val first = streamTokens.receive()
+            streamBuffer.append(first)
+            while (true) {
+                val next = streamTokens.tryReceive().getOrNull() ?: break
+                streamBuffer.append(next)
+            }
+            streamingResponse = streamBuffer.toString()
+            delay(40)
+        }
+    }
+    fun queueStreamToken(token: String) { streamTokens.trySend(token) }
     suspend fun persistConversation(turns: List<Pair<String, String>>, remoteTurns: List<Pair<String, String>>) {
         if (turns.isEmpty() || initialChatError.isNotBlank()) return
         val existing = chatSessions.firstOrNull { it.id == activeSessionId }
@@ -1127,9 +1148,19 @@ private fun NexusScreen(
                 },
                 actions = {
                     IconButton(enabled = !busy, onClick = {
+                        // Reset the visible session immediately; native context reset happens in
+                        // the background so the + action never waits for a model reload.
                         val resetModelPath = localModelPath
+                        conversation = emptyList()
+                        streamBuffer.clear()
+                        streamingResponse = ""
+                        remoteConversation = emptyList()
+                        collaborationTrace = ""
+                        activeSessionId = UUID.randomUUID().toString()
+                        answer = "New conversation started."
                         if (localReady && resetModelPath.isNotBlank()) {
                             busy = true
+                            activityStatus = "Resetting local model context in background…"
                             scope.launch {
                                 try {
                                     onUnloadLocal()
@@ -1138,25 +1169,16 @@ private fun NexusScreen(
                                     onLoadLocal(resetModelPath)
                                     localReady = true
                                     loadedModelPath = resetModelPath
-                                    answer = "New local conversation started. Model context was reset."
+                                    answer = "New conversation ready."
+                                    activityStatus = "Ready · local model loaded"
                                 } catch (error: Exception) {
                                     localReady = false
                                     loadedModelPath = ""
-                                    answer = "New chat started, but the local model must be loaded again: ${error.message}"
+                                    answer = "New chat is ready, but the local model needs reloading: ${error.message}"
                                 } finally {
-                                    conversation = emptyList()
-                                    streamingResponse = ""
-                                    remoteConversation = emptyList()
-                                    activeSessionId = UUID.randomUUID().toString()
                                     busy = false
                                 }
                             }
-                        } else {
-                            conversation = emptyList()
-                            streamingResponse = ""
-                            remoteConversation = emptyList()
-                            activeSessionId = UUID.randomUUID().toString()
-                            answer = "New conversation started."
                         }
                     }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
                     IconButton(onClick = { historyDialog = true }) { Icon(Icons.Default.History, contentDescription = "Conversation history") }
@@ -1233,6 +1255,7 @@ private fun NexusScreen(
                                 val imageAttachments = submittedAttachments.any { it.imageDataUrl != null }
                                 collaborationTrace = ""
                                 collaborationExpanded = false
+                                streamBuffer.clear()
                                 streamingResponse = ""
                                 busy = true
                                 activeGenerationJob = scope.launch {
@@ -1257,7 +1280,7 @@ private fun NexusScreen(
                                             val appAwarePrompt = NexusAppKnowledge.enrich(
                                             context, submittedPrompt.ifBlank { "Analyze attached image(s)." }
                                         )
-                                        val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> streamingResponse += token })
+                                        val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
                                             val updatedConversation = conversation + (displayPrompt to result)
@@ -1327,7 +1350,7 @@ private fun NexusScreen(
                                                     }
                                                     streamingResponse = ""
                                                     attemptedLocalInference = true
-                                                    onSendLocal(appAwarePrompt) { token -> streamingResponse += token }
+                                                    onSendLocal(appAwarePrompt) { token -> queueStreamToken(token) }
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (localError: Exception) {
@@ -1337,12 +1360,12 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1353,7 +1376,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
@@ -1362,7 +1385,7 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
