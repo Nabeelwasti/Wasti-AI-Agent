@@ -49,10 +49,10 @@ internal object NexusDeviceActionExecutor {
             }
             return if (notifications.isEmpty()) "No readable active notifications were found."
             else buildString {
-                append("Active notifications captured locally (not sent to an AI server):\\n")
+                append("Active notifications captured locally (not sent to an AI server):\n")
                 notifications.forEach { item ->
-                    append("• ").append(item.packageName).append(" · ").append(item.title).append("\\n")
-                    if (item.text.isNotBlank()) append(item.text).append("\\n")
+                    append("• ").append(item.packageName).append(" · ").append(item.title).append("\n")
+                    if (item.text.isNotBlank()) append(item.text).append("\n")
                 }
             }.take(12_000)
         }
@@ -75,10 +75,10 @@ internal object NexusDeviceActionExecutor {
                 val nodes = service.snapshot(120).filter { it.enabled && (it.text.isNotBlank() || it.contentDescription.isNotBlank()) }
                 if (nodes.isEmpty()) "No readable screen labels are currently exposed. Secure screens and some apps hide their content."
                 else buildString {
-                    append("Screen text captured locally (not sent to an AI server):\\n")
+                    append("Screen text captured locally (not sent to an AI server):\n")
                     nodes.take(40).forEach { node ->
                         val label = node.text.ifBlank { node.contentDescription }
-                        if (label.isNotBlank()) append("• ").append(label.replace('\\n', ' ').take(180)).append('\\n')
+                        if (label.isNotBlank()) append("• ").append(label.replace('\n', ' ').take(180)).append('\n')
                     }
                     if (nodes.size > 40) append("…and ").append(nodes.size - 40).append(" more visible controls.")
                 }.take(7_000)
