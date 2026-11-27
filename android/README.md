@@ -50,3 +50,12 @@ Online inference is optional. Local model downloads and offline chat do not requ
 - minSdk 33 (Android 13+)
 
 Open `android/` in Android Studio or run the CI Gradle build. The native library integration has been compiled in CI. Real-device model load, offline generation, RAM/thermal behaviour and upgrade tests are still required before calling offline mode device-certified.
+
+
+## Model health and chat experience (0.5.2)
+
+- The selected app-private GGUF model is loaded automatically after launch, import or model selection; a manual load step is no longer the normal path. A failed load remains visible with the exact runtime error and a retry action.
+- The Model Health panel lists all twelve catalogue entries and distinguishes loaded, installed-but-not-loaded, manually imported (GGUF metadata checked but pinned checksum not verified), incomplete transfer and not-installed states. A file in Downloads or a Drive folder is not yet installed into app-private runtime storage until imported/copied by NEXUS.
+- Chat messages support text selection, copy actions, and editing a prior user prompt. Active local generation can be stopped; request progress shows task classification and completion/failure state.
+- The current native Arm AI Chat integration loads one local GGUF model at a time and exposes text generation only. Local multi-model debate, image understanding, audio, file parsing, background parallel agents and a full tool execution framework are not claimed as implemented by this release. Online Hybrid can orchestrate only the distinct models actually configured on the connected gateway. UI progress reports actual workflow stages, not private chain-of-thought.
+- Device-specific load success still depends on Android RAM, thermals and the exact GGUF. A catalogue file being present is not proof that its native runtime can initialize it; the status panel surfaces the load result.
