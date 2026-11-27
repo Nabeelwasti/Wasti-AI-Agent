@@ -1981,7 +1981,7 @@ private fun NexusScreen(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        SelectionContainer { Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
+                        SelectionContainer { Text(parseNexusMarkdown(assistant), Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
                         TextButton(onClick = { clipboardManager.setText(AnnotatedString(assistant)) }) { Text("Copy response") }
                     }
                 }
@@ -2006,7 +2006,7 @@ private fun NexusScreen(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        SelectionContainer { Text(streamingResponse, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
+                        SelectionContainer { Text(parseNexusMarkdown(streamingResponse), Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
                         TextButton(onClick = { clipboardManager.setText(AnnotatedString(streamingResponse)) }) { Text("Copy response") }
                     }
                 }
