@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Current source version: 0.5.3 (`versionCode 8`).** Android local-model health/auto-load, cancellable generation, real gateway collaboration traces, bounded text attachments and remote vision-image attachments are implemented in the current `main` source. CI and the owner-signed APK for this exact source revision must pass before distributing it. Physical Redmi testing, provider deployment and long-running server benchmarks remain release gates.
+> **Current source version: 0.5.4 (`versionCode 9`).** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The signed 0.5.4 APK and current CI have passed. Physical Redmi testing and live provider inference remain release gates.
 
 ## Runtime hierarchy
 
@@ -22,7 +22,7 @@ Google Drive via Android Storage Access Framework is the sole user-controlled ar
 ## Implemented capabilities
 
 - Native Kotlin/Jetpack Compose Android app with local GGUF model management, automatic selected-model loading, per-model health state and offline chat.
-- Selectable/copyable chat messages, prompt editing, cancellable local and remote generation, and actual collaboration metadata from the gateway.
+- Chat workspace with encrypted local history (Android Keystore AES-256-GCM), conversation search/rename/delete/Markdown export, safe Markdown rendering, selectable/copyable responses, prompt editing, Stop/cancellation and streaming for local plus explicitly selected remote models. Auto/Hybrid remote responses remain non-streaming.
 - Bounded text/code attachments for local or remote context; JPEG/PNG/WebP attachments are sent only to a configured online vision-capable self-hosted model. Local native inference remains text-only.
 - Google Drive SAF workspace with persistent folder permission, size/SHA-256 checks and atomic installation.
 - Twelve original pinned model entries preserved in `nexus-model-catalog.json`.
@@ -31,13 +31,19 @@ Google Drive via Android Storage Access Framework is the sole user-controlled ar
 - Termux `llama-cpp` server setup and CLI, bound to loopback, authenticated with a generated local pairing token, one concurrent request and conservative defaults.
 - In-app 50-entry model governance catalogue with creator, capability, licence, hosting, commercial status and source links.
 - In-app third-party notices and full Apache-2.0/MIT licence texts.
-- Optional Cloudflare Worker relay with Workers AI removed from source, Wrangler config and deployed AI binding.
+- Optional Cloudflare Worker relay with Workers AI inference disabled, HTTPS-only self-hosted provider routing, licence/capability gates, request limits, customer-mode rate limiting, personal-memory isolation, provider-address SSRF checks and cancellable single-model SSE.
 
 ## Model activation is deliberately gated
 
 The 50-entry registry is not a claim that 50 weights are already downloaded or runnable. Each new model needs an exact official checkpoint, immutable revision, SHA-256, licence and usage-policy capture, runtime adapter, task-specific evaluation and device/server benchmark before it becomes installable. Large 27B–763B models are not phone downloads merely because they are open-weight.
 
 Apache-2.0 and MIT weights can generally be used commercially with their required notices, but the model licence does not make hosted API inference free or unlimited. Usage policies, voice-pack licences, community licences, trademarks and third-party rights still matter. See [models/extended-model-registry.json](models/extended-model-registry.json) and [docs/MODEL_LICENSING_AND_HOSTING.md](docs/MODEL_LICENSING_AND_HOSTING.md).
+
+## Current release and remaining gates
+
+- Current signed Android release: **0.5.4 / versionCode 9**. See [Release signing and artifacts](docs/RELEASE.md).
+- The deployed Worker is a relay, not an inference host. At this snapshot, no `NEXUS_PROVIDERS_JSON` provider catalogue is configured, so online model inference is not yet available.
+- Do not label the whole product production-certified until the provider round-trip, Redmi device regression, CodeQL alert triage, operational controls and remaining roadmap items are evidenced.
 
 ## Termux quick start
 
