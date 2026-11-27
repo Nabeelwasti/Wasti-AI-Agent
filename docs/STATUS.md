@@ -1,7 +1,7 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Validated application code commit:** pending 0.5.5 CI run  
+**Validated application code commit:** pending final 0.5.5 CI run  
 **Android release:** 0.5.5 (`versionCode 10`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
 **Workflow:** PR #35 was merged earlier; all subsequent work in this task was committed directly to `main`. No new PR was opened.
@@ -19,7 +19,7 @@
 - Durable local chat history: AES-256-GCM encrypted with a non-exportable Android Keystore key; atomic file writes with backup recovery; no artificial session/turn/5 MB caps; search includes remote turns, open, rename, delete and Markdown export.
 - Chat history no longer has app-imposed session, turn or 5 MB caps. The encrypted file remains subject to available device storage and process memory. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
 - Chat history remains on this device. It is not silently uploaded or included in the GitHub memory snapshot system. Markdown export writes to a destination explicitly selected by the user.
-- Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG; each file up to 128 KB; combined prompt context up to 24,000 characters.
+- Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG; each file up to 128 KB. No app-level combined text prompt character cap; model/provider context and request limits still apply.
 - JPEG, PNG and WebP attachments: each image up to 1 MB, at most two images per request and four attachments total. Images route only to online/Auto vision-capable providers, never to local text-only inference.
 
 ### Gateway and orchestration
