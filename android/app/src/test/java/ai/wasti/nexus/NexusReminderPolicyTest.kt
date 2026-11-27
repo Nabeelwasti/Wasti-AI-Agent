@@ -19,6 +19,27 @@ class NexusReminderPolicyTest {
         assertEquals("Choose a date within the next year.", NexusReminderPolicy.validate("Review", 1_000L + 366L * 24 * 60 * 60 * 1000, 1_000L))
     }
 
+    @Test fun parsesRelativeReminderWithExplicitAction() {
+        val now = 1_700_000_000_000L
+        val draft = NexusReminderParser.parse("Remind me to call home in 15 minutes", now)
+        assertEquals("call home", draft?.title)
+        assertEquals(now + 15 * 60 * 1000L, draft?.triggerAtMillis)
+    }
+
+    @Test fun parsesTomorrowReminderAndRejectsAmbiguousCommands() {
+        val now = java.time.LocalDateTime.of(2026, 11, 27, 10, 0)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val draft = NexusReminderParser.parse("remind me to submit assignment tomorrow at 5:30 pm", now)
+        assertEquals("submit assignment", draft?.title)
+        assertEquals(null, NexusReminderParser.parse("remind me about this later", now))
+        assertEquals(null, NexusReminderParser.parse("remind me to call home tomorrow at 5 pm", now).takeIf { it == null })
+    }
+
+    @Test fun nextReminderIdAvoidsExistingIds() {
+        val existing = listOf(NexusReminder(7, "existing", 99_999L))
+        assertEquals(8, NexusReminderParser.nextId(existing, 7L))
+    }
+
     @Test fun acceptsValidFutureReminder() {
         assertNull(NexusReminderPolicy.validate("Submit assignment", 60_000L, 1_000L))
     }
