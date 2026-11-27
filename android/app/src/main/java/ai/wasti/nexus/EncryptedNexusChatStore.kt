@@ -73,7 +73,8 @@ internal object NexusChatHistory {
  */
 internal class EncryptedNexusChatStore(context: Context) {
     private val alias = "wasti.nexus.chat.sessions.v1"
-    private val atomicFile = AtomicFile(File(context.filesDir, "chat/sessions.v1.enc"))
+    private val chatDirectory = File(context.filesDir, "chat").apply { check(exists() || mkdirs()) { "Could not create the private chat-history directory." } }
+    private val atomicFile = AtomicFile(File(chatDirectory, "sessions.v1.enc"))
     private val aad = "WASTI-NEXUS-CHAT-STORE-V1".toByteArray(Charsets.UTF_8)
     private val maxStoreBytes = 5 * 1024 * 1024
     private val maxSessions = 100
