@@ -107,3 +107,26 @@
 
 ### Privacy boundary
 The file-search permission is optional and user-granted. Search is on demand, not continuous. File contents are not automatically persisted into chat history or long-term memory. Remote sharing is a distinct opt-in. Android's protected app directories remain inaccessible.
+
+## 2026-11-27 verified 0.5.9 release and storage-boundary hardening
+
+**Current main commit:** `d51274833d31dd0eaeb516ea2539dacd0ac0833e` (verify branch head before using this snapshot).  
+**App version:** 0.5.9 (`versionCode 14`).  
+**Release candidate artifact:** signed APK from [workflow run 46031465824](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46031465824), artifact ID `15215335359`, SHA-256 `ff2c3c233f445949dcc831cb3bac41844dc7591c7f10f529a37de7c0f0aa32cf`. Artifact retention expires 2026-12-27 unless downloaded earlier. No GitHub Release/tag has been published.
+
+### Latest verification evidence before this follow-up hardening
+
+- CI run [46031465834](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46031465834): all four jobs passed, including Android debug assembly, Android JVM tests, Python/source validation, Worker syntax/unit tests and deployed gateway policy smoke test.
+- Signed release run [46031465824](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46031465824): signed APK assembled, signature verified, artifact uploaded.
+- Security run [46031465780](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46031465780): Java/Kotlin, JavaScript/TypeScript and Python CodeQL analyses completed successfully. A successful scan is not proof that the repository has zero alerts; alert triage must still be checked.
+
+### Additional storage hardening committed after that build
+
+- Canonical path containment is checked before opening any shared-storage file or descending into a directory, preventing a symlink inside shared storage from being used to read a target outside the shared-storage root.
+- Text reads now enforce the 128 KiB ceiling while streaming, even if a file grows after its initial size check.
+- Added JVM coverage for canonical path containment and symlink escape rejection.
+- These changes require a fresh CI and signed-release run; the earlier successful artifact is for the prior commit and does not contain this follow-up hardening.
+
+### Corrected status interpretation
+
+The earlier sections in this file describe prior milestones and should not be read as the current release snapshot. Current Android build/test, signed APK, CodeQL, live inference-provider setup and physical-device test results must be taken from the latest workflow runs and actual device evidence. The app is a signed release candidate, not a fully production-certified autonomous phone agent.
