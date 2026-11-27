@@ -1680,6 +1680,12 @@ private fun NexusScreen(
                     else "Battery settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Background & battery settings") }
                 OutlinedButton(onClick = {
+                    runCatching {
+                        context.startActivity(Intent(context, NexusReminderActivity::class.java))
+                        answer = "Opened your on-device reminder manager."
+                    }.onFailure { answer = "Could not open reminders: ${it.message}" }
+                }, modifier = Modifier.fillMaxWidth()) { Text("My reminders · on this phone") }
+                OutlinedButton(onClick = {
                     answer = if (NexusSystemAccess.createAlarm(context)) "Opened Android Clock to create an alarm. Review and save it there."
                     else "No compatible Clock app was found."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Create an alarm in Clock") }
