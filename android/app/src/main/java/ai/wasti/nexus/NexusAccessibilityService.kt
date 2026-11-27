@@ -94,8 +94,11 @@ class NexusAccessibilityService : AccessibilityService() {
         requireMainThread()
         require(viewId.isNotBlank() && viewId.length <= MAX_ID)
         require(value.length <= MAX_TEXT)
-        val node = findNode { it.isEnabled && it.isEditable && it.viewIdResourceName == viewId }
-            ?: return false
+        // Never let a model or future tool executor write into password fields.
+        // Credentials must be entered directly by the user in the target app.
+        val node = findNode {
+            it.isEnabled && it.isEditable && !it.isPassword && it.viewIdResourceName == viewId
+        } ?: return false
         val args = android.os.Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
         }
