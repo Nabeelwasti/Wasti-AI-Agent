@@ -1192,7 +1192,7 @@ private fun NexusScreen(
                                             snapshot = snapshot,
                                             remoteConfigured = remoteConfigured && !loopback,
                                             localServerAvailable = localServerAvailable,
-                                            prompt = submittedPrompt
+                                            prompt = textContextPrompt
                                         )
                                         val result = when (decision.route) {
                                             NexusRoute.LOCAL -> {
@@ -1205,7 +1205,7 @@ private fun NexusScreen(
                                                     }
                                                     streamingResponse = ""
                                                     attemptedLocalInference = true
-                                                    onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                                    onSendLocal(textContextPrompt) { token -> streamingResponse += token }
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (localError: Exception) {
