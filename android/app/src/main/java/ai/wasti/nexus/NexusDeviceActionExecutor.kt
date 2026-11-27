@@ -8,6 +8,7 @@ internal sealed class NexusDeviceAction {
     data object Home : NexusDeviceAction()
     data object Notifications : NexusDeviceAction()
     data object ReadScreen : NexusDeviceAction()
+    data object ReadNotifications : NexusDeviceAction()
 }
 
 internal data class NexusDeviceActionDraft(val action: NexusDeviceAction, val description: String)
@@ -28,6 +29,7 @@ internal object NexusDeviceActionParser {
         if (value.equals("go home", true) || value.equals("press home", true)) return NexusDeviceActionDraft(NexusDeviceAction.Home, "Go to the Android Home screen")
         if (value.equals("open notifications", true) || value.equals("show notifications", true)) return NexusDeviceActionDraft(NexusDeviceAction.Notifications, "Open the Android notification shade")
         if (value.equals("read current screen", true) || value.equals("show current screen text", true)) return NexusDeviceActionDraft(NexusDeviceAction.ReadScreen, "Read visible screen labels locally")
+        if (value.equals("list notifications", true) || value.equals("read my notifications", true) || value.equals("show my notifications", true)) return NexusDeviceActionDraft(NexusDeviceAction.ReadNotifications, "Read currently active notification content locally")
         val match = click.matchEntire(value) ?: return null
         val label = match.groupValues[1].trim().trim('"', '\'')
         if (label.isBlank() || label.length > 60 || prohibited.any { term ->
@@ -54,6 +56,21 @@ internal object NexusDeviceActionExecutor {
             NexusDeviceAction.Back -> if (service.pressBack()) "Android accepted the Back action." else "Android did not accept the Back action."
             NexusDeviceAction.Home -> if (service.pressHome()) "Android accepted the Home action." else "Android did not accept the Home action."
             NexusDeviceAction.Notifications -> if (service.openNotifications()) "Android accepted the notification-shade action." else "Android did not accept the notification-shade action."
+            NexusDeviceAction.ReadNotifications -> {
+                val listener = NexusNotificationListenerService.current()
+                    ?: return "Notification content is unavailable. Enable WASTI NEXUS under Android Settings → Notification access, then try again."
+                val notifications = runCatching { listener.readActiveNotifications(25) }.getOrElse {
+                    return "Could not read active notifications: ${it.message}"
+                }
+                if (notifications.isEmpty()) "No readable active notifications were found."
+                else buildString {
+                    append("Active notifications captured locally (not sent to an AI server):\\n")
+                    notifications.forEach { item ->
+                        append("• ").append(item.packageName).append(" · ").append(item.title).append("\\n")
+                        if (item.text.isNotBlank()) append(item.text).append("\\n")
+                    }
+                }.take(12_000)
+            }
             NexusDeviceAction.ReadScreen -> {
                 val nodes = service.snapshot(120).filter { it.enabled && (it.text.isNotBlank() || it.contentDescription.isNotBlank()) }
                 if (nodes.isEmpty()) "No readable screen labels are currently exposed. Secure screens and some apps hide their content."
