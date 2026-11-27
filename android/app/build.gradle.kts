@@ -129,5 +129,5 @@ val generateNexusAppKnowledge by tasks.registering {
         target.writeText(groovy.json.JsonOutput.toJson(chunks), Charsets.UTF_8)
     }
 }
-android.sourceSets.getByName("main").assets.srcDir(nexusGeneratedAssets)
+android.sourceSets.getByName("main").assets.srcDir(nexusGeneratedAssets.get().asFile)
 tasks.named("preBuild").configure { dependsOn(generateNexusAppKnowledge) }
