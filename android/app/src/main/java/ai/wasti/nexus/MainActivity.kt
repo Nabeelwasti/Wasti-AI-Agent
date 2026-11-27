@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -166,7 +167,10 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 chatHistoryResult = withContext(Dispatchers.IO) { runCatching { chatStore.load() } }
             }
-            MaterialTheme {
+            MaterialTheme(
+                colorScheme = if (isSystemInDarkTheme()) dynamicDarkColorScheme(this@MainActivity)
+                else dynamicLightColorScheme(this@MainActivity)
+            ) {
                 if (chatHistoryResult == null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -1338,7 +1342,7 @@ private fun NexusScreen(
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1349,7 +1353,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
@@ -1358,7 +1362,7 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, textContextPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
@@ -1799,9 +1803,13 @@ private fun NexusScreen(
                     )
                     FilterChip(selected = !hybrid, onClick = { hybrid = false }, label = { Text("Single brain") })
                 }
+                Text(
+                    "Hybrid team splits a request across configured specialist models, compares their independent outputs, then synthesizes one answer. It needs at least two distinct online models.",
+                    style = MaterialTheme.typography.bodySmall
+                )
                 if (configuredRemoteModelCount < 2) {
                     Text(
-                        "Hybrid requires at least two distinct configured online models. Single-brain mode is active.",
+                        "Add at least two distinct online models to enable Hybrid team.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
