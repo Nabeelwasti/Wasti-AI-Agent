@@ -80,7 +80,7 @@ class NexusAccessibilityService : AccessibilityService() {
     fun clickByText(label: String, exact: Boolean = true): Boolean {
         requireMainThread()
         require(label.isNotBlank() && label.length <= MAX_TEXT)
-        val node = findNode { candidate ->
+        val node = findUniqueNode { candidate ->
             val text = candidate.text?.toString().orEmpty()
             val description = candidate.contentDescription?.toString().orEmpty()
             candidate.isEnabled && candidate.isClickable &&
@@ -182,6 +182,29 @@ class NexusAccessibilityService : AccessibilityService() {
             .addStroke(GestureDescription.StrokeDescription(path, 0L, duration))
             .build()
         return dispatchGesture(gesture, null, null)
+    }
+
+    /**
+     * Resolve only a unique target. If traversal is capped before the whole
+     * exposed tree is visited, or multiple controls match, fail closed.
+     */
+    private fun findUniqueNode(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        var visited = 0
+        var match: AccessibilityNodeInfo? = null
+        while (stack.isNotEmpty() && visited < MAX_NODES) {
+            val node = stack.removeLast()
+            visited++
+            if (predicate(node)) {
+                if (match != null) return null
+                match = node
+            }
+            for (i in node.childCount - 1 downTo 0) node.getChild(i)?.let(stack::add)
+        }
+        if (stack.isNotEmpty()) return null
+        return match
     }
 
     private fun findNode(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
