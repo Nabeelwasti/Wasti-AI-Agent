@@ -1,10 +1,11 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Validated code commit:** `c157f162b6705196ba58ca65cfc7fdfb6b2206d2` (subsequent commits in this snapshot update documentation only)  
+**Validated application code commit:** `c157f162b6705196ba58ca65cfc7fdfb6b2206d2` (the newer commits in this snapshot add security automation and documentation only)  
+**Current main:** `45875c46cae78f221d8e9db754e6a85493b47f98`  
 **Android source version:** 0.5.3 (`versionCode 8`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
-**Workflow:** existing PR #35 merged as `fd575a9c24a4e9e0c806aba095dfa32c38a2459f`; subsequent feature, fix and documentation commits were made directly on `main`. No open PRs remain.
+**Workflow:** existing PR #35 merged as `fd575a9c24a4e9e0c806aba095dfa32c38a2459f`; subsequent feature, fix, security automation and documentation commits were made directly on `main`. No open PRs remain.
 
 ## Implemented in main
 
@@ -28,24 +29,29 @@
 - Python orchestrator, Termux companion, model registries, licensing notices and SDK sources remain in the single monorepo.
 - Added [provider setup guide](PROVIDER_SETUP.md) and replaced the old hosted-provider sample with a disabled, licence-gated self-hosted template.
 
+### Security automation
+- Added `.github/workflows/security.yml`: CodeQL `security-extended` scans for Java/Kotlin, Python and JavaScript/TypeScript on relevant main pushes, pull requests, weekly schedule and manual dispatch.
+- Android CodeQL extraction uses the same pinned Java 17, Android SDK 36 and Gradle 9.7 build environment as the app CI rather than an incompatible automatic Gradle guess.
+- CodeQL workflow run [45953488056](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45953488056) completed successfully for all three language jobs. A successful scan means analysis was uploaded; it does not mean every finding is automatically cleared. Review and triage any alerts in GitHub Security.
+
 ## Validation evidence
 
-- Main CI run [45919187620](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45919187620) passed all four jobs:
+- Latest main CI run [45953488048](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45953488048) passed all four jobs on current main `45875c46cae78f221d8e9db754e6a85493b47f98`:
   - Android debug build, Android JVM tests and ephemeral CI signing validation.
-  - Cloudflare Worker syntax and **28/28 Worker unit tests passed** (vision capability routing, unsupported/remote image rejection, request-wide limits, malformed base64, exact 1 MB boundary and cancellation propagation).
+  - Cloudflare Worker syntax and Worker unit tests.
   - Python orchestrator tests, registry/schema tests, Python compilation, Termux validation and JSON validation.
-  - Deployed relay-policy smoke test after the Worker deployment.
+  - Deployed relay-policy smoke test.
+- Earlier detailed main CI run [45919187620](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45919187620) passed all four jobs and recorded **28/28 Worker unit tests passed** (vision capability routing, unsupported/remote image rejection, request-wide limits, malformed base64, exact 1 MB boundary and cancellation propagation).
 - Worker `wasti-nexus-gateway` was deployed through the authenticated Cloudflare account on 2026-11-27 at `00:51:43Z`. A subsequent Cloudflare API read verified that the deployed script contains the vision validation, base64 padding correction and cancellation propagation. Existing `NEXUS_API_KEY`, `NEXUS_GITHUB_TOKEN` and `NEXUS_RATE_LIMIT` bindings were preserved; no AI binding is present.
 - Owner-signed Android 0.5.3 APK: [release run 45918446509](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45918446509), artifact `wasti-nexus-signed-release-apk`, artifact ID `15163370977` (17,395,468 bytes). Signature verified with APK Signature Scheme v2.
 - Signing certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`. It matches the 0.5.2 release certificate, so the signed 0.5.3 APK can be installed as an upgrade without uninstalling or clearing app data.
-- Earlier main CI run [45918371443](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45918371443) also passed all four jobs.
 
 ## Known deployment and product limits
 
 - **No inference provider is configured in the deployed Worker.** The deployed bindings do not currently include `NEXUS_PROVIDERS_JSON`. The gateway therefore has no usable online model catalogue yet. A healthy relay and a passing policy smoke test do not mean that online chat or vision inference is available.
 - An owner-controlled HTTPS OpenAI-compatible inference server and its provider credential must be configured before online models can be listed or called. This is a self-hosted server credential, not a paid AI-vendor API key. Model weights being open-source/free to download does not make remote compute free or automatically available.
 - Vision code is deployed and unit-tested, but no live authenticated vision-provider request can pass until a real vision model/provider is configured.
-- The signed APK's Android code matches the current Android source; subsequent main commits after its build changed gateway code/tests/docs only.
+- The signed APK's Android code matches the current Android source; the newer main commits add security automation and documentation only.
 
 ## Production gates still open
 
@@ -59,7 +65,8 @@
 8. **Model archive:** the 50-entry governance catalogue is not 50 installable models. Exact artifact, immutable revision, checksum, licence, runtime compatibility and benchmark gates remain per checkpoint. The original twelve GGUF archive entries remain preserved.
 9. **Memory recovery:** complete live encrypted-memory upload/restore and cross-device recovery drills; document retention and public GitHub ciphertext metadata implications.
 10. **Production operations:** configure and verify provider quotas, per-customer isolation, monitoring/alerts, incident response, backups, abuse handling and a data-retention/deletion policy before offering this as a customer service.
+11. **Security findings triage:** review all CodeQL alerts produced by the new workflow, confirm false positives with evidence and fix any confirmed findings before a public customer deployment.
 
 ## Release decision
 
-**Status: signed release candidate; not fully production-certified.** The 0.5.3 Android APK is signed, its signing certificate matches 0.5.2, the main CI is green, and the updated Worker source is deployed. However, there is no configured inference provider and no physical-device validation evidence. Persistent history, remote streaming, tool execution and several multimodal capabilities are also still open. Do not advertise the entire repository/product as fully production-ready until those external and product gates are closed with evidence.
+**Status: signed release candidate; not fully production-certified.** Current main CI and three-language CodeQL automation pass, the 0.5.3 APK is signed, and the updated Worker source is deployed. However, there is no configured inference provider and no physical-device validation evidence. Persistent history, remote streaming, tool execution and several multimodal capabilities are also still open. Do not advertise the entire repository/product as fully production-ready until those external and product gates are closed with evidence.
