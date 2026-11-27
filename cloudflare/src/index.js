@@ -1,6 +1,9 @@
 const MAX_AGENTS = 12;
 const MAX_MESSAGES = 40;
-const MAX_REQUEST_CHARS = 30000;
+const MAX_REQUEST_CHARS = 5_500_000;
+const MAX_IMAGE_BYTES = 1_000_000;
+const MAX_IMAGES_PER_MESSAGE = 2;
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const CONSOLE_HTML = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"theme-color\" content=\"#10131b\"><title>WASTI NEXUS — AI Brain</title>\n<style>\n:root{color-scheme:dark;font-family:Inter,system-ui,Segoe UI,sans-serif;background:#10131b;color:#edf1fa}\n*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#273653 0,transparent 55%),#10131b}\nmain{max-width:900px;margin:auto;padding:28px 18px 60px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:1px solid #5e81b8;border-radius:14px;display:grid;place-items:center;color:#a9c9ff;font-weight:800}\nh1{font-size:1.35rem;letter-spacing:.13em;margin:0}.sub{color:#aab5c8;margin:5px 0 26px}.panel{background:#171e2a;border:1px solid #2b3749;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 14px 35px #0003}\nlabel{display:block;color:#aebbd0;font-size:.85rem;margin:12px 0 6px}input,select,textarea{width:100%;background:#0e1420;color:#f4f7ff;border:1px solid #34445c;border-radius:10px;padding:12px;font:inherit}textarea{min-height:130px;resize:vertical}\n.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 18px;background:#8bb6ff;color:#08111f;font-weight:750;cursor:pointer}button.secondary{background:#2a3b55;color:#eaf2ff}button:disabled{opacity:.5;cursor:wait}\n.status{font-size:.9rem;color:#b6c5da;white-space:pre-wrap;overflow-wrap:anywhere}.answer{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}.muted{color:#91a0b7;font-size:.82rem}.pill{display:inline-block;border:1px solid #40526c;border-radius:99px;padding:4px 9px;color:#bdd3f5;font-size:.75rem}\n@media(max-width:620px){.row{grid-template-columns:1fr}main{padding:22px 13px}}\n</style></head>\n<body><main>\n<header><div class=\"brand\"><div class=\"mark\">N</div><h1>WASTI NEXUS</h1></div><p class=\"sub\">Self-hosted inference · Local-first routing · Hybrid intelligence</p></header>\n<section class=\"panel\">\n<div class=\"row\"><div><label for=\"key\">NEXUS API key</label><input id=\"key\" type=\"password\" autocomplete=\"off\" placeholder=\"Enter your API key\"></div><div><label for=\"model\">Brain</label><select id=\"model\"><option value=\"nexus-hybrid\">NEXUS Hybrid</option></select></div></div>\n<div class=\"actions\"><button id=\"refresh\" class=\"secondary\">Refresh model catalogue</button><span id=\"status\" class=\"status\">Connecting to gateway…</span></div>\n<p class=\"muted\">Your key stays in this page's memory and is not saved. Do not use a shared master key for customer access.</p>\n</section>\n<section class=\"panel\">\n<label for=\"prompt\">Ask NEXUS</label><textarea id=\"prompt\" placeholder=\"What would you like the AI brains to work on?\"></textarea>\n<div class=\"actions\"><button id=\"send\">Send request</button><span class=\"pill\" id=\"mode\">Hybrid orchestration</span></div>\n</section>\n<section class=\"panel\"><label>Response</label><div id=\"answer\" class=\"answer\">Choose a brain and send a prompt. Offline inference is provided by the Android app, not this online page.</div></section>\n<p class=\"muted\">Self-hosted provider relay only · No Cloudflare Workers AI inference or model storage.</p>\n</main>\n<script>\nconst $=id=>document.getElementById(id), key=()=>$(\"key\").value.trim();\nfunction status(s){$(\"status\").textContent=s}\nasync function loadModels(){status(\"Loading configured brains…\");try{const r=await fetch(\"/v1/models\",{headers:{Authorization:\"Bearer \"+key()}});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail||\"HTTP \"+r.status);const list=d.data||[];const actual=list.filter(m=>![\"nexus-auto\",\"nexus-hybrid\"].includes(m.id));const options=[...(actual.length>=2?[{id:\"nexus-hybrid\",owned_by:\"WASTI NEXUS\"}]:[]),...list.filter(m=>m.id!==\"nexus-hybrid\")];$(\"model\").replaceChildren(...options.map(m=>{const o=document.createElement(\"option\");o.value=m.id;o.textContent=m.id+(m.owned_by?\" · \"+m.owned_by:\"\");return o}));if(!options.some(m=>m.id===$(\"model\").value))$(\"model\").value=options[0]?.id||\"\";$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":$(\"model\").value===\"nexus-auto\"?\"Automatic task routing\":\"Single brain\";status(actual.length>=2?actual.length+\" configured brains available. Hybrid is enabled.\":actual.length===1?\"1 configured brain available. Hybrid is disabled until a second distinct model is configured.\":\"Gateway is online, but no inference models are configured yet.\");}catch(e){status(\"Catalogue unavailable: \"+e.message)}}\n$(\"refresh\").addEventListener(\"click\",loadModels);\n$(\"model\").addEventListener(\"change\",()=>{$(\"mode\").textContent=$(\"model\").value===\"nexus-hybrid\"?\"Hybrid orchestration\":$(\"model\").value===\"nexus-auto\"?\"Automatic task routing\":\"Single brain\"});\n$(\"send\").addEventListener(\"click\",async()=>{const prompt=$(\"prompt\").value.trim();if(!prompt)return; if(!key()){status(\"Enter your API key first.\");return}const btn=$(\"send\");btn.disabled=true;$(\"answer\").textContent=\"Working…\";try{const model=$(\"model\").value;const body={model,messages:[{role:\"user\",content:prompt}],stream:false};if(model===\"nexus-hybrid\")body.nexus={mode:\"hybrid\",review_rounds:1};const r=await fetch(\"/v1/chat/completions\",{method:\"POST\",headers:{\"Authorization\":\"Bearer \"+key(),\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d?.error?.message||d?.detail?.message||d?.detail||\"HTTP \"+r.status);$(\"answer\").textContent=d.choices?.[0]?.message?.content||\"No answer returned.\";status(\"Completed.\");}catch(e){$(\"answer\").textContent=\"Request failed: \"+e.message;status(\"Check provider setup and API key.\")}finally{btn.disabled=false}});\nloadModels();\n</script></body></html>";
 
 class GatewayError extends Error {
@@ -150,15 +153,54 @@ function validateMessages(body) {
   }
   let total = 0;
   const messages = body.messages.map(message => {
-    if (!message || !["system", "user", "assistant"].includes(message.role) ||
-        typeof message.content !== "string" || message.content.length > 24000) {
-      throw new GatewayError("Each message requires a supported role and text content", 400);
+    if (!message || !["system", "user", "assistant"].includes(message.role)) {
+      throw new GatewayError("Each message requires a supported role", 400);
     }
-    total += message.content.length;
-    return { role: message.role, content: message.content };
+    if (typeof message.content === "string") {
+      if (message.content.length > 24000) throw new GatewayError("Message text is too large", 413);
+      total += message.content.length;
+      return { role: message.role, content: message.content };
+    }
+    if (message.role !== "user" || !Array.isArray(message.content) || message.content.length < 1 || message.content.length > 5) {
+      throw new GatewayError("Structured content is supported only for user messages with up to five parts", 400);
+    }
+    let imageCount = 0;
+    const parts = message.content.map(part => {
+      if (!part || typeof part !== "object") throw new GatewayError("Invalid message content part", 400);
+      if (part.type === "text" && typeof part.text === "string" && part.text.length <= 24000) {
+        total += part.text.length;
+        return { type: "text", text: part.text };
+      }
+      if (part.type === "image_url" && part.image_url && typeof part.image_url.url === "string") {
+        const match = /^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(part.image_url.url);
+        if (!match || !IMAGE_MIME_TYPES.has(match[1])) {
+          throw new GatewayError("Images must be JPEG, PNG or WebP data URLs; remote image URLs are not accepted", 400);
+        }
+        const encoded = match[2];
+        const estimatedBytes = Math.floor(encoded.length * 3 / 4);
+        if (estimatedBytes > MAX_IMAGE_BYTES) throw new GatewayError("Each image must be 1 MB or smaller", 413);
+        imageCount += 1;
+        if (imageCount > MAX_IMAGES_PER_MESSAGE) throw new GatewayError("A message may contain at most two images", 400);
+        total += part.image_url.url.length;
+        return { type: "image_url", image_url: { url: part.image_url.url } };
+      }
+      throw new GatewayError("Unsupported content part. Use text or an inline JPEG, PNG or WebP image.", 400);
+    });
+    return { role: message.role, content: parts };
   });
   if (total > MAX_REQUEST_CHARS) throw new GatewayError("Combined message content is too large", 413);
   return messages;
+}
+
+function messageText(messages) {
+  return messages.map(message => typeof message.content === "string"
+    ? message.content
+    : message.content.filter(part => part.type === "text").map(part => part.text).join(" ")).join(" ");
+}
+
+function containsImages(messages) {
+  return messages.some(message => Array.isArray(message.content) &&
+    message.content.some(part => part.type === "image_url"));
 }
 
 function findModel(env, modelId) {
@@ -246,11 +288,8 @@ function validateGenerationOptions(body) {
 }
 
 function classifyAutoTask(messages) {
-  const text = messages
-    .filter(message => message.role === "user" || message.role === "system")
-    .map(message => message.content)
-    .join(" ")
-    .toLowerCase();
+  const text = messageText(messages).toLowerCase();
+  if (containsImages(messages)) return "vision";
   if (["generate image", "create image", "draw", "illustration", "flux"].some(term => text.includes(term))) return "image_generation";
   if (["transcribe", "speech to text", "voice note", "audio transcription"].some(term => text.includes(term))) return "speech_to_text";
   if (["read aloud", "text to speech", "speak this", "voice output"].some(term => text.includes(term))) return "text_to_speech";
@@ -264,7 +303,7 @@ function classifyAutoTask(messages) {
 async function autoBody(body, env, headers) {
   const messages = validateMessages(body);
   const task = classifyAutoTask(messages);
-  if (!["general", "coding", "reasoning"].includes(task)) {
+  if (!["general", "coding", "reasoning", "vision"].includes(task)) {
     throw new GatewayError(
       "This self-hosted text gateway does not have a verified runtime for the requested modality.",
       400,
@@ -274,6 +313,7 @@ async function autoBody(body, env, headers) {
   const available = modelCatalog(env);
   const candidates = available.filter(model => {
     const capabilities = new Set(model.capabilities.map(value => String(value).toLowerCase()));
+    if (task === "vision") return capabilities.has("vision");
     if (task === "general") return capabilities.has("chat");
     return capabilities.has(task) || capabilities.has("chat");
   }).sort((left, right) => {
@@ -331,6 +371,12 @@ async function single(request, env, headers) {
     throw new GatewayError("A configured model ID is required", 400);
   }
   const messages = validateMessages(body);
+  if (containsImages(messages)) {
+    const selected = findModel(env, body.model);
+    if (!selected || !selected.model.capabilities?.some(value => String(value).toLowerCase() === "vision")) {
+      throw new GatewayError("The selected model is not verified as vision-capable. Choose a configured model with the vision capability.", 400);
+    }
+  }
   const result = await invoke(env, body.model, messages, body);
   return json({
     id: crypto.randomUUID(),
@@ -355,8 +401,9 @@ async function hybrid(request, env, headers) {
 
 async function hybridBody(body, env, headers) {
   const messages = validateMessages(body);
-  const prompt = [...messages].reverse().find(message => message.role === "user")?.content;
-  if (!prompt) throw new GatewayError("A user message is required for Hybrid mode", 400);
+  const prompt = [...messages].reverse().find(message => message.role === "user");
+  const promptText = prompt ? (typeof prompt.content === "string" ? prompt.content : prompt.content.filter(part => part.type === "text").map(part => part.text).join(" ")) : "";
+  if (!promptText && !containsImages(messages)) throw new GatewayError("A user message is required for Hybrid mode", 400);
 
   const available = modelCatalog(env);
   const requested = Array.isArray(body.models) && body.models.length
@@ -365,7 +412,9 @@ async function hybridBody(body, env, headers) {
       ? body.nexus.agents
       : available.map(model => model.id);
   const uniqueRequested = [...new Set(requested.filter(id => typeof id === "string"))].slice(0, MAX_AGENTS);
-  const selected = uniqueRequested.filter(id => available.some(model => model.id === id));
+  const visionRequest = containsImages(messages);
+  const selected = uniqueRequested.filter(id => available.some(model => model.id === id &&
+    (!visionRequest || model.capabilities.some(value => String(value).toLowerCase() === "vision"))));
   const unavailable = uniqueRequested.filter(id => !selected.includes(id));
   if (!selected.length) {
     throw new GatewayError("No configured agents are available for Hybrid mode", 503, {
