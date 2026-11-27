@@ -9,7 +9,10 @@ One repository, one app identity and one reusable brain API. Runtime components 
 - Kotlin/Jetpack Compose application.
 - Local inference through Arm AI Chat (`com.arm:ai-chat:0.1.0`), backed by llama.cpp, for compatible GGUF checkpoints.
 - Manual GGUF import through Android's document picker, app-private model storage, load/unload lifecycle and a conservative RAM preflight. The first one-tap catalogue entry copies the pinned Qwen2.5-0.5B-Instruct Q4_K_M file from the owner's selected Google Drive folder, verifies exact byte length and SHA-256, then installs it in app-private storage. The Drive-backed catalogue currently enables the verified Qwen starter file; remaining model families and checksum verification for manual imports remain pending. SAF transfers restart from zero after interruption.
-- Encrypted local memory and conversation history.
+- Local memory snapshots are encrypted client-side with a user passphrase; optional remote snapshots contain ciphertext only.
+- Chat conversations use a separate app-private AES-256-GCM store with a non-exportable Android Keystore key and AtomicFile writes. The store is local-only (100 sessions / 5 MB), supports search, rename, delete and user-selected Markdown export; it is not silently synchronized to GitHub.
+- Assistant output uses a small safe Markdown renderer for headings, emphasis, quotes, lists and code. It does not execute HTML or automatically open model-generated links.
+- Local token streaming and Stop are supported. Remote SSE is supported only for an explicitly selected single model; Auto/Hybrid return completed results so fallback, peer review and synthesis remain truthful. Android cancellation is propagated to the Worker and upstream provider.
 - Default Auto routing is local-first: use the selected installed GGUF model whenever it is ready. Remote inference is an explicit optional fallback/online mode, never a prerequisite for chat. Local turns are not sent to remote conversation history. Offline mode never sends inference prompts to the gateway.
 - The client must remain usable for local chat without an API key, internet permission grant or Cloudflare availability.
 
