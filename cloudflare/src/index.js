@@ -454,7 +454,7 @@ async function hybridBody(body, env, headers) {
       },
       {
         role: "user",
-        content: `Task:\n${prompt}\n\nPeer answers:\n` +
+        content: `Task:\n${promptText || "Analyze the attached image(s)."}\n\nPeer answers:\n` +
           successful.map(item => `[${item.id}]\n${item.content}`).join("\n\n"),
       },
     ];
@@ -483,7 +483,7 @@ async function hybridBody(body, env, headers) {
     },
     {
       role: "user",
-      content: `Original task:\n${prompt}\n\nIndependent answers:\n` +
+      content: `Original task:\n${promptText || "Analyze the attached image(s)."}\n\nIndependent answers:\n` +
         successful.map(item => `[${item.id}]\n${item.content}`).join("\n\n") +
         "\n\nPeer reviews:\n" +
         reviews.filter(item => item.ok).map(item => `[${item.id}]\n${item.content}`).join("\n\n"),
