@@ -1099,7 +1099,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
