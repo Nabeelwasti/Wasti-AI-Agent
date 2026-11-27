@@ -1014,6 +1014,10 @@ private fun NexusScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     var showDeviceControlDisclosure by remember { mutableStateOf(false) }
     var deviceControlEnabled by remember { mutableStateOf(NexusAccessibilityService.isEnabled(context)) }
+    var allowFileContextOnline by remember {
+        mutableStateOf(context.getSharedPreferences("nexus-accessibility", android.content.Context.MODE_PRIVATE)
+            .getBoolean("allow_file_context_online", false))
+    }
     val clipboardManager = LocalClipboardManager.current
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
@@ -1390,12 +1394,23 @@ private fun NexusScreen(
                                             answer = "Completed via configured self-hosted vision model."
                                             return@launch
                                         }
-                                        val textContextPrompt = buildString {
+                                        var textContextPrompt = buildString {
                                             append(submittedPrompt)
                                             submittedAttachments.filter { it.textContent != null }.forEach { attachment ->
                                                 append("\n\n[Attached file: ").append(attachment.name).append("]\n")
                                                 append(attachment.textContent.orEmpty())
                                             }
+                                        }
+                                        val fileSearchRequest = NexusFileSearch.isSearchRequest(submittedPrompt)
+                                        if (fileSearchRequest) {
+                                            require(NexusFileSearch.hasAccess()) {
+                                                "To search your shared phone storage, open Settings → Allow shared-storage file search and grant Android's All files access."
+                                            }
+                                            activityStatus = "Searching shared storage locally…"
+                                            val hits = withContext(Dispatchers.IO) {
+                                                NexusFileSearch.search(context, submittedPrompt)
+                                            }
+                                            textContextPrompt += "\n\n" + NexusFileSearch.formatForModel(submittedPrompt, hits)
                                         }
                                         val appAwarePrompt = NexusAppKnowledge.enrich(context, textContextPrompt)
                                         val task = NexusRuntimePolicy.classify(textContextPrompt)
@@ -1433,6 +1448,11 @@ private fun NexusScreen(
                                             localServerAvailable = localServerAvailable,
                                             prompt = textContextPrompt
                                         )
+                                        if (fileSearchRequest && decision.route != NexusRoute.LOCAL && !allowFileContextOnline) {
+                                            throw IllegalStateException(
+                                                "Your file contents stayed on this phone. Switch to Offline mode or explicitly enable online file-context sharing in Settings before using a remote brain."
+                                            )
+                                        }
                                         val result = when (decision.route) {
                                             NexusRoute.LOCAL -> {
                                                 try {
@@ -1614,6 +1634,31 @@ private fun NexusScreen(
                     else "Android app settings are unavailable on this device."
                 }, modifier = Modifier.fillMaxWidth()) { Text("App permissions & notifications") }
                 OutlinedButton(onClick = {
+                    answer = if (NexusSystemAccess.hasAllFilesAccess()) {
+                        "All files access is enabled. NEXUS can now search user-visible shared storage when you ask it to find files."
+                    } else if (NexusSystemAccess.openAllFilesAccess(context)) {
+                        "Review Android's All files access screen and explicitly allow WASTI NEXUS. Android/data and other apps' private storage remain protected."
+                    } else {
+                        "Android All files access settings are unavailable on this device."
+                    }
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (NexusSystemAccess.hasAllFilesAccess()) "Shared storage search · enabled" else "Allow shared-storage file search")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = allowFileContextOnline,
+                        onCheckedChange = {
+                            allowFileContextOnline = it
+                            context.getSharedPreferences("nexus-accessibility", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("allow_file_context_online", it).apply()
+                        }
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Allow selected file excerpts to online AI models", style = MaterialTheme.typography.bodyMedium)
+                        Text("Off by default. When off, file-search requests must use an on-device model.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                OutlinedButton(onClick = {
                     answer = if (NexusSystemAccess.openOverlayAccess(context)) "Opened Display over other apps settings. Allow only if you later enable a floating assistant."
                     else "Overlay settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Display over other apps · optional") }
@@ -1650,7 +1695,7 @@ private fun NexusScreen(
                     else "Location settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Location settings") }
                 Text(
-                    "Not requested by default: All files access, SMS/call logs, premium SMS, device-admin privileges, install-unknown-apps, body sensors, health data, unrestricted data, system-setting writes and background location. These are either unnecessary for current features, highly sensitive, restricted, or require a separate core feature and explicit design. Files use Android's document picker; photos use the system photo picker; alarms and calendar events use user-confirmed app forms.",
+                    "SMS/call logs, device-admin privileges, install-unknown-apps, body sensors, Health Connect, unrestricted data, system-setting writes and background location remain separate features and are not silently granted. Shared-storage search excludes Android/data, Android/obb and other apps' private sandboxes. Text search reads bounded local excerpts; PDF/Office/media files currently return metadata only. Remote file-context sharing is off until you enable it above.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
