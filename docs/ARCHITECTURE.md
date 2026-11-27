@@ -20,11 +20,11 @@ One OpenAI-compatible endpoint exposes `GET /v1/models` and `POST /v1/chat/compl
 - `nexus-hybrid`, which runs independent analysis, bounded peer review and one synthesis step only when at least two distinct configured model IDs exist;
 - a local model through the Android SDK/runtime, without sending the prompt to the server.
 
-The API never reports an unconfigured model as available or fabricates model participation. Native Workers AI model IDs are exposed only when the AI binding is present. It exposes capability, availability, provider and licence metadata separately. Customer-mode API requests require a configured per-key Rate Limiting binding; its counters are approximate and local to each Cloudflare location, not a strict global quota.
+The API never reports an unconfigured model as available or fabricates model participation. Only configured, enabled, licence-approved self-hosted provider model IDs are exposed. It exposes capability, availability, provider and licence metadata separately. Customer-mode API requests require a configured per-key Rate Limiting binding; its counters are approximate and local to each Cloudflare location, not a strict global quota.
 
 ### Online hosting
 
-Cloudflare hosts the optional web console and inference gateway only. It does not store model weights. The owner's private Google Drive is the designated archive for approved GGUF checkpoints; Android obtains scoped access through the system Storage Access Framework folder picker, verifies files, and installs them in app-private storage. The two configured Workers AI models (Gemma 4 26B A4B and Qwen 3.8 27B) remain optional hosted fallbacks. Remote inference is separate from local execution and is subject to provider availability and usage terms. No Cloudflare storage product is part of the model archive.
+Cloudflare hosts the optional web console and a protected relay to owner-controlled self-hosted OpenAI-compatible providers. Cloudflare Workers AI inference is disabled, and the Worker does not store model weights. The owner's Google Drive is the designated archive for approved GGUF checkpoints; Android obtains scoped access through the system Storage Access Framework folder picker, verifies files, and installs them in app-private storage. Remote inference is separate from local execution and is subject to the configured provider's availability, capacity, licence and usage terms.
 
 ## Request routing
 
