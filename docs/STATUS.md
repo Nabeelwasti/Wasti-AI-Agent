@@ -135,3 +135,12 @@ The earlier sections in this file describe prior milestones and should not be re
 ### Follow-up correction: implementation head and 25-commit review
 
 The shared-storage security hardening is present through implementation commit `7e1a0062f75e1c554f0d710280f9ba549558cb1e`. The most recent 25 commits were reviewed at the per-commit diff level. They cover the 0.5.8 accessibility/screenshot/streaming/new-chat fixes and the 0.5.9 file-search implementation, permission UX, privacy documentation, resource bounds, and subsequent symlink/read-limit hardening. No unrelated files or model/gateway credentials were changed in this follow-up. CI, signed release and CodeQL results for the implementation head are tracked by runs 46034162193, 46034162260 and 46034162346 respectively; do not treat them as passed until their final conclusions are success.
+
+
+## 2026-11-27 release candidate 0.5.10
+
+**App version:** `0.5.10` (`versionCode 15`).  
+**Implementation commit:** `3653563141c59ae56205c99889b16125d64ac628`.  
+This version-code increment is intentional: the earlier 0.5.9 artifact used versionCode 14, so a device that already installed that APK can upgrade without uninstalling or clearing app data.
+
+The 0.5.10 source includes the shared-storage symlink containment check, bounded streaming text reads, and regression tests for out-of-root/symlink paths and oversized text files. The signed release, Android CI and CodeQL workflows have been triggered for the implementation commit. Their final results and the signed artifact must be checked before installing; prior run results do not certify this commit.
