@@ -172,7 +172,7 @@ function validateMessages(body) {
         return { type: "text", text: part.text };
       }
       if (part.type === "image_url" && part.image_url && typeof part.image_url.url === "string") {
-        const match = /^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(part.image_url.url);
+        const match = /^data:(image[/](?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(part.image_url.url);
         if (!match || !IMAGE_MIME_TYPES.has(match[1])) {
           throw new GatewayError("Images must be JPEG, PNG or WebP data URLs; remote image URLs are not accepted", 400);
         }
