@@ -1569,7 +1569,7 @@ private fun NexusScreen(
                 Text("DEVICE CONTROL", style = MaterialTheme.typography.titleMedium)
                 Text(
                     if (deviceControlEnabled) "Accessibility service is enabled in Android Settings."
-                    else "Optional Android permission. The service is a foundation only; the AI action executor is not connected yet.",
+                    else "Optional Android permission. It enables a small set of chat actions only after you review and approve each action.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 OutlinedButton(
@@ -1623,7 +1623,7 @@ private fun NexusScreen(
                         text = {
                             SelectionContainer {
                                 Text(
-                                    "If you enable this optional Android Accessibility Service, WASTI NEXUS can read interface labels and controls exposed by the active app and perform requested taps, text entry, scrolling and navigation. Password fields are redacted. Android may restrict sensitive screens and some apps may not expose their controls. The service does not continuously record the screen or send screen content to a server by itself. The AI action executor is not connected in this build, so enabling the service alone will not make chat commands control your phone. You can disable the service at any time in Android Accessibility settings."
+                                    "If you enable this optional Android Accessibility Service, WASTI NEXUS can read interface labels and controls exposed by the active app and perform requested taps, text entry, scrolling and navigation. Password fields are redacted. Android may restrict sensitive screens and some apps may not expose their controls. The service does not continuously record the screen or send screen content to a server by itself. Chat commands support only a narrow approved set: exact visible-label clicks, scrolling, Back, Home, opening notifications, and local screen-text reading. Every action requires a separate confirmation. Sending, deleting, payments, installation, permission changes, and credential entry are not supported. You can disable the service at any time in Android Accessibility settings."
                                 )
                             }
                         },
