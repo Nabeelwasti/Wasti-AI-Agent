@@ -653,3 +653,38 @@ test("client cancellation aborts the upstream self-hosted provider request", asy
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("gateway accepts the exact 1 MB base64 image size after padding adjustment", async () => {
+  const originalFetch = globalThis.fetch;
+  let providerCalled = false;
+  globalThis.fetch = async () => {
+    providerCalled = true;
+    return Response.json({ choices: [{ message: { content: "Image accepted." } }] });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host",
+        base_url: "https://inference.example/v1",
+        api_key_env: "PRIVATE_HOST_KEY",
+        models: [{ id: "vision-brain", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "vision"] }],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const base64 = "A".repeat(1_333_334) + "==";
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "vision-brain",
+      messages: [{ role: "user", content: [
+        { type: "text", text: "Describe this image." },
+        { type: "image_url", image_url: { url: "data:image/png;base64," + base64 } },
+      ] }],
+      stream: false,
+    }), configured);
+    assert.equal(response.status, 200);
+    assert.equal(providerCalled, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
