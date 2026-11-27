@@ -1,6 +1,6 @@
 # WASTI NEXUS chat workspace
 
-## Available in Android 0.5.4
+## Available in Android 0.5.5
 
 - **Conversation history:** sessions are saved after each completed assistant turn.
 - **Encryption at rest:** AES-256-GCM with a non-exportable Android Keystore key; writes use AtomicFile.
@@ -12,8 +12,10 @@
 
 ## Storage boundaries
 
-- Up to 100 sessions, 500 turns per session and 5 MB total encrypted store.
+- No application-imposed session count, turn count or 5 MB history cap. History grows until the device's private storage or Android process resources become the real constraint; extremely large histories can still be limited by available storage and memory.
 - History is local-only and is not silently uploaded to GitHub, Cloudflare or an inference provider.
+- The app loads and saves history on an IO dispatcher. AtomicFile backup recovery is attempted before reporting an empty history.
+- Search includes local and remote conversation turns. The complete saved conversation is displayed; remote prompts no longer silently discard turns after the first ten.
 - Attachments themselves are not retained in the session database; only the prompt and attachment names are saved.
 - Markdown export is readable plaintext written to the destination the user selects. Protect that exported file like any other personal document.
 - Deleting a session removes it from the encrypted local database. It does not delete any separately exported Markdown file.
