@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Current release: 0.5.0 (`versionCode 5`).** PR #30 and PR #31 are merged. The signed release APK passed signature verification. Physical Redmi testing, all new model checkpoints, multimodal runtimes and long-running server benchmarks remain validation gates.
+> **Current source version: 0.5.3 (`versionCode 8`).** Android local-model health/auto-load, cancellable generation, real gateway collaboration traces, bounded text attachments and remote vision-image attachments are implemented in the current `main` source. CI and the owner-signed APK for this exact source revision must pass before distributing it. Physical Redmi testing, provider deployment and long-running server benchmarks remain release gates.
 
 ## Runtime hierarchy
 
@@ -13,7 +13,7 @@ WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an op
 3. **Owner-controlled inference host:** optional direct HTTPS connection to a workstation/server/cluster you operate. Use this for models too large for the phone.
 4. **Optional Cloudflare relay:** edge authentication and request relay only. Cloudflare Workers AI inference is disabled; the relay is never required for offline or critical work.
 
-Auto mode checks validated internet, Wi-Fi/mobile-data transport, metered status, available RAM, thermal state and battery before choosing a route. Offline mode never falls through to internet. Unsupported tasks such as image generation, speech or training are blocked unless an installed specialist runtime actually supports them.
+Auto mode checks validated internet, Wi-Fi/mobile-data transport, metered status, available RAM, thermal state and battery before choosing a route. Offline mode never falls through to internet. Unsupported tasks such as image generation, speech or training are blocked unless an installed specialist runtime actually supports them. Image understanding is available only through a configured online vision-capable provider; it is not an offline capability.
 
 ## Storage policy
 
@@ -21,7 +21,9 @@ Google Drive via Android Storage Access Framework is the sole user-controlled ar
 
 ## Implemented capabilities
 
-- Native Kotlin/Jetpack Compose Android app with local GGUF model management and offline chat.
+- Native Kotlin/Jetpack Compose Android app with local GGUF model management, automatic selected-model loading, per-model health state and offline chat.
+- Selectable/copyable chat messages, prompt editing, cancellable local and remote generation, and actual collaboration metadata from the gateway.
+- Bounded text/code attachments for local or remote context; JPEG/PNG/WebP attachments are sent only to a configured online vision-capable self-hosted model. Local native inference remains text-only.
 - Google Drive SAF workspace with persistent folder permission, size/SHA-256 checks and atomic installation.
 - Twelve original pinned model entries preserved in `nexus-model-catalog.json`.
 - Task-aware Python orchestrator with `nexus-auto`, provider capability matching, explicit licence gates, task-specific priorities, circuit breakers and sequential fallback.
