@@ -19,7 +19,7 @@ Private Drive access uses Android's system folder picker (Storage Access Framewo
 
 ## Current online inference
 
-The deployed Worker has a first-party Cloudflare Workers AI binding and currently exposes:
+The Worker is a protected relay to owner-controlled self-hosted providers. Cloudflare Workers AI is disabled. The Worker exposes:
 
 - Public health: `GET /healthz`
 - Authenticated model list: `GET /v1/models`
@@ -27,9 +27,9 @@ The deployed Worker has a first-party Cloudflare Workers AI binding and currentl
 - Authenticated hybrid route: `POST /v1/hybrid/chat/completions`
 - Encrypted personal-memory snapshot routes under `/v1/memory/snapshots`
 
-Current built-in model IDs: `nexus-gemma-4-26b-a4b` backed by `@cf/google/gemma-4-26b-a4b-it`, and `nexus-qwen-3.8-27b` backed by `@cf/qwen/qwen3.8-27b`. These are optional hosted fallbacks, not the owner's twelve-model archive. Workers AI inference is separate from local model execution and has its own service availability and usage terms.
+The model catalogue is built from `NEXUS_PROVIDERS_JSON` and includes only enabled, configured, licence-approved self-hosted models. The Worker is not an inference host and does not make models free; provider hardware, bandwidth, licence and operating costs remain the owner's responsibility.
 
-The Worker has passed the public health/model-catalogue smoke test. The Cloudflare account-level Gemma and Qwen model tests both generated responses. The GitHub Actions authenticated chat-route smoke test is currently skipped because the repository secret `NEXUS_API_KEY` is not configured. Do not mark authenticated route verification as passed until that test visibly executes.
+The Worker health and protected-route smoke tests verify the relay-only deployment policy. The live authenticated chat path still requires a configured `NEXUS_API_KEY` secret and at least one enabled provider in `NEXUS_PROVIDERS_JSON`. Do not mark inference availability as verified until a real authenticated provider request succeeds.
 
 ## API key policy
 
@@ -52,7 +52,7 @@ Deploy the Worker through the configured Cloudflare account and verify the deplo
 
 ## Model acquisition and offline mode
 
-Termux is not required to run the Android app or execute local inference. The app currently supports manual GGUF import, metadata validation, one active local model at a time, load/unload and removal. Auto mode is local-first; online inference is an explicit optional route. Offline mode never sends inference prompts to the gateway.
+Termux is not required to run the Android app or execute local inference. The app supports manual GGUF import, metadata validation, one active local model at a time, automatic selected-model loading, load/unload and removal. Chat accepts bounded text/code attachments. JPEG/PNG/WebP images are routed only to a configured online provider whose model declares `vision`; the on-device runtime remains text-only. Auto mode is local-first; online inference is an explicit optional route. Offline mode never sends inference prompts to the gateway.
 
 The first phone-sized candidate is Qwen2.5-0.5B-Instruct Q4_K_M. It is pinned with an upstream SHA-256, but has not been downloaded to or tested on the target phone. The app now includes the scoped Drive folder picker and verified Qwen copy path; the remaining eleven models are still pending exact artifact and licence validation. The Drive transfer has not yet been certified on the target phone. See [MODEL_DISTRIBUTION.md](MODEL_DISTRIBUTION.md), [Google Drive model workspace](GOOGLE_DRIVE_MODEL_WORKSPACE.md) and [the model catalogue](../models/README.md).
 
