@@ -59,3 +59,15 @@ The workflow fails closed when required secrets are absent. It does not silently
 - Keep the signing key and passwords backed up. Do not rotate the signing identity casually.
 - Install and test the signed APK on the target device, including an upgrade over the previous signed build.
 - The signed artifact is not device-certified until offline GGUF generation, install/upgrade behaviour, memory use, thermal behaviour and battery use have been tested on real hardware.
+
+
+## Verified Android 0.5.4 release (2026-11-27)
+
+- Version: `0.5.4` (`versionCode 9`).
+- Workflow: [WASTI NEXUS signed Android release — run 45968917127](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917127).
+- Artifact: `wasti-nexus-signed-release-apk`, ID `15184321293`.
+- APK signature: APK Signature Scheme v2 verified.
+- Release certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636` (same signing identity as 0.5.2 and 0.5.3).
+- 0.5.4 includes encrypted local chat history, history search/rename/delete/Markdown export, safe Markdown display and remote single-model SSE.
+
+Install as an upgrade over 0.5.3 without uninstalling or clearing app data. The release build and signature are verified in CI; physical-device behavior must still be tested on the target phone before broad distribution.
