@@ -1,16 +1,29 @@
 {
   "providers": [
     {
-      "id": "openrouter-free",
-      "base_url": "https://openrouter.ai/api/v1",
-      "api_key_env": "NEXUS_OPENROUTER_API_KEY",
+      "id": "replace-with-your-self-hosted-provider",
+      "base_url": "https://inference.example/v1",
+      "api_key_env": "NEXUS_SELF_HOSTED_API_KEY",
       "models": [
         {
-          "id": "openrouter/free",
-          "upstream_model": "openrouter/free",
+          "id": "replace-with-general-model-id",
+          "upstream_model": "replace-with-upstream-model-id",
           "agent": "generalist",
-          "enabled": true,
-          "commercial_allowed": false
+          "enabled": false,
+          "license": "review exact checkpoint licence",
+          "license_status": "review_required",
+          "commercial_allowed": false,
+          "capabilities": ["chat", "coding", "reasoning"]
+        },
+        {
+          "id": "replace-with-vision-model-id",
+          "upstream_model": "replace-with-vision-upstream-id",
+          "agent": "vision",
+          "enabled": false,
+          "license": "review exact checkpoint licence",
+          "license_status": "review_required",
+          "commercial_allowed": false,
+          "capabilities": ["chat", "vision"]
         }
       ]
     }
