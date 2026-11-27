@@ -140,7 +140,7 @@ The shared-storage security hardening is present through implementation commit `
 ## 2026-11-27 release candidate 0.5.10
 
 **App version:** `0.5.10` (`versionCode 15`).  
-**Implementation commit:** `3653563141c59ae56205c99889b16125d64ac628`.  
+**Implementation commit:** `bc233fb2b39db0bfb9d9e1af13223b04d6c978e7`.  
 This version-code increment is intentional: the earlier 0.5.9 artifact used versionCode 14, so a device that already installed that APK can upgrade without uninstalling or clearing app data.
 
-The 0.5.10 source includes the shared-storage symlink containment check, bounded streaming text reads, and regression tests for out-of-root/symlink paths and oversized text files. The signed release, Android CI and CodeQL workflows have been triggered for the implementation commit. Their final results and the signed artifact must be checked before installing; prior run results do not certify this commit.
+The 0.5.10 source includes the shared-storage symlink containment check, bounded streaming text reads, and regression tests for out-of-root/symlink paths and oversized text files. A further privacy review found and closed an AUTO-mode fallback path that could otherwise send local file excerpts to a remote model after local inference failed; a policy helper and regression test now require the same explicit opt-in on fallback. The signed release, Android CI and CodeQL workflows have been triggered for the implementation commit. Their final results and the signed artifact must be checked before installing; prior run results do not certify this commit.
