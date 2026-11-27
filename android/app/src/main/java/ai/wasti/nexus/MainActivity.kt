@@ -56,6 +56,50 @@ import javax.crypto.spec.GCMParameterSpec
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+internal data class NexusAttachment(val name: String, val mimeType: String, val textContent: String? = null, val imageDataUrl: String? = null)
+
+private fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
+    val resolver = context.contentResolver
+    val mime = (resolver.getType(uri) ?: "").lowercase().substringBefore(';')
+    val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getString(0) else null
+    }?.takeIf { it.isNotBlank() } ?: "attachment"
+    val extension = name.substringAfterLast('.', "").lowercase()
+    val textTypes = setOf("text/plain", "text/markdown", "text/csv", "application/json", "application/xml", "text/xml", "text/html")
+    val textExtensions = setOf("txt", "md", "csv", "json", "xml", "html", "kt", "py", "js", "log")
+    val imageTypes = setOf("image/jpeg", "image/png", "image/webp")
+    val isText = mime in textTypes || extension in textExtensions
+    val normalizedMime = when {
+        isText -> mime.takeIf { it in textTypes } ?: when (extension) {
+            "json" -> "application/json"; "xml" -> "application/xml"; "csv" -> "text/csv"
+            "html" -> "text/html"; "md" -> "text/markdown"; else -> "text/plain"
+        }
+        else -> mime
+    }
+    require(isText || normalizedMime in imageTypes) { "Unsupported type. Use TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS, LOG, JPEG, PNG or WebP." }
+    val limit = if (isText) 128 * 1024 else 1_000_000
+    val bytes = resolver.openInputStream(uri)?.use { input ->
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= limit) { if (isText) "Text attachments must be 128 KB or smaller." else "Images must be 1 MB or smaller." }
+            output.write(buffer, 0, count)
+        }
+        output.toByteArray()
+    } ?: throw IllegalStateException("Could not open the selected attachment.")
+    require(bytes.isNotEmpty()) { "The selected attachment is empty." }
+    return if (isText) {
+        val content = String(bytes, Charsets.UTF_8)
+        require('\u0000' !in content) { "The selected file is not valid UTF-8 text." }
+        NexusAttachment(name, normalizedMime, textContent = content)
+    } else {
+        NexusAttachment(name, normalizedMime, imageDataUrl = "data:" + normalizedMime + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
+    }
+}
 internal class GatewayHttpException(
     val statusCode: Int,
     message: String
@@ -152,8 +196,8 @@ class MainActivity : ComponentActivity() {
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
                     onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns, passphrase -> syncMemorySnapshot(url, key, turns, passphrase) },
-                    onSendRemote = { url, key, history, prompt, hybrid, agentId, onCollaboration ->
-                        sendRemote(url, key, history, prompt, hybrid, agentId, onCollaboration)
+                    onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, onCollaboration ->
+                        sendRemote(url, key, history, prompt, hybrid, agentId, attachments, onCollaboration)
                     }
                 )
             }
@@ -696,6 +740,7 @@ class MainActivity : ComponentActivity() {
         prompt: String,
         hybrid: Boolean,
         agentId: String,
+        attachments: List<NexusAttachment>,
         onCollaboration: (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
@@ -718,7 +763,21 @@ class MainActivity : ComponentActivity() {
             messages.put(JSONObject().put("role", "user").put("content", user))
             messages.put(JSONObject().put("role", "assistant").put("content", assistant))
         }
-        messages.put(JSONObject().put("role", "user").put("content", prompt))
+        val textAttachments = attachments.filter { it.textContent != null }
+        val promptWithFiles = buildString {
+            append(prompt)
+            textAttachments.forEach { attachment ->
+                append("\n\n[Attached file: ").append(attachment.name).append("]\n")
+                append(attachment.textContent.orEmpty())
+            }
+        }
+        require(promptWithFiles.length <= 24000) { "Message and text attachments exceed the 24,000 character limit." }
+        val images = attachments.mapNotNull { it.imageDataUrl }
+        val currentContent: Any = if (images.isEmpty()) promptWithFiles else JSONArray().apply {
+            put(JSONObject().put("type", "text").put("text", promptWithFiles))
+            images.forEach { dataUrl -> put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", dataUrl))) }
+        }
+        messages.put(JSONObject().put("role", "user").put("content", currentContent))
         val automatic = agentId == "nexus-auto"
         val payload = JSONObject()
             .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
@@ -821,7 +880,7 @@ private fun NexusScreen(
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
-    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, (String) -> Unit) -> String
+    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, List<NexusAttachment>, (String) -> Unit) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -839,6 +898,7 @@ private fun NexusScreen(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(initialPrompt) }
+    var attachments by remember { mutableStateOf(emptyList<NexusAttachment>()) }
     var answer by remember { mutableStateOf("Welcome to WASTI NEXUS. Install a local model to begin private offline chat.") }
     var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var streamingResponse by remember { mutableStateOf("") }
@@ -908,6 +968,20 @@ private fun NexusScreen(
                 answer = "Google Drive model workspace connected. Local model downloads need no AI API key."
             } catch (error: Exception) {
                 answer = "Could not connect Google Drive folder: ${error.message}"
+            }
+        }
+    }
+    val attachmentPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                require(attachments.size < 4) { "You can attach up to four files per message." }
+                val attachment = readNexusAttachment(context, uri)
+                attachments = attachments + attachment
+                answer = "Attached " + attachment.name + "."
+            } catch (error: Exception) {
+                answer = "Attachment rejected: " + (error.message ?: "unsupported file")
             }
         }
     }
@@ -995,6 +1069,31 @@ private fun NexusScreen(
             Surface(modifier = Modifier.imePadding(), tonalElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth()) {
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (attachments.isNotEmpty()) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            attachments.forEachIndexed { index, attachment ->
+                                AssistChip(
+                                    onClick = { if (!busy) attachments = attachments.filterIndexed { itemIndex, _ -> itemIndex != index } },
+                                    label = { Text(attachment.name + "  ×", maxLines = 1) },
+                                    enabled = !busy
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            enabled = !busy && attachments.size < 4,
+                            onClick = { attachmentPicker.launch(arrayOf("text/*", "application/json", "application/xml", "image/jpeg", "image/png", "image/webp")) }
+                        ) { Text("＋ Attach files") }
+                        Text("Text ≤128 KB · images ≤1 MB · up to 4 files", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1011,9 +1110,11 @@ private fun NexusScreen(
                         if (activeGenerationJob != null) {
                             OutlinedButton(onClick = { activeGenerationJob?.cancel() }) { Text("Stop") }
                         } else Button(
-                            enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
+                            enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || (attachments.none { it.imageDataUrl != null } && (localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())))),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
+                                val submittedAttachments = attachments.toList()
+                                val imageAttachments = submittedAttachments.any { it.imageDataUrl != null }
                                 collaborationTrace = ""
                                 collaborationExpanded = false
                                 busy = true
@@ -1027,7 +1128,35 @@ private fun NexusScreen(
                                             else -> NexusMode.ONLINE
                                         }
                                         activityStatus = "Understanding your request and classifying the task..."
-                                        val task = NexusRuntimePolicy.classify(submittedPrompt)
+                                        if (imageAttachments) {
+                                            require(!offlineMode) { "Image understanding requires Online or Auto mode and a configured vision-capable self-hosted model." }
+                                            val root = url.trim().trimEnd('/')
+                                            val loopback = NexusRuntimePolicy.isLoopbackHttp(root)
+                                            require((loopback || (root.startsWith("https://") && key.length >= 32)) &&
+                                                remoteModels.contains(if (autoMode) "nexus-auto" else agentId)) {
+                                                "Configure and refresh a remote gateway with a vision-capable model before sending images."
+                                            }
+                                            val targetAgent = if (autoMode) "nexus-auto" else agentId
+                                            val result = onSendRemote(url, key, remoteConversation, submittedPrompt, false, targetAgent, submittedAttachments) { collaborationTrace = it }
+                                            val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
+                                                submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
+                                            conversation = conversation + (displayPrompt to result)
+                                            remoteConversation = remoteConversation + (displayPrompt to result)
+                                            prompt = ""
+                                            attachments = emptyList()
+                                            activityStatus = "Completed · online vision inference"
+                                            answer = "Completed via configured self-hosted vision model."
+                                            return@launch
+                                        }
+                                        val textContextPrompt = buildString {
+                                            append(submittedPrompt)
+                                            submittedAttachments.filter { it.textContent != null }.forEach { attachment ->
+                                                append("\n\n[Attached file: ").append(attachment.name).append("]\n")
+                                                append(attachment.textContent.orEmpty())
+                                            }
+                                        }
+                                        require(textContextPrompt.length <= 24000) { "Message and text attachments exceed the 24,000 character limit." }
+                                        val task = NexusRuntimePolicy.classify(textContextPrompt)
                                         activityStatus = "Task: ${task.name.lowercase()} · selecting the best available route..."
                                         val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
@@ -1083,12 +1212,12 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
+                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList()) { collaborationTrace = it }
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto") { collaborationTrace = it }
+                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, "nexus-auto", emptyList()) { collaborationTrace = it }
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1099,7 +1228,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
+                                                onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList()) { collaborationTrace = it }
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
@@ -1108,16 +1237,19 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, submittedPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent) { collaborationTrace = it }
+                                                onSendRemote(url, key, remoteConversation, textContextPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList()) { collaborationTrace = it }
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
-                                        conversation = conversation + (submittedPrompt to result)
+                                        val displayPrompt = submittedPrompt +
+                                            submittedAttachments.takeIf { it.isNotEmpty() }?.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }.orEmpty()
+                                        conversation = conversation + (displayPrompt to result)
                                         streamingResponse = ""
                                         if (usedRemote) {
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
+                                        attachments = emptyList()
                                         activityStatus = "Completed · ${if (usedRemote) "online" else "on-device"} inference"
                                         answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (cancelled: CancellationException) {
