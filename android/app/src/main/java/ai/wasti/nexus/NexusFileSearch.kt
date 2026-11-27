@@ -58,10 +58,10 @@ internal object NexusFileSearch {
         require(terms.isNotEmpty()) { "Please include a filename, person, subject or keyword to search for." }
 
         val hits = ArrayList<Pair<Int, NexusFileHit>>()
-        var visited = 0
+        var textFilesScanned = 0
+        var totalTextBytes = 0L
         root.walkTopDown().onEnter { directory ->
             val relative = runCatching { directory.canonicalPath.removePrefix(root.path).trimStart(File.separatorChar) }.getOrDefault("")
-            val first = relative.substringBefore(File.separatorChar, relative)
             val androidPrivate = relative.equals("Android/data", true) ||
                 relative.startsWith("Android/data${File.separator}", true) ||
                 relative.equals("Android/obb", true) ||
