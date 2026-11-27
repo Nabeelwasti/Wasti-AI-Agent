@@ -2360,8 +2360,9 @@ private fun NexusScreen(
                 if (historyNotice.isNotBlank()) {
                     Text(historyNotice, color = if (initialChatError.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
-                if (pendingReminderDraft != null) {
-                    val draft = requireNotNull(pendingReminderDraft)
+                val reminderDraftToConfirm = pendingReminderDraft
+                if (reminderDraftToConfirm != null) {
+                    val draft = reminderDraftToConfirm
                     AlertDialog(
                         onDismissRequest = { pendingReminderDraft = null },
                         title = { Text("Confirm this reminder") },
