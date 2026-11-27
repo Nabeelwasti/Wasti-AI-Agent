@@ -819,7 +819,7 @@ private fun NexusScreen(
     }
     // Automatically load the selected model after launch, import or model selection.
     LaunchedEffect(localModelPath, installedModels) {
-        kotlinx.coroutines.flow.snapshotFlow { busy }.first { isBusy -> !isBusy }
+        androidx.compose.runtime.snapshotFlow { busy }.first { isBusy -> !isBusy }
         if (localModelPath.isBlank() || localModelPath !in installedModels ||
             loadedModelPath == localModelPath || autoLoadAttemptedPath == localModelPath) return@LaunchedEffect
         autoLoadAttemptedPath = localModelPath
