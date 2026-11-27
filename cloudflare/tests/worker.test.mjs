@@ -474,7 +474,7 @@ test("customer catalogue hides models without explicit commercial clearance", as
   assert.deepEqual(ids, ["approved-model", "nexus-auto"]);
 });
 
-test("chat gateway rejects streaming before provider dispatch", async () => {
+test("streaming refuses an unconfigured model without contacting a provider", async () => {
   const response = await worker.fetch(
     authedRequest("/v1/chat/completions", "POST", {
       model: "qwen",
@@ -483,7 +483,7 @@ test("chat gateway rejects streaming before provider dispatch", async () => {
     }),
     env,
   );
-  assert.equal(response.status, 400);
+  assert.equal(response.status, 404);
 });
 
 
