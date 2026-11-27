@@ -41,6 +41,21 @@ internal object NexusDeviceActionParser {
 
 internal object NexusDeviceActionExecutor {
     fun execute(action: NexusDeviceAction): String {
+        if (action == NexusDeviceAction.ReadNotifications) {
+            val listener = NexusNotificationListenerService.current()
+                ?: return "Notification content is unavailable. Enable WASTI NEXUS under Android Settings → Notification access, then try again."
+            val notifications = runCatching { listener.readActiveNotifications(25) }.getOrElse {
+                return "Could not read active notifications: ${it.message}"
+            }
+            return if (notifications.isEmpty()) "No readable active notifications were found."
+            else buildString {
+                append("Active notifications captured locally (not sent to an AI server):\\n")
+                notifications.forEach { item ->
+                    append("• ").append(item.packageName).append(" · ").append(item.title).append("\\n")
+                    if (item.text.isNotBlank()) append(item.text).append("\\n")
+                }
+            }.take(12_000)
+        }
         val service = NexusAccessibilityService.current()
             ?: return "Device action not run. Enable WASTI NEXUS Device Control in Android Accessibility settings first."
         return when (action) {
@@ -56,33 +71,19 @@ internal object NexusDeviceActionExecutor {
             NexusDeviceAction.Back -> if (service.pressBack()) "Android accepted the Back action." else "Android did not accept the Back action."
             NexusDeviceAction.Home -> if (service.pressHome()) "Android accepted the Home action." else "Android did not accept the Home action."
             NexusDeviceAction.Notifications -> if (service.openNotifications()) "Android accepted the notification-shade action." else "Android did not accept the notification-shade action."
-            NexusDeviceAction.ReadNotifications -> {
-                val listener = NexusNotificationListenerService.current()
-                    ?: return "Notification content is unavailable. Enable WASTI NEXUS under Android Settings → Notification access, then try again."
-                val notifications = runCatching { listener.readActiveNotifications(25) }.getOrElse {
-                    return "Could not read active notifications: ${it.message}"
-                }
-                if (notifications.isEmpty()) "No readable active notifications were found."
-                else buildString {
-                    append("Active notifications captured locally (not sent to an AI server):\\n")
-                    notifications.forEach { item ->
-                        append("• ").append(item.packageName).append(" · ").append(item.title).append("\\n")
-                        if (item.text.isNotBlank()) append(item.text).append("\\n")
-                    }
-                }.take(12_000)
-            }
             NexusDeviceAction.ReadScreen -> {
                 val nodes = service.snapshot(120).filter { it.enabled && (it.text.isNotBlank() || it.contentDescription.isNotBlank()) }
                 if (nodes.isEmpty()) "No readable screen labels are currently exposed. Secure screens and some apps hide their content."
                 else buildString {
-                    append("Screen text captured locally (not sent to an AI server):\n")
+                    append("Screen text captured locally (not sent to an AI server):\\n")
                     nodes.take(40).forEach { node ->
                         val label = node.text.ifBlank { node.contentDescription }
-                        if (label.isNotBlank()) append("• ").append(label.replace('\n', ' ').take(180)).append('\n')
+                        if (label.isNotBlank()) append("• ").append(label.replace('\\n', ' ').take(180)).append('\\n')
                     }
                     if (nodes.size > 40) append("…and ").append(nodes.size - 40).append(" more visible controls.")
                 }.take(7_000)
             }
+            NexusDeviceAction.ReadNotifications -> error("Notification branch is handled before accessibility lookup.")
         }
     }
 }
