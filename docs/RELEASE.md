@@ -36,7 +36,7 @@ base64 -w 0 wasti-nexus-release.jks
 On macOS:
 
 ```bash
-base64 < wasti-nexus-release.jks | tr -d '\\n'
+base64 < wasti-nexus-release.jks | tr -d '\n'
 ```
 
 Paste that output directly into the GitHub secret value. Do not put the base64 value in the repository.
