@@ -68,4 +68,4 @@ Replace `MODEL_ID` with the ID printed by `nexus models`. Paste the generated lo
 - Android sandbox and Termux:API permissions remain in force. No unrestricted shell, root bypass or silent device control is claimed.
 - Passing CI does not certify real-device inference quality, sustained thermals, battery life, Urdu quality or server uptime.
 
-See [docs/STATUS.md](docs/STATUS.md), [docs/ORCHESTRATION_AND_COMPUTE.md](docs/ORCHESTRATION_AND_COMPUTE.md), and [docs/SECURITY.md](docs/SECURITY.md).
+See [docs/STATUS.md](docs/STATUS.md), [docs/PROVIDER_SETUP.md](docs/PROVIDER_SETUP.md), [docs/ORCHESTRATION_AND_COMPUTE.md](docs/ORCHESTRATION_AND_COMPUTE.md), and [docs/SECURITY.md](docs/SECURITY.md).
