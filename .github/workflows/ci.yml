@@ -59,6 +59,7 @@ jobs:
           python -m json.tool models/extended-model-registry.json > /dev/null
           python -m json.tool android/app/src/main/assets/nexus-model-catalog.json > /dev/null
           python -m json.tool android/app/src/main/assets/nexus-model-registry.json > /dev/null
+          python -m json.tool cloudflare/providers.example.json > /dev/null
           bash -n termux/nexus
           python -m json.tool memory/schemas/memory-record.schema.json > /dev/null
           python -m json.tool datasets/manifests/dataset-manifest.schema.json > /dev/null
