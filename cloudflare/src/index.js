@@ -183,7 +183,8 @@ function validateMessages(body) {
         }
         const encoded = match[2];
         if (encoded.length % 4 !== 0) throw new GatewayError("Image data is not valid base64", 400);
-        const estimatedBytes = Math.floor(encoded.length * 3 / 4);
+        const paddingBytes = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+        const estimatedBytes = Math.floor(encoded.length * 3 / 4) - paddingBytes;
         if (estimatedBytes > MAX_IMAGE_BYTES) throw new GatewayError("Each image must be 1 MB or smaller", 413);
         imageCount += 1;
         imageTotal += 1;
