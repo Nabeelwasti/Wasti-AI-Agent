@@ -155,6 +155,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val chatHistoryResult = remember { runCatching { chatStore.load() } }
             MaterialTheme {
                 NexusScreen(
                     initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "http://localhost:8088",
@@ -168,8 +169,8 @@ class MainActivity : ComponentActivity() {
                     initialLicenseTexts = NexusModelRegistry.loadLicenseTexts(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
-                    initialChatSessions = runCatching { chatStore.load() }.getOrDefault(emptyList()),
-                    initialChatError = runCatching { chatStore.load() }.exceptionOrNull()?.message.orEmpty(),
+                    initialChatSessions = chatHistoryResult.getOrDefault(emptyList()),
+                    initialChatError = chatHistoryResult.exceptionOrNull()?.message.orEmpty(),
                     onPersistChatSessions = { sessions -> withContext(Dispatchers.IO) { chatStore.save(sessions) } },
                     onListModels = { installedModels() },
                     onSelectModel = { path -> prefs.edit().putString("local_model_path", path).apply() },
@@ -1925,8 +1926,14 @@ private fun NexusScreen(
                                     TextButton(onClick = { clipboardManager.setText(AnnotatedString(user)) }) { Text("Copy") }
                                     TextButton(onClick = {
                                         prompt = user
-                                        conversation = conversation.take(conversationIndex)
+                                        val editedTurns = conversation.take(conversationIndex)
+                                        conversation = editedTurns
+                                        remoteConversation = emptyList()
                                         streamingResponse = ""
+                                        scope.launch {
+                                            runCatching { persistConversation(editedTurns, emptyList()) }
+                                                .onFailure { historyNotice = "Edited conversation could not be saved: ${it.message}" }
+                                        }
                                     }) { Text("Edit") }
                                 }
                             }
