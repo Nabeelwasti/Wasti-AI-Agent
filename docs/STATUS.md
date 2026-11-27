@@ -1,72 +1,72 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Validated application code commit:** `c157f162b6705196ba58ca65cfc7fdfb6b2206d2` (the newer commits in this snapshot add security automation and documentation only)  
-**Current main:** `45875c46cae78f221d8e9db754e6a85493b47f98`  
-**Android source version:** 0.5.3 (`versionCode 8`)  
+**Validated application code commit:** `ff5543e5d66ae0f1899d83cb3c7351d2d96ed1ef`  
+**Current main after documentation updates:** `bd25e6ec0c222d5497f76c557ec675e9d6139e32`  
+**Android release:** 0.5.4 (`versionCode 9`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
-**Workflow:** existing PR #35 merged as `fd575a9c24a4e9e0c806aba095dfa32c38a2459f`; subsequent feature, fix, security automation and documentation commits were made directly on `main`. No open PRs remain.
+**Workflow:** PR #35 was merged earlier; all subsequent work in this task was committed directly to `main`. No new PR was opened.
 
 ## Implemented in main
 
-### Android app
-- Kotlin/Jetpack Compose client with native Arm AI Chat / llama.cpp GGUF runtime.
-- One local GGUF loaded at a time, automatic loading after launch/import/selection, per-model install/load/verification status and visible load failures.
-- Task-aware local model selection and network/RAM/thermal/battery-aware route policy.
-- Offline mode does not send inference prompts to the gateway.
-- Local and remote generation can be stopped. Android cancellation closes the HTTP request; the Worker now propagates client cancellation to the upstream provider request.
-- User messages can be copied/edited; assistant output and collaboration trace are selectable and copyable.
-- Actual gateway collaboration metadata is displayed after the response: participants, independent outputs, peer reviews, synthesis model, failures, trace ID and duration. No hidden chain-of-thought is exposed or fabricated.
-- Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG. Each file is limited to 128 KB; combined prompt context is limited to 24,000 characters.
-- JPEG, PNG and WebP attachments: each image up to 1 MB, at most two images per request, and four attachments total. Images are sent only to Online/Auto gateway routing, never to local text-only inference.
+### Android chat workspace
+- Kotlin/Jetpack Compose client with native Arm AI Chat / llama.cpp GGUF runtime; one local GGUF is loaded at a time.
+- Automatic selected-model loading, per-model install/load/verification state and visible failures.
+- Task-aware local model selection and network/RAM/thermal/battery-aware route policy. Offline mode does not send inference prompts to the gateway.
+- Local generation streams tokens and supports Stop. Remote single-model chat supports SSE token streaming; Auto and Hybrid remain non-streaming. HTTP cancellation closes the Android request.
+- Copy/select/edit chat messages and safe Markdown rendering for headings, bold, italic, inline/fenced code, quotes and lists. Model output is rendered as text; HTML is not executed and links are not automatically opened.
+- Durable local chat history: AES-256-GCM encrypted with a non-exportable Android Keystore key; atomic file writes; search, open, rename, delete and Markdown export.
+- History limits are explicit: up to 100 sessions, 500 turns per session and a 5 MB encrypted store. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
+- Chat history remains on this device. It is not silently uploaded or included in the GitHub memory snapshot system. Markdown export writes to a destination explicitly selected by the user.
+- Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG; each file up to 128 KB; combined prompt context up to 24,000 characters.
+- JPEG, PNG and WebP attachments: each image up to 1 MB, at most two images per request and four attachments total. Images route only to online/Auto vision-capable providers, never to local text-only inference.
 
 ### Gateway and orchestration
 - Cloudflare Worker is a protected relay to owner-controlled self-hosted OpenAI-compatible providers. It has no Workers AI binding and stores no model weights.
-- Deployed Worker validates structured user content, accepts only inline JPEG/PNG/WebP data URLs (not remote image URLs), checks base64 and MIME, limits image count/size and aggregate text, and routes vision only to models explicitly configured with the `vision` capability.
-- Auto mode chooses only compatible, enabled and licence-approved providers; unsupported modalities fail clearly.
-- Hybrid orchestration uses configured distinct providers, parallel independent answers, bounded peer-review rounds and synthesis. Returned traces are actual provider output/metadata.
-- Worker propagates request cancellation to upstream provider fetches and cleans up abort listeners/timeouts.
+- Single explicitly selected model supports OpenAI-compatible SSE; Auto and Hybrid reject `stream=true` rather than faking progress.
+- Client cancellation propagates to upstream provider fetches; streaming cleanup clears timers and abort listeners.
+- Worker validates structured content, inline JPEG/PNG/WebP base64 and MIME, image count/size, aggregate text and total request size. Remote image URLs are rejected.
+- Vision routes only to a model whose configured capability list explicitly includes `vision`.
+- Provider endpoints require HTTPS, reject credentials/query/hash and block localhost, local/internal names, IPv6 literals and private/reserved IPv4 address ranges. Provider URLs remain owner-controlled configuration; DNS rebinding is not claimed to be fully prevented by hostname checks.
+- Customer mode is the default when `NEXUS_DEPLOYMENT_MODE` is absent and fails closed if the rate-limit binding is missing. Scoped client keys cannot access the personal memory vault.
+- Auto task routing and Hybrid parallel independent answers, bounded peer review and synthesis remain provider-dependent. Returned traces contain actual provider metadata/output; no hidden chain-of-thought is exposed.
 - Python orchestrator, Termux companion, model registries, licensing notices and SDK sources remain in the single monorepo.
-- Added [provider setup guide](PROVIDER_SETUP.md) and replaced the old hosted-provider sample with a disabled, licence-gated self-hosted template.
 
-### Security automation
-- Added `.github/workflows/security.yml`: CodeQL `security-extended` scans for Java/Kotlin, Python and JavaScript/TypeScript on relevant main pushes, pull requests, weekly schedule and manual dispatch.
-- Android CodeQL extraction uses the same pinned Java 17, Android SDK 36 and Gradle 9.7 build environment as the app CI rather than an incompatible automatic Gradle guess.
-- CodeQL workflow run [45953488056](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45953488056) completed successfully for all three language jobs. A successful scan means analysis was uploaded; it does not mean every finding is automatically cleared. Review and triage any alerts in GitHub Security.
+## CI, release and deployment evidence
 
-## Validation evidence
-
-- Latest main CI run [45953488048](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45953488048) passed all four jobs on current main `45875c46cae78f221d8e9db754e6a85493b47f98`:
-  - Android debug build, Android JVM tests and ephemeral CI signing validation.
-  - Cloudflare Worker syntax and Worker unit tests.
-  - Python orchestrator tests, registry/schema tests, Python compilation, Termux validation and JSON validation.
-  - Deployed relay-policy smoke test.
-- Earlier detailed main CI run [45919187620](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45919187620) passed all four jobs and recorded **28/28 Worker unit tests passed** (vision capability routing, unsupported/remote image rejection, request-wide limits, malformed base64, exact 1 MB boundary and cancellation propagation).
-- Worker `wasti-nexus-gateway` was deployed through the authenticated Cloudflare account on 2026-11-27 at `00:51:43Z`. A subsequent Cloudflare API read verified that the deployed script contains the vision validation, base64 padding correction and cancellation propagation. Existing `NEXUS_API_KEY`, `NEXUS_GITHUB_TOKEN` and `NEXUS_RATE_LIMIT` bindings were preserved; no AI binding is present.
-- Owner-signed Android 0.5.3 APK: [release run 45918446509](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45918446509), artifact `wasti-nexus-signed-release-apk`, artifact ID `15163370977` (17,395,468 bytes). Signature verified with APK Signature Scheme v2.
-- Signing certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`. It matches the 0.5.2 release certificate, so the signed 0.5.3 APK can be installed as an upgrade without uninstalling or clearing app data.
+- Latest application CI: [run 45968917026](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917026), completed successfully on validated code commit `ff5543e5d66ae0f1899d83cb3c7351d2d96ed1ef`. All four jobs passed: Android debug build/JVM tests, Python and source validation, Cloudflare Worker syntax/unit tests, and deployed relay-policy smoke test.
+- Android JVM suite: **34 tests completed, zero failures** on the successful run.
+- Cloudflare Worker suite: **30 tests passed, zero failures** on the tested Worker source, including SSE, unsupported Auto/Hybrid stream behavior, memory-scope isolation, customer rate-limit default and private/reserved provider endpoint rejection.
+- Three-language CodeQL security-extended workflow: [run 45968917138](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917138), all Java/Kotlin, Python and JavaScript/TypeScript jobs completed successfully. Successful analysis does not itself mean every alert is resolved; alert triage remains open.
+- Owner-signed Android 0.5.4 APK: [release run 45968917127](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/45968917127), artifact `wasti-nexus-signed-release-apk`, artifact ID `15184321293` (17,429,148 bytes). APK Signature Scheme v2 verification passed.
+- Signing certificate SHA-256: `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`; it matches the previous 0.5.2/0.5.3 signing identity. Install 0.5.4 over the existing app without uninstalling or clearing data.
+- Debug APK from the same CI run: artifact ID `15183554724`; use the signed release artifact for normal installation.
+- Worker `wasti-nexus-gateway` was updated through Cloudflare's content-only API on 2026-11-27 at `08:39:54Z` (deployment ID `0222800e42194dcfb6bd8b14d139f374`). The API read-back confirmed the deployed source contains SSE, provider-address validation, personal-memory scope isolation and customer-default rate limiting.
+- The content-only deployment preserved existing Worker settings and bindings: `ALLOWED_ORIGINS`, `MAX_HYBRID_AGENTS`, `NEXUS_API_KEY`, `NEXUS_DEPLOYMENT_MODE`, `NEXUS_GITHUB_TOKEN`, memory repository/branch/prefix, `NEXUS_RATE_LIMIT` and `REQUEST_TIMEOUT_MS`. Secret values were not read or exposed.
 
 ## Known deployment and product limits
 
-- **No inference provider is configured in the deployed Worker.** The deployed bindings do not currently include `NEXUS_PROVIDERS_JSON`. The gateway therefore has no usable online model catalogue yet. A healthy relay and a passing policy smoke test do not mean that online chat or vision inference is available.
-- An owner-controlled HTTPS OpenAI-compatible inference server and its provider credential must be configured before online models can be listed or called. This is a self-hosted server credential, not a paid AI-vendor API key. Model weights being open-source/free to download does not make remote compute free or automatically available.
-- Vision code is deployed and unit-tested, but no live authenticated vision-provider request can pass until a real vision model/provider is configured.
-- The signed APK's Android code matches the current Android source; the newer main commits add security automation and documentation only.
+- **No inference provider is configured in the deployed Worker.** `NEXUS_PROVIDERS_JSON` is absent and the live model catalogue has no configured inference model. The relay and SSE code are deployed and mocked/unit-tested, but no live authenticated text or vision round-trip is possible yet.
+- The provider setup requires an owner-controlled HTTPS OpenAI-compatible inference server. The provider's credential, if enabled, is stored as a Worker secret. This is not a paid model-vendor API requirement; local GGUF inference remains key-free. Remote gateway authentication still requires the owner's NEXUS bearer key.
+- Vision code is deployed and tested, but no live vision provider is configured.
+- No physical Redmi Note 14 Pro regression suite has been run from this environment. APK build/signing does not prove device behavior.
+- Chat history is encrypted at rest locally, but there is no cross-device encrypted chat-history sync/restore workflow. Markdown export is plaintext at the user-selected destination.
+- Auto/Hybrid remote streaming and live inter-agent progress are not implemented; only explicitly selected single-model requests stream tokens.
 
 ## Production gates still open
 
-1. **Physical Android validation:** install 0.5.3 over the existing app without clearing data; test every model load, generation, Stop, app recreation, low RAM, thermal/battery constraints, airplane mode, Wi-Fi/LAN, mobile data, text/image attachments and upgrade signing on the actual Redmi Note 14 Pro.
-2. **Provider readiness:** deploy an owner-controlled HTTPS inference endpoint; set `NEXUS_PROVIDERS_JSON` and provider secret(s); validate exact model IDs, checkpoints, capabilities, licences, capacity and TLS. Hybrid needs at least two distinct eligible model IDs.
-3. **Authenticated end-to-end inference:** test real text inference and a vision request through the deployed Worker. Current CI verifies relay health/policy, not a live provider round-trip.
-4. **Streaming/progress:** local token streaming exists. Remote requests return a completed response; collaboration activity appears after completion. SSE token streaming and real-time inter-agent progress events are not implemented.
-5. **Conversation persistence:** durable Room-backed conversation history with search, rename, deletion, export and restore is not certified.
-6. **Tools/actions:** a complete permission-scoped tool registry, user approval UX, execution sandbox, audit log and revocation flow are not implemented.
-7. **Multimodal coverage:** no PDF parser, audio transcription/speech, offline image understanding, image generation or training runtime is certified.
-8. **Model archive:** the 50-entry governance catalogue is not 50 installable models. Exact artifact, immutable revision, checksum, licence, runtime compatibility and benchmark gates remain per checkpoint. The original twelve GGUF archive entries remain preserved.
-9. **Memory recovery:** complete live encrypted-memory upload/restore and cross-device recovery drills; document retention and public GitHub ciphertext metadata implications.
-10. **Production operations:** configure and verify provider quotas, per-customer isolation, monitoring/alerts, incident response, backups, abuse handling and a data-retention/deletion policy before offering this as a customer service.
-11. **Security findings triage:** review all CodeQL alerts produced by the new workflow, confirm false positives with evidence and fix any confirmed findings before a public customer deployment.
+1. **Provider readiness and live E2E:** deploy an owner-controlled HTTPS inference endpoint; set `NEXUS_PROVIDERS_JSON` and provider secret(s); verify exact model IDs, immutable checkpoints, licences, capabilities, TLS, quotas and capacity. Then test authenticated text inference and a real vision request.
+2. **Physical Android validation:** install 0.5.4 over the existing app; test all model load states, generation, Stop, Activity recreation, low RAM, thermal/battery, airplane mode, Wi-Fi/LAN, mobile data, attachments, encrypted history recovery and upgrade signing on the actual Redmi Note 14 Pro.
+3. **CodeQL alert triage:** inspect GitHub Security findings from the successful scan, resolve confirmed high/critical issues and document justified suppressions.
+4. **Remote streaming completeness:** SSE is single-model only. Add resumable/error-aware Auto and Hybrid progress streaming if required by the product.
+5. **History recovery:** add a tested encrypted export/import and cross-device recovery design if users need chat migration. Current Markdown export is readable plaintext, not a restorable encrypted backup.
+6. **Tools/actions:** permission-scoped tool registry, user approval UX, sandbox, audit trail and revocation are not implemented. Do not enable arbitrary model-directed actions.
+7. **Additional modalities:** PDF text extraction, audio transcription/speech, offline vision, image generation and training runtimes are not certified.
+8. **Model archive:** the 50-entry governance catalogue is not 50 installable models. Exact checkpoint, immutable revision, checksum, licence, runtime compatibility and benchmark evidence remain per model. The original twelve GGUF archive entries remain preserved.
+9. **Memory recovery:** complete live encrypted-memory upload/restore and cross-device recovery drills; document retention and GitHub ciphertext metadata implications.
+10. **Production operations:** configure and verify per-customer isolation, provider quotas, monitoring/alerts, incident response, backups, abuse handling, retention/deletion policy and operational ownership.
+11. **Repository governance:** `main` is not branch-protected. Direct-to-main remains the requested workflow, but repository owner should configure least-privilege access, MFA and recovery controls without requiring PRs if direct pushes must remain enabled.
 
 ## Release decision
 
-**Status: signed release candidate; not fully production-certified.** Current main CI and three-language CodeQL automation pass, the 0.5.3 APK is signed, and the updated Worker source is deployed. However, there is no configured inference provider and no physical-device validation evidence. Persistent history, remote streaming, tool execution and several multimodal capabilities are also still open. Do not advertise the entire repository/product as fully production-ready until those external and product gates are closed with evidence.
+**Status: signed 0.5.4 release candidate; not fully production-certified.** Current main application CI, 34 Android JVM tests, 30 Worker tests, three-language CodeQL execution and signed release build pass. The Worker source is deployed with existing bindings preserved. However, no inference provider is configured and no physical-device validation evidence exists. Persistent history, Markdown chat rendering and single-model remote streaming are now implemented; several customer-grade, recovery, tool and multimodal gates remain open. Do not advertise the whole product as production-ready until the open gates are closed with evidence.
