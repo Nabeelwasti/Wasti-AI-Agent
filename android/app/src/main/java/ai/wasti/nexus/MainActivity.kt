@@ -148,6 +148,7 @@ class MainActivity : ComponentActivity() {
         })
     }
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
+    private val chatStore by lazy { EncryptedNexusChatStore(applicationContext) }
     private val localEngineDelegate = lazy { AiChat.getInferenceEngine(applicationContext) }
     private val localEngine: InferenceEngine by localEngineDelegate
 
@@ -167,6 +168,9 @@ class MainActivity : ComponentActivity() {
                     initialLicenseTexts = NexusModelRegistry.loadLicenseTexts(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
+                    initialChatSessions = runCatching { chatStore.load() }.getOrDefault(emptyList()),
+                    initialChatError = runCatching { chatStore.load() }.exceptionOrNull()?.message.orEmpty(),
+                    onPersistChatSessions = { sessions -> withContext(Dispatchers.IO) { chatStore.save(sessions) } },
                     onListModels = { installedModels() },
                     onSelectModel = { path -> prefs.edit().putString("local_model_path", path).apply() },
                     onDeleteModel = { path -> deleteModel(path) },
@@ -863,6 +867,9 @@ private fun NexusScreen(
     initialLicenseTexts: String,
     initialDriveWorkspaceUri: String,
     initialFreeStorageBytes: Long,
+    initialChatSessions: List<NexusChatSession>,
+    initialChatError: String,
+    onPersistChatSessions: suspend (List<NexusChatSession>) -> Unit,
     onListModels: () -> List<String>,
     onSelectModel: (String) -> Unit,
     onDeleteModel: (String) -> Unit,
@@ -899,10 +906,19 @@ private fun NexusScreen(
     var confirmDeleteModel by remember { mutableStateOf(false) }
     var prompt by remember { mutableStateOf(initialPrompt) }
     var attachments by remember { mutableStateOf(emptyList<NexusAttachment>()) }
+    var chatSessions by remember { mutableStateOf(initialChatSessions) }
+    var activeSessionId by remember { mutableStateOf(initialChatSessions.firstOrNull()?.id ?: UUID.randomUUID().toString()) }
+    var historyDialog by remember { mutableStateOf(false) }
+    var historyQuery by remember { mutableStateOf("") }
+    var renameSessionId by remember { mutableStateOf<String?>(null) }
+    var renameSessionTitle by remember { mutableStateOf("") }
+    var deleteSessionId by remember { mutableStateOf<String?>(null) }
+    var exportMarkdown by remember { mutableStateOf("") }
+    var historyNotice by remember { mutableStateOf(initialChatError) }
     var answer by remember { mutableStateOf("Welcome to WASTI NEXUS. Install a local model to begin private offline chat.") }
-    var conversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var conversation by remember { mutableStateOf(initialChatSessions.firstOrNull()?.turns ?: emptyList()) }
     var streamingResponse by remember { mutableStateOf("") }
-    var remoteConversation by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var remoteConversation by remember { mutableStateOf(initialChatSessions.firstOrNull()?.remoteTurns ?: emptyList()) }
     var memoryPassphrase by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var settingsExpanded by remember { mutableStateOf(false) }
@@ -930,6 +946,24 @@ private fun NexusScreen(
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
+    suspend fun persistConversation(turns: List<Pair<String, String>>, remoteTurns: List<Pair<String, String>>) {
+        if (turns.isEmpty() || initialChatError.isNotBlank()) return
+        val existing = chatSessions.firstOrNull { it.id == activeSessionId }
+        val updatedSession = NexusChatSession.createOrUpdate(existing, turns, remoteTurns)
+        val updatedSessions = (chatSessions.filterNot { it.id == activeSessionId } + updatedSession)
+            .sortedByDescending { it.updatedAt }
+        withContext(Dispatchers.IO) { onPersistChatSessions(updatedSessions) }
+        chatSessions = updatedSessions
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(exportMarkdown) }
+                    ?: error("Could not open the selected export destination.")
+            }.onSuccess { historyNotice = "Conversation exported successfully." }
+                .onFailure { historyNotice = "Export failed: ${it.message}" }
+        }
+    }
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
         if (!settingsExpanded) chatScrollState.animateScrollTo(chatScrollState.maxValue)
     }
@@ -1052,6 +1086,7 @@ private fun NexusScreen(
                                     conversation = emptyList()
                                     streamingResponse = ""
                                     remoteConversation = emptyList()
+                                    activeSessionId = UUID.randomUUID().toString()
                                     busy = false
                                 }
                             }
@@ -1059,9 +1094,11 @@ private fun NexusScreen(
                             conversation = emptyList()
                             streamingResponse = ""
                             remoteConversation = emptyList()
+                            activeSessionId = UUID.randomUUID().toString()
                             answer = "New conversation started."
                         }
                     }) { Text("New chat") }
+                    TextButton(onClick = { historyDialog = true }) { Text("History") }
                     TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
                         Text(if (settingsExpanded) "Done" else "Settings")
                     }
@@ -1143,8 +1180,12 @@ private fun NexusScreen(
                                             val result = onSendRemote(url, key, remoteConversation, submittedPrompt, false, targetAgent, submittedAttachments) { collaborationTrace = it }
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
-                                            conversation = conversation + (displayPrompt to result)
-                                            remoteConversation = remoteConversation + (displayPrompt to result)
+                                            val updatedConversation = conversation + (displayPrompt to result)
+                                            val updatedRemoteConversation = remoteConversation + (displayPrompt to result)
+                                            conversation = updatedConversation
+                                            remoteConversation = updatedRemoteConversation
+                                            runCatching { persistConversation(updatedConversation, updatedRemoteConversation) }
+                                                .onFailure { historyNotice = "Reply completed, but local history could not be saved: ${it.message}" }
                                             prompt = ""
                                             attachments = emptyList()
                                             activityStatus = "Completed · online vision inference"
@@ -1246,11 +1287,13 @@ private fun NexusScreen(
                                         }
                                         val displayPrompt = submittedPrompt +
                                             submittedAttachments.takeIf { it.isNotEmpty() }?.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }.orEmpty()
-                                        conversation = conversation + (displayPrompt to result)
+                                        val updatedConversation = conversation + (displayPrompt to result)
+                                        val updatedRemoteConversation = if (usedRemote) remoteConversation + (submittedPrompt to result) else remoteConversation
+                                        conversation = updatedConversation
+                                        remoteConversation = updatedRemoteConversation
+                                        runCatching { persistConversation(updatedConversation, updatedRemoteConversation) }
+                                            .onFailure { historyNotice = "Reply completed, but local history could not be saved: ${it.message}" }
                                         streamingResponse = ""
-                                        if (usedRemote) {
-                                            remoteConversation = remoteConversation + (submittedPrompt to result)
-                                        }
                                         prompt = ""
                                         attachments = emptyList()
                                         activityStatus = "Completed · ${if (usedRemote) "online" else "on-device"} inference"
@@ -1929,6 +1972,125 @@ private fun NexusScreen(
                 }
                 if (busy) Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 else Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                if (historyNotice.isNotBlank()) {
+                    Text(historyNotice, color = if (initialChatError.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+                if (historyDialog) {
+                    AlertDialog(
+                        onDismissRequest = { historyDialog = false },
+                        title = { Text("Conversation history") },
+                        text = {
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = historyQuery,
+                                    onValueChange = { historyQuery = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("Search conversations") }
+                                )
+                                if (initialChatError.isNotBlank()) {
+                                    Text("Encrypted history could not be opened. Existing data has been preserved; no new history will overwrite it. Details: $initialChatError", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                }
+                                val matchingSessions = NexusChatHistory.search(chatSessions, historyQuery)
+                                if (matchingSessions.isEmpty()) {
+                                    Text("No saved conversations found.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                matchingSessions.forEach { session ->
+                                    Card(Modifier.fillMaxWidth()) {
+                                        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text(session.title, style = MaterialTheme.typography.titleSmall)
+                                            Text("${session.turns.size} turns · ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(session.updatedAt))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                TextButton(onClick = {
+                                                    conversation = session.turns
+                                                    remoteConversation = session.remoteTurns
+                                                    activeSessionId = session.id
+                                                    collaborationTrace = ""
+                                                    streamingResponse = ""
+                                                    historyDialog = false
+                                                    answer = "Opened ${session.title}."
+                                                }) { Text("Open") }
+                                                TextButton(onClick = {
+                                                    renameSessionId = session.id
+                                                    renameSessionTitle = session.title
+                                                }) { Text("Rename") }
+                                                TextButton(onClick = {
+                                                    exportMarkdown = NexusChatHistory.exportMarkdown(session)
+                                                    val safeName = session.title.replace(Regex("[^A-Za-z0-9_-]"), "-").trim('-').take(48).ifBlank { "nexus-chat" }
+                                                    exportLauncher.launch("$safeName.md")
+                                                }) { Text("Export") }
+                                                TextButton(onClick = { deleteSessionId = session.id }) { Text("Delete") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { historyDialog = false }) { Text("Close") } },
+                        dismissButton = { TextButton(onClick = { historyQuery = ""; historyDialog = false }) { Text("Clear search") } }
+                    )
+                }
+                if (renameSessionId != null) {
+                    AlertDialog(
+                        onDismissRequest = { renameSessionId = null },
+                        title = { Text("Rename conversation") },
+                        text = {
+                            OutlinedTextField(
+                                value = renameSessionTitle,
+                                onValueChange = { renameSessionTitle = it.take(100) },
+                                singleLine = true,
+                                label = { Text("Conversation name") }
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(enabled = renameSessionTitle.isNotBlank() && !busy, onClick = {
+                                val targetId = renameSessionId ?: return@TextButton
+                                val updated = chatSessions.map { if (it.id == targetId) it.copy(title = renameSessionTitle.trim(), updatedAt = System.currentTimeMillis()) else it }
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { onPersistChatSessions(updated) }
+                                        chatSessions = updated.sortedByDescending { it.updatedAt }
+                                        historyNotice = "Conversation renamed."
+                                    } catch (error: Exception) {
+                                        historyNotice = "Could not rename conversation: ${error.message}"
+                                    } finally { renameSessionId = null }
+                                }
+                            }) { Text("Save") }
+                        },
+                        dismissButton = { TextButton(onClick = { renameSessionId = null }) { Text("Cancel") } }
+                    )
+                }
+                if (deleteSessionId != null) {
+                    AlertDialog(
+                        onDismissRequest = { deleteSessionId = null },
+                        title = { Text("Delete conversation?") },
+                        text = { Text("This permanently removes the selected encrypted conversation from this device. Export it first if you need a copy.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val targetId = deleteSessionId ?: return@TextButton
+                                val updated = chatSessions.filterNot { it.id == targetId }
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { onPersistChatSessions(updated) }
+                                        chatSessions = updated
+                                        if (activeSessionId == targetId) {
+                                            conversation = emptyList()
+                                            remoteConversation = emptyList()
+                                            activeSessionId = UUID.randomUUID().toString()
+                                        }
+                                        historyNotice = "Conversation deleted from this device."
+                                    } catch (error: Exception) {
+                                        historyNotice = "Could not delete conversation: ${error.message}"
+                                    } finally { deleteSessionId = null }
+                                }
+                            }) { Text("Delete") }
+                        },
+                        dismissButton = { TextButton(onClick = { deleteSessionId = null }) { Text("Cancel") } }
+                    )
+                }
             }
         }
     }
