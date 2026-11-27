@@ -1040,6 +1040,42 @@ private fun NexusScreen(
         synchronized(pendingStreamTokens) { pendingStreamTokens.append(token) }
         streamTokens.trySend(Unit)
     }
+    fun startNewChat() {
+        activeGenerationJob?.cancel()
+        activeGenerationJob = null
+        synchronized(pendingStreamTokens) { pendingStreamTokens.setLength(0) }
+        while (streamTokens.tryReceive().isSuccess) Unit
+        streamBuffer.setLength(0)
+        streamingResponse = ""
+        conversation = emptyList()
+        remoteConversation = emptyList()
+        collaborationTrace = ""
+        activeSessionId = UUID.randomUUID().toString()
+        answer = "New conversation started."
+
+        val resetPath = localModelPath
+        if (localReady && resetPath.isNotBlank()) {
+            busy = true
+            activityStatus = "Resetting local model context in background…"
+            scope.launch {
+                try {
+                    onUnloadLocal()
+                    localReady = false
+                    loadedModelPath = ""
+                    onLoadLocal(resetPath)
+                    localReady = true
+                    loadedModelPath = resetPath
+                    activityStatus = "Ready · local model loaded"
+                } catch (error: Exception) {
+                    localReady = false
+                    loadedModelPath = ""
+                    answer = "New chat is ready, but the model needs reloading: ${error.message}"
+                } finally {
+                    busy = false
+                }
+            }
+        }
+    }
     suspend fun persistConversation(turns: List<Pair<String, String>>, remoteTurns: List<Pair<String, String>>) {
         if (turns.isEmpty() || initialChatError.isNotBlank()) return
         val existing = chatSessions.firstOrNull { it.id == activeSessionId }
@@ -1181,16 +1217,8 @@ private fun NexusScreen(
                 Text("WASTI NEXUS", modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp), style = MaterialTheme.typography.titleLarge)
                 NavigationDrawerItem(label = { Text("New chat") }, selected = false, icon = { Icon(Icons.Default.Add, contentDescription = null) }, onClick = {
                     drawerDestination = "Chat"
-                    val resetPath = localModelPath
-                    conversation = emptyList(); remoteConversation = emptyList(); streamBuffer.clear(); streamingResponse = ""
-                    collaborationTrace = ""; activeSessionId = UUID.randomUUID().toString(); answer = "New conversation started."
+                    startNewChat()
                     scope.launch { drawerState.close() }
-                    if (localReady && resetPath.isNotBlank()) scope.launch {
-                        busy = true
-                        try { onUnloadLocal(); localReady = false; loadedModelPath = ""; onLoadLocal(resetPath); localReady = true; loadedModelPath = resetPath }
-                        catch (error: Exception) { localReady = false; loadedModelPath = ""; answer = "New chat is ready, but the model needs reloading: ${error.message}" }
-                        finally { busy = false }
-                    }
                 })
                 NavigationDrawerItem(label = { Text("Chat history") }, selected = drawerDestination == "History", icon = { Icon(Icons.Default.History, contentDescription = null) }, onClick = {
                     drawerDestination = "History"; historyDialog = true; scope.launch { drawerState.close() }
@@ -1228,43 +1256,7 @@ private fun NexusScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        // New chat stays responsive even while generation is running.
-                        activeGenerationJob?.cancel()
-                        activeGenerationJob = null
-                        // Reset the visible session immediately; native context reset happens in
-                        // the background so the + action never waits for a model reload.
-                        val resetModelPath = localModelPath
-                        conversation = emptyList()
-                        streamBuffer.clear()
-                        streamingResponse = ""
-                        remoteConversation = emptyList()
-                        collaborationTrace = ""
-                        activeSessionId = UUID.randomUUID().toString()
-                        answer = "New conversation started."
-                        if (localReady && resetModelPath.isNotBlank()) {
-                            busy = true
-                            activityStatus = "Resetting local model context in background…"
-                            scope.launch {
-                                try {
-                                    onUnloadLocal()
-                                    localReady = false
-                                    loadedModelPath = ""
-                                    onLoadLocal(resetModelPath)
-                                    localReady = true
-                                    loadedModelPath = resetModelPath
-                                    answer = "New conversation ready."
-                                    activityStatus = "Ready · local model loaded"
-                                } catch (error: Exception) {
-                                    localReady = false
-                                    loadedModelPath = ""
-                                    answer = "New chat is ready, but the local model needs reloading: ${error.message}"
-                                } finally {
-                                    busy = false
-                                }
-                            }
-                        }
-                    }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
+                    IconButton(onClick = { startNewChat() }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
                 }
             )
         },
