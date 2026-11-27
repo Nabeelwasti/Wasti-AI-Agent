@@ -804,6 +804,7 @@ private fun NexusScreen(
     var loadedModelPath by remember { mutableStateOf("") }
     var autoLoadAttemptedPath by remember { mutableStateOf("") }
     var modelLoadError by remember { mutableStateOf("") }
+    var activityStatus by remember { mutableStateOf("Ready") }
     var activeGenerationJob by remember { mutableStateOf<Job?>(null) }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
@@ -967,7 +968,9 @@ private fun NexusScreen(
                                             autoMode -> NexusMode.AUTO
                                             else -> NexusMode.ONLINE
                                         }
+                                        activityStatus = "Understanding your request and classifying the task..."
                                         val task = NexusRuntimePolicy.classify(submittedPrompt)
+                                        activityStatus = "Task: ${task.name.lowercase()} · selecting the best available route..."
                                         val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
                                         val remoteConfigured = remoteModels.isNotEmpty() &&
                                             (loopback || (key.length >= 32 && url.startsWith("https://"))) &&
@@ -1055,9 +1058,11 @@ private fun NexusScreen(
                                             remoteConversation = remoteConversation + (submittedPrompt to result)
                                         }
                                         prompt = ""
+                                        activityStatus = "Completed · ${if (usedRemote) "online" else "on-device"} inference"
                                         answer = "Completed via ${if (usedRemote) "self-hosted inference server" else "on-device inference"}. ${decision.reason}"
                                     } catch (cancelled: CancellationException) {
                                         streamingResponse = ""
+                                        activityStatus = "Stopped by user"
                                         answer = "Generation stopped by user."
                                         throw cancelled
                                     } catch (error: Exception) {
@@ -1066,6 +1071,7 @@ private fun NexusScreen(
                                             localReady = false
                                             loadedModelPath = ""
                                         }
+                                        activityStatus = "Failed · ${error.message ?: "unknown error"}"
                                         answer = "Request failed: ${error.message}"
                                     } finally {
                                         activeGenerationJob = null
@@ -1711,7 +1717,8 @@ private fun NexusScreen(
                 if (answer.startsWith("Request failed:")) {
                     Text(answer, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-                if (busy) Text("WASTI NEXUS is thinking…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (busy) Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                else Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
