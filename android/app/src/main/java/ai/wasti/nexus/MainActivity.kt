@@ -3,6 +3,7 @@ package ai.wasti.nexus
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.speech.RecognizerIntent
 import android.net.Uri
 import android.os.Bundle
 import android.os.StatFs
@@ -25,6 +26,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
@@ -1004,6 +1008,9 @@ private fun NexusScreen(
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
+    var attachmentMenuExpanded by remember { mutableStateOf(false) }
+    var drawerDestination by remember { mutableStateOf("Chat") }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
@@ -1086,6 +1093,21 @@ private fun NexusScreen(
             }
         }
     }
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+            if (spoken.isNotBlank()) prompt = listOf(prompt.trim(), spoken).filter { it.isNotBlank() }.joinToString(" ")
+        }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            try {
+                require(attachments.size < 4) { "You can attach up to four files per message." }
+                require(attachments.count { it.imageDataUrl != null } < 2) { "You can attach up to two images per message." }
+                attachments = attachments + readNexusAttachment(context, uri)
+            } catch (error: Exception) { answer = "Photo attachment failed: ${error.message}" }
+        }
+    }
     val attachmentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1128,10 +1150,44 @@ private fun NexusScreen(
         }
     }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = !busy,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text("WASTI NEXUS", modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp), style = MaterialTheme.typography.titleLarge)
+                NavigationDrawerItem(label = { Text("New chat") }, selected = false, icon = { Icon(Icons.Default.Add, contentDescription = null) }, onClick = {
+                    drawerDestination = "Chat"
+                    val resetPath = localModelPath
+                    conversation = emptyList(); remoteConversation = emptyList(); streamBuffer.clear(); streamingResponse = ""
+                    collaborationTrace = ""; activeSessionId = UUID.randomUUID().toString(); answer = "New conversation started."
+                    scope.launch { drawerState.close() }
+                    if (localReady && resetPath.isNotBlank()) scope.launch {
+                        busy = true
+                        try { onUnloadLocal(); localReady = false; loadedModelPath = ""; onLoadLocal(resetPath); localReady = true; loadedModelPath = resetPath }
+                        catch (error: Exception) { localReady = false; loadedModelPath = ""; answer = "New chat is ready, but the model needs reloading: ${error.message}" }
+                        finally { busy = false }
+                    }
+                })
+                NavigationDrawerItem(label = { Text("Chat history") }, selected = drawerDestination == "History", icon = { Icon(Icons.Default.History, contentDescription = null) }, onClick = {
+                    drawerDestination = "History"; historyDialog = true; scope.launch { drawerState.close() }
+                })
+                NavigationDrawerItem(label = { Text("Models & settings") }, selected = drawerDestination == "Settings", icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {
+                    drawerDestination = "Settings"; settingsExpanded = true; scope.launch { drawerState.close() }
+                })
+                NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }, enabled = !offlineMode && configuredRemoteModelCount >= 2, onClick = {
+                    hybrid = !hybrid; scope.launch { drawerState.close() }
+                })
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                Text("Private on-device inference and your configured model workspace.", modifier = Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    ) {
     SelectionContainer {
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, contentDescription = "Open navigation") } },
                 title = {
                     Column {
                         Text("WASTI NEXUS")
@@ -1181,10 +1237,6 @@ private fun NexusScreen(
                             }
                         }
                     }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
-                    IconButton(onClick = { historyDialog = true }) { Icon(Icons.Default.History, contentDescription = "Conversation history") }
-                    IconButton(onClick = { settingsExpanded = !settingsExpanded }) {
-                        Icon(Icons.Default.Tune, contentDescription = if (settingsExpanded) "Close settings" else "Settings")
-                    }
                 }
             )
         },
@@ -1211,12 +1263,21 @@ private fun NexusScreen(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            enabled = !busy && attachments.size < 4,
-                            onClick = { attachmentPicker.launch(arrayOf("text/*", "application/json", "application/xml", "image/jpeg", "image/png", "image/webp")) }
-                        ) { Icon(Icons.Default.AttachFile, contentDescription = "Attach files") }
+                        Box {
+                            IconButton(enabled = !busy && attachments.size < 4, onClick = { attachmentMenuExpanded = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add photos or files")
+                            }
+                            DropdownMenu(expanded = attachmentMenuExpanded, onDismissRequest = { attachmentMenuExpanded = false }) {
+                                DropdownMenuItem(text = { Text("Choose a photo") }, leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null) }, onClick = {
+                                    attachmentMenuExpanded = false; photoPicker.launch("image/*")
+                                })
+                                DropdownMenuItem(text = { Text("Browse files on device") }, leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null) }, onClick = {
+                                    attachmentMenuExpanded = false; attachmentPicker.launch(arrayOf("*/*"))
+                                })
+                            }
+                        }
                         Text(
-                            if (attachments.isEmpty()) "Add photos and files" else "${attachments.size} attachment(s) · tap a chip to remove",
+                            if (attachments.isEmpty()) "Add photos or files" else "${attachments.size} attachment(s) · tap a chip to remove",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1243,6 +1304,14 @@ private fun NexusScreen(
                             maxLines = 5,
                             enabled = !busy
                         )
+                        IconButton(enabled = !busy, onClick = {
+                            val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to WASTI NEXUS")
+                            }
+                            runCatching { speechLauncher.launch(speechIntent) }
+                                .onFailure { answer = "Speech recognition is not available on this device." }
+                        }) { Icon(Icons.Default.Mic, contentDescription = "Voice input") }
                         if (activeGenerationJob != null) {
                             IconButton(onClick = { activeGenerationJob?.cancel() }) {
                                 Icon(Icons.Default.Stop, contentDescription = "Stop generation")
@@ -2191,6 +2260,7 @@ private fun NexusScreen(
                 }
             }
         }
+    }
     }
     }
 }
