@@ -978,6 +978,9 @@ private fun NexusScreen(
             try {
                 require(attachments.size < 4) { "You can attach up to four files per message." }
                 val attachment = readNexusAttachment(context, uri)
+                if (attachment.imageDataUrl != null) {
+                    require(attachments.count { it.imageDataUrl != null } < 2) { "You can attach up to two images per message." }
+                }
                 attachments = attachments + attachment
                 answer = "Attached " + attachment.name + "."
             } catch (error: Exception) {
@@ -1110,7 +1113,7 @@ private fun NexusScreen(
                         if (activeGenerationJob != null) {
                             OutlinedButton(onClick = { activeGenerationJob?.cancel() }) { Text("Stop") }
                         } else Button(
-                            enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || (attachments.none { it.imageDataUrl != null } && (localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())))),
+                            enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || attachments.any { it.imageDataUrl != null } || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
                                 val submittedAttachments = attachments.toList()
@@ -1132,7 +1135,7 @@ private fun NexusScreen(
                                             require(!offlineMode) { "Image understanding requires Online or Auto mode and a configured vision-capable self-hosted model." }
                                             val root = url.trim().trimEnd('/')
                                             val loopback = NexusRuntimePolicy.isLoopbackHttp(root)
-                                            require((loopback || (root.startsWith("https://") && key.length >= 32)) &&
+                                            require(key.length >= 32 && (loopback || root.startsWith("https://")) &&
                                                 remoteModels.contains(if (autoMode) "nexus-auto" else agentId)) {
                                                 "Configure and refresh a remote gateway with a vision-capable model before sending images."
                                             }
