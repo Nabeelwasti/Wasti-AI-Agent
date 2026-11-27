@@ -178,3 +178,8 @@ Added a native on-device reminder manager and a narrow chat intent path:
 A small deterministic device-action executor is now connected to the chat composer. Supported exact commands include `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`. The app shows an approval dialog before executing. High-impact/destructive button labels are rejected; screen text is displayed locally and is not sent to a model. AccessibilityService acceptance is not proof that the target app completed an operation.
 
 This is not the requested general autonomous agent. Typing, arbitrary taps, sending messages, calls, app installation, changing permissions, multi-step plans, general model tool calls and action postcondition verification remain unimplemented. The device-action additions require a fresh successful Android build and JVM test run before release.
+
+
+### Follow-up: on-demand notification reading
+
+Added a user-enabled Android NotificationListenerService that does not cache notification events or store notification content in the background. The chat command `read my notifications` requires a separate confirmation and returns a bounded snapshot of active notifications locally. Notification access is independent of AccessibilityService access. Content may be saved in the encrypted chat history because the user explicitly requested the snapshot; it is not sent to a model by this command. The feature requires physical-device verification, including permission revocation and OEM behavior.
