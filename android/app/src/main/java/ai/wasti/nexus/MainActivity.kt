@@ -1228,6 +1228,31 @@ private fun NexusScreen(
                     "Installed: ${installedModels.size} model(s) · Free storage: ${"%.1f".format(freeStorageBytes / (1024.0 * 1024.0 * 1024.0))} GB",
                     style = MaterialTheme.typography.bodySmall
                 )
+                Text("MODEL HEALTH · ALL 12 CATALOGUE ENTRIES", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    workspaceModels.forEach { model ->
+                        val modelPath = installedModels.firstOrNull { path ->
+                            val fileName = File(path).name
+                            fileName.equals(model.fileName, ignoreCase = true) || fileName.endsWith("-${model.fileName}", ignoreCase = true)
+                        }
+                        val partial = File(context.filesDir, "models/${model.id}-${model.fileName}.part").exists()
+                        val modelState = when {
+                            modelPath != null && localReady && loadedModelPath == modelPath -> "READY · loaded"
+                            modelPath != null && File(modelPath).name.startsWith("${model.id}-") -> "INSTALLED · checksum-verified · not loaded"
+                            modelPath != null -> "IMPORTED · GGUF metadata checked; pinned checksum not verified"
+                            partial -> "INCOMPLETE · partial file exists"
+                            else -> "NOT INSTALLED · import or install required"
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(model.displayName, style = MaterialTheme.typography.bodyMedium)
+                                Text(modelState, style = MaterialTheme.typography.labelSmall, color = if (modelPath != null && localReady && loadedModelPath == modelPath) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(model.sizeBytes?.let { "${it / 1_000_000} MB" } ?: "Size n/a", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        HorizontalDivider()
+                    }
+                }
                 Text(
                     "All twelve open-weight model files have pinned public source revisions, exact sizes and SHA-256 values. NEXUS verifies the checksum before installation. Public-source downloads and offline inference require no AI API key.",
                     style = MaterialTheme.typography.bodySmall
