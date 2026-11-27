@@ -25,6 +25,21 @@ class NexusRuntimePolicyTest {
         localModelPath = path, localModelLoaded = loaded
     )
 
+    @Test fun modelFilesAbove750MbAreNotRejectedByTheOldInflatedMemoryMultiplier() {
+        val model = File.createTempFile("nexus-large-model", ".gguf")
+        try {
+            java.io.RandomAccessFile(model, "rw").use { it.setLength(900L * 1024 * 1024) }
+            val estimate = NexusRuntimePolicy.estimatedLocalWorkingSet(model.absolutePath)
+            assertTrue(estimate < 2L * 1024 * 1024 * 1024)
+            val selected = NexusRuntimePolicy.chooseLocalModelPath(
+                NexusTask.GENERAL, listOf(model.absolutePath), 4L * 1024 * 1024 * 1024, ""
+            )
+            assertEquals(model.absolutePath, selected)
+        } finally {
+            model.delete()
+        }
+    }
+
     @Test fun offlineNeverRoutesToInternet() {
         val decision = NexusRuntimePolicy.decide(NexusMode.OFFLINE, snapshot(internet = true), true, prompt = "Hello")
         assertEquals(NexusRoute.BLOCKED, decision.route)
@@ -155,7 +170,7 @@ class NexusRuntimePolicyTest {
             val selected = NexusRuntimePolicy.chooseLocalModelPath(
                 NexusTask.GENERAL,
                 listOf(larger.absolutePath, smallest.absolutePath),
-                2L * 1024 * 1024 * 1024,
+                900L * 1024 * 1024,
                 larger.absolutePath
             )
             assertEquals(smallest.absolutePath, selected)
