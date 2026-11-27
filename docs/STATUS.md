@@ -1,8 +1,8 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Validated application code commit:** `ff5543e5d66ae0f1899d83cb3c7351d2d96ed1ef`  
-**Android release:** 0.5.4 (`versionCode 9`)  
+**Validated application code commit:** pending 0.5.5 CI run  
+**Android release:** 0.5.5 (`versionCode 10`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
 **Workflow:** PR #35 was merged earlier; all subsequent work in this task was committed directly to `main`. No new PR was opened.
 
@@ -13,9 +13,11 @@
 - Automatic selected-model loading, per-model install/load/verification state and visible failures.
 - Task-aware local model selection and network/RAM/thermal/battery-aware route policy. Offline mode does not send inference prompts to the gateway.
 - Local generation streams tokens and supports Stop. Remote single-model chat supports SSE token streaming; Auto and Hybrid remain non-streaming. HTTP cancellation closes the Android request.
-- Copy/select/edit chat messages and safe Markdown rendering for headings, bold, italic, inline/fenced code, quotes and lists. Model output is rendered as text; HTML is not executed and links are not automatically opened.
-- Durable local chat history: AES-256-GCM encrypted with a non-exportable Android Keystore key; atomic file writes; search, open, rename, delete and Markdown export.
-- History limits are explicit: up to 100 sessions, 500 turns per session and a 5 MB encrypted store. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
+- The local model preflight estimate was reduced from 2.5× model size + 1.2 GB to 1.2× + 512 MB, and model selection uses the same estimate. This removes the old conservative false rejection; native runtime memory remains device/model dependent.
+- A source index is generated at build time from the app, gateway, orchestrator, SDKs, Termux companion, model registry, tests and docs. Relevant snippets are retrieved and added to each local/remote prompt, within each model's actual context window.
+- Selectable text across the chat/settings surface, copy/select/edit chat messages and safe Markdown rendering for headings, bold, italic, inline/fenced code, quotes and lists. Model output is rendered as text; HTML is not executed and links are not automatically opened.
+- Durable local chat history: AES-256-GCM encrypted with a non-exportable Android Keystore key; atomic file writes with backup recovery; no artificial session/turn/5 MB caps; search includes remote turns, open, rename, delete and Markdown export.
+- Chat history no longer has app-imposed session, turn or 5 MB caps. The encrypted file remains subject to available device storage and process memory. Attachments themselves are not persisted with the conversation; only the prompt text and attachment names are retained.
 - Chat history remains on this device. It is not silently uploaded or included in the GitHub memory snapshot system. Markdown export writes to a destination explicitly selected by the user.
 - Text/code attachments: TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS and LOG; each file up to 128 KB; combined prompt context up to 24,000 characters.
 - JPEG, PNG and WebP attachments: each image up to 1 MB, at most two images per request and four attachments total. Images route only to online/Auto vision-capable providers, never to local text-only inference.
