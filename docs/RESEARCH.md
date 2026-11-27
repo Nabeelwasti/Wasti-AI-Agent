@@ -1,6 +1,6 @@
 # WASTI NEXUS engineering research
 
-Research date: 2026-11-26. Public repositories are reference material, not dependencies copied wholesale. Review each upstream licence and pin a revision before importing code.
+Research date: 2026-11-27. Reviewed upstream guidance and security standards for this implementation; links below are primary sources. Public repositories are reference material, not dependencies copied wholesale. Review each upstream licence and pin a revision before importing code.
 
 ## Android local inference
 
@@ -81,3 +81,42 @@ The gateway accepts OpenAI-compatible providers, but no provider API key or prov
 GitHub documents standard GitHub-hosted runner usage as free for public repositories. Private repositories instead consume plan-based included compute usage. NEXUS remains public as requested. Its CI workflow skips docs-only/memory-only/dataset-only changes, cancels superseded runs on the same ref, builds a debug APK on main and uploads it as a short-lived artifact. The current CI artifact retention is seven days; it is not a signed production release.
 
 Reference: https://docs.github.com/en/actions/concepts/billing-and-usage and https://docs.github.com/en/billing/concepts/product-billing/github-actions.
+
+
+## Chat workspace and mobile security research (2026-11-27)
+
+### Android application architecture and persistence
+
+- Android Developers, app architecture: https://developer.android.com/topic/architecture
+- Android Developers, data layer: https://developer.android.com/topic/architecture/data-layer
+- Android Developers, app-specific storage: https://developer.android.com/training/data-storage/app-specific
+- Android Developers, Android Keystore: https://developer.android.com/privacy-and-security/keystore
+- Android Developers, testing fundamentals: https://developer.android.com/training/testing/fundamentals
+
+Implementation decisions:
+- Keep UI state in the Compose screen and isolate encrypted file persistence in `EncryptedNexusChatStore`.
+- Use Android Keystore AES-256-GCM, authenticated additional data, and atomic replacement rather than storing plaintext history or key material in source.
+- Keep chat history separate from passphrase-encrypted GitHub memory snapshots. No automatic cloud sync; export is an explicit user action.
+- Limit history size and surface storage errors instead of silently deleting older conversations.
+- Use a small, non-executing Markdown renderer rather than rendering model output as HTML.
+
+### Security standards and threat models
+
+- OWASP MASVS: https://mas.owasp.org/MASVS/
+- OWASP API Security Top 10: https://owasp.org/API-Security/editions/2023/en/0x00-header/
+- OWASP Top 10 for LLM Applications: https://genai.owasp.org/llm-top-10/
+- GitHub CodeQL documentation: https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql
+
+Applied controls include Keystore-backed at-rest encryption, scoped gateway keys, master-only personal-memory access, default customer rate limiting, request bounds, provider HTTPS checks, private/reserved endpoint blocking, cancellation propagation and no automatic execution of model output. These controls are engineering measures, not a formal MASVS or OWASP certification.
+
+### Streaming and cancellation
+
+- Cloudflare Workers Streams API: https://developers.cloudflare.com/workers/runtime-apis/streams/
+- Cloudflare Workers request lifecycle: https://developers.cloudflare.com/workers/runtime-apis/request/
+- OpenAI-compatible providers must implement standard Server-Sent Events for token streaming. The gateway proxies those events only for an explicitly selected model. Auto/Hybrid remain non-streaming because fallback, independent review and synthesis must complete before the final answer and trace are truthful.
+
+### Limits and unresolved validation
+
+- Provider-hostname filtering cannot prove that a DNS name will never resolve to a private address; only trusted owner-configured endpoints should be used. A stronger egress allowlist or controlled outbound proxy is required for a multi-tenant public service.
+- The app has not undergone a formal MASVS assessment, external penetration test, or physical-device regression on the target Redmi Note 14 Pro.
+- A green CodeQL workflow means analysis ran and uploaded; it does not prove that every alert is false positive or fixed.
