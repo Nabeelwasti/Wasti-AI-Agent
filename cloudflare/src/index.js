@@ -120,7 +120,9 @@ async function authorizeRequest(request, env, pathname) {
     if (!constantTimeEqual(hash, entry.sha256.toLowerCase())) continue;
     recognized = true;
     const scopes = Array.isArray(entry.scopes) ? entry.scopes : [];
-    if (scopes.includes(scope)) {
+    // The encrypted-memory endpoints are one personal vault, not a customer
+    // tenant store. Client keys must never gain access by adding a "memory" scope.
+    if (scope !== "memory" && scopes.includes(scope)) {
       return { ok: true, role: "client", client_id: String(entry.id || "unnamed"), rate_limit_key: hash, scopes };
     }
   }
@@ -925,7 +927,8 @@ export default {
           },
         }, status, headers);
       }
-      if (env.NEXUS_DEPLOYMENT_MODE === "customer") {
+      const deploymentMode = String(env.NEXUS_DEPLOYMENT_MODE || "customer").toLowerCase();
+      if (deploymentMode === "customer") {
         if (!env.NEXUS_RATE_LIMIT || typeof env.NEXUS_RATE_LIMIT.limit !== "function") {
           return json({ error: { message: "Gateway rate limiting is not configured." } }, 503, headers);
         }
