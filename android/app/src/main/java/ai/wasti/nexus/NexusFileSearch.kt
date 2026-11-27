@@ -64,8 +64,7 @@ internal object NexusFileSearch {
                 directory.name.equals("cache", true) ||
                 directory.name.equals("lost+found", true)
             !blocked && !directory.name.startsWith(".nomedia-skip")
-        }.forEach { file ->
-            if (++visited > MAX_VISITED) return@forEach
+        }.take(MAX_VISITED).forEach { file ->
             if (!file.isFile || !file.canRead() || file.length() > 2L * 1024 * 1024 * 1024) return@forEach
             val extension = file.extension.lowercase(Locale.ROOT)
             if (extension !in textExtensions && extension !in mediaExtensions && extension !in documentExtensions) return@forEach
