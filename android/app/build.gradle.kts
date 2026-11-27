@@ -33,8 +33,8 @@ android {
         applicationId = "ai.wasti.nexus"
         minSdk = 33
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.5.4"
+        versionCode = 10
+        versionName = "0.5.5"
     }
     buildTypes {
         getByName("release") {
@@ -65,6 +65,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.documentfile:documentfile:1.1.0")
@@ -73,3 +74,54 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+
+
+// Build a private, read-only source index into the app so every connected brain can
+// retrieve the exact architecture, screen, control and implementation snippets it needs.
+val nexusRepositoryRoot = rootProject.projectDir.parentFile
+val nexusKnowledgePatterns = listOf(
+    "README.md",
+    "android/app/src/main/java/**/*.kt",
+    "android/app/src/main/AndroidManifest.xml",
+    "android/app/build.gradle.kts",
+    "android/settings.gradle.kts",
+    "cloudflare/README.md",
+    "cloudflare/src/**/*.js",
+    "cloudflare/tests/**/*.mjs",
+    "orchestrator/README.md",
+    "orchestrator/app/**/*.py",
+    "orchestrator/tests/**/*.py",
+    "docs/**/*.md",
+    "models/registry.json",
+    "models/extended-model-registry.json",
+    "tests/**/*.py",
+    ".github/workflows/**/*.yml"
+)
+val nexusKnowledgeFiles = fileTree(nexusRepositoryRoot) {
+    include(*nexusKnowledgePatterns.toTypedArray())
+    exclude(
+        "**/build/**", "**/.gradle/**", "**/.env*", "**/local.properties",
+        "**/*secret*", "**/*.jks", "**/*.keystore", "**/*.pem", "**/*.key"
+    )
+}
+val nexusGeneratedAssets = layout.buildDirectory.dir("generated/nexusKnowledge/assets")
+val generateNexusAppKnowledge by tasks.registering {
+    inputs.files(nexusKnowledgeFiles)
+    val outputFile = nexusGeneratedAssets.map { it.file("nexus-app-source-index.json") }
+    outputs.file(outputFile)
+    doLast {
+        val chunks = mutableListOf<Map<String, Any>>()
+        nexusKnowledgeFiles.files.sortedBy { it.relativeTo(nexusRepositoryRoot).invariantSeparatorsPath }.forEach { source ->
+            val relativePath = source.relativeTo(nexusRepositoryRoot).invariantSeparatorsPath
+            val lines = source.readLines(Charsets.UTF_8)
+            lines.chunked(64).forEachIndexed { index, section ->
+                chunks += mapOf("path" to relativePath, "part" to (index + 1), "text" to section.joinToString("\n"))
+            }
+        }
+        val target = outputFile.get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(groovy.json.JsonOutput.toJson(chunks), Charsets.UTF_8)
+    }
+}
+android.sourceSets.getByName("main").assets.srcDir(nexusGeneratedAssets)
+tasks.named("preBuild").configure { dependsOn(generateNexusAppKnowledge) }
