@@ -34,7 +34,7 @@ class NexusNotificationListenerService : NotificationListenerService() {
         super.onDestroy()
     }
 
-    fun readActiveNotifications(limit: Int = 25): List<NexusVisibleNotification> {
+    internal fun readActiveNotifications(limit: Int = 25): List<NexusVisibleNotification> {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
             "Notification snapshots must be requested on the Android main thread."
         }
