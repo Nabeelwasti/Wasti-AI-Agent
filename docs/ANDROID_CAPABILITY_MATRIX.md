@@ -8,8 +8,8 @@ This document is the source of truth for Android access requests. NEXUS must req
 
 | Capability | Current implementation | Access model |
 |---|---|---|
-| Read visible UI controls | AccessibilityService bounded snapshot | User manually enables service in Android Settings |
-| Click, type, scroll, tap, swipe | AccessibilityNodeInfo actions and dispatchGesture | User manually enables service; no background action loop |
+| Read visible UI controls | AccessibilityService bounded snapshot; explicit chat command can show up to 40 labels locally | User manually enables service; screen text is not sent to AI servers by this command |
+| Approved device actions | Exact visible-label click, scroll up/down, Back, Home, notification shade, local screen-text snapshot | User manually enables service and confirms each supported chat command; destructive/high-impact click labels are blocked. No typing, coordinates, arbitrary workflows or background loop |
 | Back, Home, notifications shade | Accessibility global actions | User manually enables service |
 | Screenshot | AccessibilityService.takeScreenshot one-shot API | User manually enables service; secure windows can block capture |
 | Camera | TakePicturePreview system camera intent | User starts capture; no direct CAMERA permission |
@@ -35,7 +35,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 - Background location, contacts/calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
 - Exact alarm scheduling is not enabled. NEXUS reminders use inexact AlarmManager scheduling and can be delayed by Android power management; they are not a replacement for safety-critical alarms.
 
-## Shared-storage search boundaries
+## Approved device action boundaries\n\n- Supported exact chat commands: `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`. The app displays an action summary and waits for a separate approval before execution.\n- Label-click actions require an exact visible text/content-description match and a clickable, enabled control. Destructive/high-impact labels (delete/remove/send/submit/pay/transfer/install/allow/permission/credentials, etc.) are rejected by the parser.\n- Screen text is returned in the chat locally and is not passed to a model. Password fields remain redacted by the AccessibilityService. Secure windows and app-specific accessibility restrictions still apply.\n- Android accepting a click/gesture does not prove the target app completed the requested business operation. The user must inspect the screen after each action. No chained or autonomous action plans are supported.\n\n## Shared-storage search boundaries
 
 - The user must explicitly grant Android's special All files access in Settings. NEXUS does not grant it silently.
 - Search is on demand, bounded to 12,000 filesystem entries and at most ten results.
