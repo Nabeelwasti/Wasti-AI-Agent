@@ -612,3 +612,44 @@ test("gateway rejects malformed base64 image payloads", async () => {
   assert.equal(response.status, 400);
   assert.match((await response.json()).error.message, /valid base64/);
 });
+
+
+test("client cancellation aborts the upstream self-hosted provider request", async () => {
+  const originalFetch = globalThis.fetch;
+  const clientController = new AbortController();
+  let upstreamSignal = null;
+  globalThis.fetch = async (_input, init = {}) => new Promise((_resolve, reject) => {
+    upstreamSignal = init.signal;
+    upstreamSignal.addEventListener("abort", () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      reject(error);
+    }, { once: true });
+  });
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host",
+        base_url: "https://inference.example/v1",
+        api_key_env: "PRIVATE_HOST_KEY",
+        models: [{ id: "general-chat", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const request = new Request("https://nexus.example/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "general-chat", messages: [{ role: "user", content: "hello" }], stream: false }),
+      signal: clientController.signal,
+    });
+    const pending = worker.fetch(request, configured);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    clientController.abort();
+    const response = await pending;
+    assert.equal(upstreamSignal?.aborted, true);
+    assert.equal(response.status, 504);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
