@@ -489,3 +489,79 @@ test("auto mode refuses unsupported modalities instead of pretending a text mode
   const data = await response.json();
   assert.match(data.error.message, /does not have a verified runtime/);
 });
+
+
+test("vision auto-routing selects only a configured vision-capable self-hosted model", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const payload = JSON.parse(init.body);
+    calls.push(payload);
+    return Response.json({ choices: [{ message: { content: "The image contains a test pattern." } }] });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "private-host",
+        base_url: "https://inference.example/v1",
+        api_key_env: "PRIVATE_HOST_KEY",
+        models: [
+          { id: "text-only", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] },
+          { id: "vision-brain", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "vision"] },
+        ],
+      }] }),
+      PRIVATE_HOST_KEY: "private-host-secret",
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "nexus-auto",
+      nexus: { mode: "auto" },
+      messages: [{ role: "user", content: [
+        { type: "text", text: "Describe this image." },
+        { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+      ] }],
+      stream: false,
+    }), configured);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.nexus.task, "vision");
+    assert.equal(data.nexus.selected_model, "vision-brain");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].messages[0].content[1].image_url.url, "data:image/png;base64,iVBORw0KGgo=");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("single-brain image requests reject models without verified vision capability", async () => {
+  const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "text-only",
+    messages: [{ role: "user", content: [
+      { type: "text", text: "Describe this." },
+      { type: "image_url", image_url: { url: "data:image/jpeg;base64,/9j/2Q==" } },
+    ] }],
+    stream: false,
+  }), {
+    ...env,
+    NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+      id: "private-host",
+      base_url: "https://inference.example/v1",
+      api_key_env: "PRIVATE_HOST_KEY",
+      models: [{ id: "text-only", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+    }] }),
+    PRIVATE_HOST_KEY: "private-host-secret",
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error.message, /not verified as vision-capable/);
+});
+
+test("gateway rejects external image URLs and unsupported image MIME types", async () => {
+  for (const url of ["https://example.com/image.png", "data:image/gif;base64,R0lGODlh"]) {
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "text-only",
+      messages: [{ role: "user", content: [{ type: "image_url", image_url: { url } }] }],
+      stream: false,
+    }), env);
+    assert.equal(response.status, 400);
+  }
+});
