@@ -20,6 +20,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -155,9 +162,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val chatHistoryResult = remember { runCatching { chatStore.load() } }
+            var chatHistoryResult by remember { mutableStateOf<Result<List<NexusChatSession>>?>(null) }
+            LaunchedEffect(Unit) {
+                chatHistoryResult = withContext(Dispatchers.IO) { runCatching { chatStore.load() } }
+            }
             MaterialTheme {
-                NexusScreen(
+                if (chatHistoryResult == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    val historyResult = requireNotNull(chatHistoryResult)
+                    NexusScreen(
                     initialUrl = prefs.getString("url", null)?.takeIf { it.isNotBlank() } ?: "http://localhost:8088",
                     initialPrompt = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty().take(12000),
                     initialKey = decryptSecret(),
@@ -169,8 +185,8 @@ class MainActivity : ComponentActivity() {
                     initialLicenseTexts = NexusModelRegistry.loadLicenseTexts(this),
                     initialDriveWorkspaceUri = prefs.getString("drive_workspace_uri", "") ?: "",
                     initialFreeStorageBytes = StatFs(filesDir.absolutePath).availableBytes,
-                    initialChatSessions = chatHistoryResult.getOrDefault(emptyList()),
-                    initialChatError = chatHistoryResult.exceptionOrNull()?.message.orEmpty(),
+                    initialChatSessions = historyResult.getOrDefault(emptyList()),
+                    initialChatError = historyResult.exceptionOrNull()?.message.orEmpty(),
                     onPersistChatSessions = { sessions -> withContext(Dispatchers.IO) { chatStore.save(sessions) } },
                     onListModels = { installedModels() },
                     onSelectModel = { path -> prefs.edit().putString("local_model_path", path).apply() },
@@ -204,7 +220,8 @@ class MainActivity : ComponentActivity() {
                     onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken ->
                         sendRemote(url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken)
                     }
-                )
+                    )
+                }
             }
         }
     }
@@ -658,9 +675,14 @@ class MainActivity : ComponentActivity() {
         }
         val memory = ActivityManager.MemoryInfo()
         (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memory)
-        val estimatedNeed = (model.length() * 2.5).toLong() + 1229L * 1024L * 1024L
+        val estimatedNeed = NexusRuntimePolicy.estimatedLocalWorkingSet(model.absolutePath)
         require(!memory.lowMemory && memory.availMem >= estimatedNeed) {
-            "Available RAM is too low for this model right now. Close other apps or choose a smaller quantized model."
+            val modelMb = model.length() / (1024L * 1024L)
+            val availableMb = memory.availMem / (1024L * 1024L)
+            val estimatedMb = estimatedNeed / (1024L * 1024L)
+            "Android reports ${availableMb} MB available for a ${modelMb} MB GGUF. " +
+                "Estimated native working set is ${estimatedMb} MB (includes runtime/context headroom). " +
+                "Android low-memory state: ${memory.lowMemory}. The app no longer rejects models using the old 2.5× + 1.2 GB estimate."
         }
         try {
             val engineState = kotlinx.coroutines.withTimeout(45_000L) {
@@ -685,7 +707,12 @@ class MainActivity : ComponentActivity() {
             )
         } catch (error: OutOfMemoryError) {
             runCatching { localEngine.cleanUp() }
-            throw IllegalStateException("Android ran out of memory while loading this model. Try a smaller GGUF quantization.", error)
+            throw IllegalStateException(
+                "Native inference ran out of memory while loading ${model.length() / (1024L * 1024L)} MB GGUF. " +
+                    "Android's process limit or the model's 8K context/batch working set was reached. " +
+                    "Try closing memory-heavy apps or use a smaller quantization; the preflight estimate was not a guarantee.",
+                error
+            )
         } catch (error: Exception) {
             runCatching { localEngine.cleanUp() }
             throw error
@@ -756,14 +783,9 @@ class MainActivity : ComponentActivity() {
 
         // Bound the remote context so a long chat cannot exceed gateway request limits.
         // Only the online conversation is supplied; local-only turns never leave the device.
-        val selectedHistory = mutableListOf<Pair<String, String>>()
-        var contextChars = prompt.length
-        for (turn in history.asReversed()) {
-            val turnChars = turn.first.length + turn.second.length
-            if (selectedHistory.size >= 10 || contextChars + turnChars > 18000) break
-            selectedHistory.add(turn)
-            contextChars += turnChars
-        }
+        // Preserve the complete remote conversation. The model/provider's actual context
+        // window is the only remaining bound; NEXUS no longer silently drops older turns.
+        val selectedHistory = history.toList()
         val messages = JSONArray()
         selectedHistory.asReversed().forEach { (user, assistant) ->
             messages.put(JSONObject().put("role", "user").put("content", user))
@@ -777,7 +799,6 @@ class MainActivity : ComponentActivity() {
                 append(attachment.textContent.orEmpty())
             }
         }
-        require(promptWithFiles.length <= 24000) { "Message and text attachments exceed the 24,000 character limit." }
         val images = attachments.mapNotNull { it.imageDataUrl }
         val currentContent: Any = if (images.isEmpty()) promptWithFiles else JSONArray().apply {
             put(JSONObject().put("type", "text").put("text", promptWithFiles))
@@ -1100,7 +1121,7 @@ private fun NexusScreen(
                     }
                 },
                 actions = {
-                    TextButton(enabled = !busy, onClick = {
+                    IconButton(enabled = !busy, onClick = {
                         val resetModelPath = localModelPath
                         if (localReady && resetModelPath.isNotBlank()) {
                             busy = true
@@ -1132,10 +1153,10 @@ private fun NexusScreen(
                             activeSessionId = UUID.randomUUID().toString()
                             answer = "New conversation started."
                         }
-                    }) { Text("New chat") }
-                    TextButton(onClick = { historyDialog = true }) { Text("History") }
-                    TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
-                        Text(if (settingsExpanded) "Done" else "Settings")
+                    }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
+                    IconButton(onClick = { historyDialog = true }) { Icon(Icons.Default.History, contentDescription = "Conversation history") }
+                    IconButton(onClick = { settingsExpanded = !settingsExpanded }) {
+                        Icon(Icons.Default.Tune, contentDescription = if (settingsExpanded) "Close settings" else "Settings")
                     }
                 }
             )
@@ -1163,11 +1184,24 @@ private fun NexusScreen(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(
+                        IconButton(
                             enabled = !busy && attachments.size < 4,
                             onClick = { attachmentPicker.launch(arrayOf("text/*", "application/json", "application/xml", "image/jpeg", "image/png", "image/webp")) }
-                        ) { Text("＋ Attach files") }
-                        Text("Text ≤128 KB · images ≤1 MB · up to 4 files", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ) { Icon(Icons.Default.AttachFile, contentDescription = "Attach files") }
+                        Text(
+                            if (attachments.isEmpty()) "Add photos and files" else "${attachments.size} attachment(s) · tap a chip to remove",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.weight(1f))
+                        if (!offlineMode) {
+                            FilterChip(
+                                selected = hybrid,
+                                onClick = { hybrid = !hybrid },
+                                enabled = !busy && configuredRemoteModelCount >= 2,
+                                label = { Text("Hybrid team") }
+                            )
+                        }
                     }
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1183,7 +1217,9 @@ private fun NexusScreen(
                             enabled = !busy
                         )
                         if (activeGenerationJob != null) {
-                            OutlinedButton(onClick = { activeGenerationJob?.cancel() }) { Text("Stop") }
+                            IconButton(onClick = { activeGenerationJob?.cancel() }) {
+                                Icon(Icons.Default.Stop, contentDescription = "Stop generation")
+                            }
                         } else Button(
                             enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || attachments.any { it.imageDataUrl != null } || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
@@ -1213,7 +1249,10 @@ private fun NexusScreen(
                                                 "Configure and refresh a remote gateway with a vision-capable model before sending images."
                                             }
                                             val targetAgent = if (autoMode) "nexus-auto" else agentId
-                                            val result = onSendRemote(url, key, remoteConversation, submittedPrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> streamingResponse += token })
+                                            val appAwarePrompt = NexusAppKnowledge.enrich(
+                                            context, submittedPrompt.ifBlank { "Analyze attached image(s)." }
+                                        )
+                                        val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> streamingResponse += token })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
                                             val updatedConversation = conversation + (displayPrompt to result)
@@ -1236,7 +1275,7 @@ private fun NexusScreen(
                                                 append(attachment.textContent.orEmpty())
                                             }
                                         }
-                                        require(textContextPrompt.length <= 24000) { "Message and text attachments exceed the 24,000 character limit." }
+                                        val appAwarePrompt = NexusAppKnowledge.enrich(context, textContextPrompt)
                                         val task = NexusRuntimePolicy.classify(textContextPrompt)
                                         activityStatus = "Task: ${task.name.lowercase()} · selecting the best available route..."
                                         val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
@@ -1283,7 +1322,7 @@ private fun NexusScreen(
                                                     }
                                                     streamingResponse = ""
                                                     attemptedLocalInference = true
-                                                    onSendLocal(textContextPrompt) { token -> streamingResponse += token }
+                                                    onSendLocal(appAwarePrompt) { token -> streamingResponse += token }
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (localError: Exception) {
@@ -1293,7 +1332,7 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
@@ -1354,12 +1393,13 @@ private fun NexusScreen(
                                     }
                                 }
                             }
-                        ) { Text("Send") }
+                        ) { Icon(Icons.Default.Send, contentDescription = "Send message") }
                     }
                 }
             }
         }
     ) { inset ->
+        SelectionContainer {
         Column(
             Modifier.fillMaxSize().padding(inset).padding(horizontal = 16.dp).verticalScroll(chatScrollState),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -1509,32 +1549,6 @@ private fun NexusScreen(
                     "Installed: ${installedModels.size} model(s) · Free storage: ${"%.1f".format(freeStorageBytes / (1024.0 * 1024.0 * 1024.0))} GB",
                     style = MaterialTheme.typography.bodySmall
                 )
-                Text("MODEL HEALTH · ALL 12 CATALOGUE ENTRIES", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    workspaceModels.forEach { model ->
-                        val modelPath = installedModels.firstOrNull { path ->
-                            val fileName = File(path).name
-                            fileName.equals(model.fileName, ignoreCase = true) || fileName.endsWith("-${model.fileName}", ignoreCase = true)
-                        }
-                        val partial = File(context.filesDir, "models/${model.id}-${model.fileName}.part").exists()
-                        val modelState = when {
-                            modelPath != null && modelPath == localModelPath && modelLoadError.isNotBlank() -> "LOAD FAILED · $modelLoadError"
-                            modelPath != null && localReady && loadedModelPath == modelPath -> "READY · loaded"
-                            modelPath != null && File(modelPath).name.startsWith("${model.id}-") -> "INSTALLED · checksum-verified · not loaded"
-                            modelPath != null -> "IMPORTED · GGUF metadata checked; pinned checksum not verified"
-                            partial -> "INCOMPLETE · partial file exists"
-                            else -> "NOT INSTALLED · import or install required"
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(model.displayName, style = MaterialTheme.typography.bodyMedium)
-                                Text(modelState, style = MaterialTheme.typography.labelSmall, color = if (modelPath != null && localReady && loadedModelPath == modelPath) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(model.sizeBytes?.let { "${it / 1_000_000} MB" } ?: "Size n/a", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        HorizontalDivider()
-                    }
-                }
                 Text(
                     "All twelve open-weight model files have pinned public source revisions, exact sizes and SHA-256 values. NEXUS verifies the checksum before installation. Public-source downloads and offline inference require no AI API key.",
                     style = MaterialTheme.typography.bodySmall
@@ -1945,9 +1959,7 @@ private fun NexusScreen(
                         )
                     }
                 }
-                val conversationStartIndex = (conversation.size - 40).coerceAtLeast(0)
-                conversation.takeLast(40).forEachIndexed { visibleIndex, (user, assistant) ->
-                    val conversationIndex = conversationStartIndex + visibleIndex
+                conversation.forEachIndexed { conversationIndex, (user, assistant) ->
                     Column(
                         Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.End
@@ -1957,7 +1969,7 @@ private fun NexusScreen(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                         ) {
                             Column(Modifier.padding(14.dp)) {
-                                SelectionContainer { Text(user, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                                Text(user, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = { clipboardManager.setText(AnnotatedString(user)) }) { Text("Copy") }
                                     TextButton(onClick = {
@@ -1981,7 +1993,7 @@ private fun NexusScreen(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        SelectionContainer { Text(parseNexusMarkdown(assistant), Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
+                        Text(parseNexusMarkdown(assistant), Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
                         TextButton(onClick = { clipboardManager.setText(AnnotatedString(assistant)) }) { Text("Copy response") }
                     }
                 }
@@ -1993,7 +2005,7 @@ private fun NexusScreen(
                                 TextButton(onClick = { collaborationExpanded = !collaborationExpanded }) { Text(if (collaborationExpanded) "Hide" else "View discussion") }
                             }
                             if (collaborationExpanded) {
-                                SelectionContainer { Text(collaborationTrace, style = MaterialTheme.typography.bodySmall) }
+                                Text(collaborationTrace, style = MaterialTheme.typography.bodySmall)
                                 TextButton(onClick = { clipboardManager.setText(AnnotatedString(collaborationTrace)) }) { Text("Copy collaboration log") }
                             } else Text("The connected server returned actual model participation and review metadata.", style = MaterialTheme.typography.bodySmall)
                         }
@@ -2135,6 +2147,7 @@ private fun NexusScreen(
                     )
                 }
             }
+        }
         }
     }
 }
