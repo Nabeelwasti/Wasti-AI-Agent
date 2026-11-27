@@ -201,8 +201,8 @@ class MainActivity : ComponentActivity() {
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
                     onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns, passphrase -> syncMemorySnapshot(url, key, turns, passphrase) },
-                    onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, onCollaboration ->
-                        sendRemote(url, key, history, prompt, hybrid, agentId, attachments, onCollaboration)
+                    onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken ->
+                        sendRemote(url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken)
                     }
                 )
             }
@@ -746,7 +746,8 @@ class MainActivity : ComponentActivity() {
         hybrid: Boolean,
         agentId: String,
         attachments: List<NexusAttachment>,
-        onCollaboration: (String) -> Unit
+        onCollaboration: (String) -> Unit,
+        onToken: (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         val local = NexusRuntimePolicy.isLoopbackHttp(root)
@@ -784,10 +785,11 @@ class MainActivity : ComponentActivity() {
         }
         messages.put(JSONObject().put("role", "user").put("content", currentContent))
         val automatic = agentId == "nexus-auto"
+        val stream = !hybrid && !automatic
         val payload = JSONObject()
             .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
             .put("messages", messages)
-            .put("stream", false)
+            .put("stream", stream)
         if (automatic) payload.put("nexus", JSONObject().put("mode", "auto"))
         if (hybrid) {
             payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
@@ -799,17 +801,49 @@ class MainActivity : ComponentActivity() {
         if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
         val request = requestBuilder.build()
         executeCancellable(request).use { response ->
-            val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
-            val responseJson = JSONObject(text)
-            val answer = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
-                ?.optString("content")?.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("Gateway response did not contain an answer.")
-            responseJson.optJSONObject("nexus")?.let { metadata ->
-                val trace = formatCollaborationTrace(metadata)
-                withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+            val responseBody = response.body ?: throw IllegalStateException("Gateway returned an empty response body.")
+            if (!response.isSuccessful) {
+                val errorText = responseBody.string()
+                throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $errorText")
             }
-            answer
+            if (stream) {
+                val output = StringBuilder()
+                responseBody.charStream().buffered().use { reader ->
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (!line.startsWith("data:")) continue
+                        val data = line.removePrefix("data:").trim()
+                        if (data == "[DONE]") break
+                        if (data.isBlank()) continue
+                        val delta = runCatching {
+                            JSONObject(data).optJSONArray("choices")?.optJSONObject(0)
+                                ?.optJSONObject("delta")?.optString("content").orEmpty()
+                        }.getOrDefault("")
+                        if (delta.isNotEmpty()) {
+                            output.append(delta)
+                            withContext(Dispatchers.Main.immediate) { onToken(delta) }
+                        }
+                    }
+                }
+                val streamedAnswer = output.toString()
+                if (streamedAnswer.isBlank()) throw IllegalStateException("The streaming provider returned no text tokens.")
+                val provider = response.header("x-nexus-provider").orEmpty()
+                val model = response.header("x-nexus-model").orEmpty()
+                withContext(Dispatchers.Main.immediate) {
+                    onCollaboration("Mode: single-model stream\nSelected brain: ${model.ifBlank { agentId }}\nProvider: ${provider.ifBlank { "configured inference host" }}")
+                }
+                streamedAnswer
+            } else {
+                val responseJson = JSONObject(responseBody.string())
+                val answer = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                    ?.optString("content")?.takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("Gateway response did not contain an answer.")
+                responseJson.optJSONObject("nexus")?.let { metadata ->
+                    val trace = formatCollaborationTrace(metadata)
+                    withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+                }
+                answer
+            }
         }
     }
 
@@ -888,7 +922,7 @@ private fun NexusScreen(
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
-    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, List<NexusAttachment>, (String) -> Unit) -> String
+    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, List<NexusAttachment>, (String) -> Unit, (String) -> Unit) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -1158,6 +1192,7 @@ private fun NexusScreen(
                                 val imageAttachments = submittedAttachments.any { it.imageDataUrl != null }
                                 collaborationTrace = ""
                                 collaborationExpanded = false
+                                streamingResponse = ""
                                 busy = true
                                 activeGenerationJob = scope.launch {
                                     var usedRemote = false
@@ -1178,7 +1213,7 @@ private fun NexusScreen(
                                                 "Configure and refresh a remote gateway with a vision-capable model before sending images."
                                             }
                                             val targetAgent = if (autoMode) "nexus-auto" else agentId
-                                            val result = onSendRemote(url, key, remoteConversation, submittedPrompt, false, targetAgent, submittedAttachments) { collaborationTrace = it }
+                                            val result = onSendRemote(url, key, remoteConversation, submittedPrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> streamingResponse += token })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
                                             val updatedConversation = conversation + (displayPrompt to result)
@@ -1187,6 +1222,7 @@ private fun NexusScreen(
                                             remoteConversation = updatedRemoteConversation
                                             runCatching { persistConversation(updatedConversation, updatedRemoteConversation) }
                                                 .onFailure { historyNotice = "Reply completed, but local history could not be saved: ${it.message}" }
+                                            streamingResponse = ""
                                             prompt = ""
                                             attachments = emptyList()
                                             activityStatus = "Completed · online vision inference"
@@ -1257,12 +1293,12 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList()) { collaborationTrace = it }
+                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, "nexus-auto", emptyList()) { collaborationTrace = it }
+                                                            onSendRemote(url, key, remoteConversation, textContextPrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1273,7 +1309,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList()) { collaborationTrace = it }
+                                                onSendRemote(url, key, remoteConversation, textContextPrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
@@ -1282,7 +1318,7 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, textContextPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList()) { collaborationTrace = it }
+                                                onSendRemote(url, key, remoteConversation, textContextPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> streamingResponse += token })
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
