@@ -138,3 +138,5 @@ val generateNexusAppKnowledge by tasks.registering {
 }
 android.sourceSets.getByName("main").assets.srcDir(nexusGeneratedAssets.get().asFile)
 tasks.named("preBuild").configure { dependsOn(generateNexusAppKnowledge) }
+
+// 0.5.6: chat streaming is frame-batched and new-chat reset is asynchronous.
