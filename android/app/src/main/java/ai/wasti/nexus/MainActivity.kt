@@ -1101,6 +1101,23 @@ private fun NexusScreen(
             if (spoken.isNotBlank()) prompt = listOf(prompt.trim(), spoken).filter { it.isNotBlank() }.joinToString(" ")
         }
     }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) {
+            runCatching {
+                require(attachments.size < 4) { "You can attach up to four files per message." }
+                require(attachments.count { it.imageDataUrl != null } < 2) { "You can attach up to two images per message." }
+                val output = java.io.ByteArrayOutputStream()
+                require(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, output)) { "Could not encode the camera photo." }
+                val encoded = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+                attachments = attachments + NexusAttachment(
+                    name = "camera-${System.currentTimeMillis()}.jpg",
+                    mimeType = "image/jpeg",
+                    imageDataUrl = "data:image/jpeg;base64,$encoded"
+                )
+                answer = "Photo captured and attached. Review it before sending."
+            }.onFailure { answer = "Camera capture failed: ${it.message}" }
+        }
+    }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
@@ -1277,6 +1294,11 @@ private fun NexusScreen(
                             DropdownMenu(expanded = attachmentMenuExpanded, onDismissRequest = { attachmentMenuExpanded = false }) {
                                 DropdownMenuItem(text = { Text("Choose a photo") }, leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null) }, onClick = {
                                     attachmentMenuExpanded = false; photoPicker.launch("image/*")
+                                })
+                                DropdownMenuItem(text = { Text("Take a photo") }, leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null) }, onClick = {
+                                    attachmentMenuExpanded = false
+                                    runCatching { cameraLauncher.launch(null) }
+                                        .onFailure { answer = "No compatible camera app is available." }
                                 })
                                 DropdownMenuItem(text = { Text("Browse files on device") }, leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null) }, onClick = {
                                     attachmentMenuExpanded = false; attachmentPicker.launch(arrayOf("*/*"))
