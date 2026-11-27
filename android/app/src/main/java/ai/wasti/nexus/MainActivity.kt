@@ -1103,6 +1103,7 @@ private fun NexusScreen(
         }
     }
 
+    SelectionContainer {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1399,7 +1400,6 @@ private fun NexusScreen(
             }
         }
     ) { inset ->
-        SelectionContainer {
         Column(
             Modifier.fillMaxSize().padding(inset).padding(horizontal = 16.dp).verticalScroll(chatScrollState),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -2148,6 +2148,6 @@ private fun NexusScreen(
                 }
             }
         }
-        }
+    }
     }
 }
