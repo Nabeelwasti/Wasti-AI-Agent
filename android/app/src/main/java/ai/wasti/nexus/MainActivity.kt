@@ -1245,6 +1245,7 @@ private fun NexusScreen(
                         }
                         val partial = File(context.filesDir, "models/${model.id}-${model.fileName}.part").exists()
                         val modelState = when {
+                            modelPath != null && modelPath == localModelPath && modelLoadError.isNotBlank() -> "LOAD FAILED · $modelLoadError"
                             modelPath != null && localReady && loadedModelPath == modelPath -> "READY · loaded"
                             modelPath != null && File(modelPath).name.startsWith("${model.id}-") -> "INSTALLED · checksum-verified · not loaded"
                             modelPath != null -> "IMPORTED · GGUF metadata checked; pinned checksum not verified"
