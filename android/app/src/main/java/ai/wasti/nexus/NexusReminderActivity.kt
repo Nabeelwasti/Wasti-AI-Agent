@@ -298,3 +298,64 @@ class NexusReminderActivity : ComponentActivity() {
         }
     }
 }
+
+
+internal data class NexusReminderDraft(val title: String, val triggerAtMillis: Long)
+
+internal object NexusReminderParser {
+    private val relative = Regex(
+        "^\\s*remind me to (.{1,120}?) in (\\d{1,3}) (minutes?|mins?|hours?|hrs?|days?)\\s*[.!]?\\s*$",
+        RegexOption.IGNORE_CASE
+    )
+    private val tomorrow = Regex(
+        "^\\s*remind me to (.{1,120}?) tomorrow at (\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\s*[.!]?\\s*$",
+        RegexOption.IGNORE_CASE
+    )
+    private val today = Regex(
+        "^\\s*remind me to (.{1,120}?) today at (\\d{1,2})(?::([0-5]\\d))?\\s*(am|pm)\\s*[.!]?\\s*$",
+        RegexOption.IGNORE_CASE
+    )
+
+    fun parse(prompt: String, nowMillis: Long): NexusReminderDraft? {
+        val relativeMatch = relative.matchEntire(prompt)
+        if (relativeMatch != null) {
+            val amount = relativeMatch.groupValues[2].toLongOrNull() ?: return null
+            if (amount !in 1..365) return null
+            val unit = relativeMatch.groupValues[3].lowercase()
+            val duration = when {
+                unit.startsWith("min") -> java.time.Duration.ofMinutes(amount)
+                unit.startsWith("h") -> java.time.Duration.ofHours(amount)
+                else -> java.time.Duration.ofDays(amount)
+            }
+            val title = relativeMatch.groupValues[1].trim()
+            val target = nowMillis + duration.toMillis()
+            return NexusReminderDraft(title, target).takeIf {
+                NexusReminderPolicy.validate(title, target, nowMillis) == null
+            }
+        }
+        val tomorrowMatch = tomorrow.matchEntire(prompt)
+        val todayMatch = today.matchEntire(prompt)
+        val match = tomorrowMatch ?: todayMatch ?: return null
+        val title = match.groupValues[1].trim()
+        val rawHour = match.groupValues[2].toIntOrNull() ?: return null
+        val minute = match.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull() ?: 0
+        val meridiem = match.groupValues[4].lowercase()
+        if (rawHour !in 1..12 || minute !in 0..59) return null
+        val hour = (rawHour % 12) + if (meridiem == "pm") 12 else 0
+        val zone = java.time.ZoneId.systemDefault()
+        val now = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone)
+        val date = if (tomorrowMatch != null) now.toLocalDate().plusDays(1) else now.toLocalDate()
+        val target = java.time.LocalDateTime.of(date, java.time.LocalTime.of(hour, minute))
+            .atZone(zone).toInstant().toEpochMilli()
+        return NexusReminderDraft(title, target).takeIf {
+            NexusReminderPolicy.validate(title, target, nowMillis) == null
+        }
+    }
+
+    fun nextId(existing: List<NexusReminder>, nowMillis: Long): Int {
+        val used = existing.mapTo(HashSet()) { it.id }
+        var candidate = (nowMillis % Int.MAX_VALUE).toInt().coerceAtLeast(1)
+        while (candidate in used) candidate = if (candidate == Int.MAX_VALUE) 1 else candidate + 1
+        return candidate
+    }
+}
