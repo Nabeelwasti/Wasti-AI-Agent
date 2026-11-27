@@ -39,7 +39,7 @@ Memory snapshots use a user-controlled passphrase, PBKDF2-HMAC-SHA256 (600,000 i
 ## Current Android chat-data controls
 
 - Conversation history is stored only in the app-private directory and encrypted with AES-256-GCM using a non-exportable Android Keystore key.
-- AtomicFile protects history writes against partial replacement. The app caps the store at 100 sessions, 500 turns per session and 5 MB.
+- AtomicFile protects history writes against partial replacement. The app imposes no session-count, turn-count or 5 MB history cap. The encrypted file grows until device storage and process memory become the real constraints.
 - Chat history is not automatically uploaded, included in GitHub memory snapshots or backed up to a remote provider. The user can export one conversation as Markdown to a location selected through Android's document picker; that export is readable plaintext at the chosen destination.
 - The encrypted chat store and passphrase-encrypted memory snapshot format are separate systems with separate keys and recovery behavior.
 - Model output is treated as untrusted text. The Markdown renderer does not execute HTML, scripts or model-generated actions.
