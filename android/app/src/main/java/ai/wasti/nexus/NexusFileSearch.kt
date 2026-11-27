@@ -44,6 +44,9 @@ internal object NexusFileSearch {
 
     fun hasAccess(): Boolean = Environment.isExternalStorageManager()
 
+    internal fun maySendFileContextRemotely(isFileSearchRequest: Boolean, sharingEnabled: Boolean): Boolean =
+        !isFileSearchRequest || sharingEnabled
+
     fun isSearchRequest(prompt: String): Boolean {
         val value = prompt.lowercase(Locale.ROOT)
         val searchVerb = listOf("find", "search", "locate", "look for", "show me", "where is", "open my").any(value::contains)
