@@ -9,7 +9,8 @@ import org.junit.Test
 class NexusMarkdownTest {
     @Test
     fun rendersCommonInlineFormattingWithoutChangingReadableText() {
-        val rendered = parseNexusMarkdown("**Bold** and *italic* with inline code.")
+        val tick = 0x60.toChar()
+        val rendered = parseNexusMarkdown("**Bold** and *italic* with ${tick}code${tick}.")
         assertEquals("Bold and italic with inline code.", rendered.text)
         assertTrue(rendered.spanStyles.any { it.item.fontWeight == FontWeight.Bold })
         assertTrue(rendered.spanStyles.any { it.item.fontStyle != null })
