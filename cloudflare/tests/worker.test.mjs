@@ -243,7 +243,7 @@ test("scoped per-application keys can use self-hosted chat but cannot access per
       id: "private-host", base_url: "https://inference.example/v1", api_key_env: "PRIVATE_HOST_KEY",
       models: [{ id: "private-qwen", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
     }] }),
-    NEXUS_CLIENT_KEYS_JSON: JSON.stringify({ keys: [{ id: "mobile-app", sha256, scopes: ["models", "chat"] }] }),
+    NEXUS_CLIENT_KEYS_JSON: JSON.stringify({ keys: [{ id: "mobile-app", sha256, scopes: ["models", "chat", "memory"] }] }),
   };
   const clientRequest = (path, method = "GET", body = undefined) => new Request("https://nexus.example" + path, {
     method,
@@ -264,7 +264,16 @@ test("scoped per-application keys can use self-hosted chat but cannot access per
   } finally { globalThis.fetch = originalFetch; }
 });
 test("external providers reject HTTP and credential-bearing base URLs", async () => {
-  for (const base_url of ["http://provider.example/v1", "https://user:password@provider.example/v1"]) {
+  for (const base_url of [
+    "http://provider.example/v1",
+    "https://user:password@provider.example/v1",
+    "https://localhost/v1",
+    "https://127.0.0.1/v1",
+    "https://10.0.0.8/v1",
+    "https://192.168.1.10/v1",
+    "https://169.254.169.254/v1",
+    "https://[::1]/v1",
+  ]) {
     const configured = {
       ...env,
       UPSTREAM_KEY: "upstream-test-key",
@@ -321,6 +330,7 @@ test("external provider redirects are not followed", async () => {
 test("customer API fails closed without the rate-limit binding", async () => {
   const response = await worker.fetch(authedRequest("/v1/models"), {
     ...env,
+    NEXUS_DEPLOYMENT_MODE: undefined,
     NEXUS_RATE_LIMIT: undefined,
   });
   assert.equal(response.status, 503);
