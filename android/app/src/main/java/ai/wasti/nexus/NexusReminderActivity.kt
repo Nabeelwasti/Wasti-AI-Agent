@@ -144,6 +144,7 @@ class NexusReminderReceiver : BroadcastReceiver() {
         val id = intent.getIntExtra("reminder_id", 0)
         val title = intent.getStringExtra("reminder_title")?.take(120).orEmpty()
         if (id <= 0 || title.isBlank()) return
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
         NexusReminderStore.createNotificationChannel(context)
         val openApp = PendingIntent.getActivity(
             context, id,
