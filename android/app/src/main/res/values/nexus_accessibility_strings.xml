@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nexus_accessibility_service_name">WASTI NEXUS Device Control</string>
+    <string name="nexus_accessibility_service_description">Allows WASTI NEXUS to read accessible on-screen interface labels and perform user-requested taps, text entry, scrolling and navigation. Screen content is read only when a user-started action requests it. Password fields are redacted. The service does not record screens or run actions in the background.</string>
+</resources>
