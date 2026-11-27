@@ -18,11 +18,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
@@ -798,15 +801,43 @@ private fun NexusScreen(
     var offlineMode by remember { mutableStateOf(true) }
     var localReady by remember { mutableStateOf(false) }
     var loadedModelPath by remember { mutableStateOf("") }
+    var autoLoadAttemptedPath by remember { mutableStateOf("") }
+    var modelLoadError by remember { mutableStateOf("") }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
     var remoteMenuExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     LaunchedEffect(conversation.size, busy, settingsExpanded) {
         if (!settingsExpanded) chatScrollState.animateScrollTo(chatScrollState.maxValue)
+    }
+    // Automatically load the selected model after launch, import or model selection.
+    LaunchedEffect(localModelPath, installedModels) {
+        kotlinx.coroutines.flow.snapshotFlow { busy }.first { isBusy -> !isBusy }
+        if (localModelPath.isBlank() || localModelPath !in installedModels ||
+            loadedModelPath == localModelPath || autoLoadAttemptedPath == localModelPath) return@LaunchedEffect
+        autoLoadAttemptedPath = localModelPath
+        modelLoadError = ""
+        busy = true
+        try {
+            if (localReady && loadedModelPath.isNotBlank()) onUnloadLocal()
+            localReady = false
+            loadedModelPath = ""
+            onLoadLocal(localModelPath)
+            localReady = true
+            loadedModelPath = localModelPath
+            answer = "${File(localModelPath).name} loaded automatically. Offline chat is ready."
+        } catch (error: Exception) {
+            localReady = false
+            loadedModelPath = ""
+            modelLoadError = error.message ?: error.javaClass.simpleName
+            answer = "Automatic model load failed: $modelLoadError"
+        } finally {
+            busy = false
+        }
     }
     val driveWorkspacePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -834,7 +865,9 @@ private fun NexusScreen(
                     localModelPath = onImportModel(uri)
                     installedModels = onListModels()
                     freeStorageBytes = onFreeStorage()
-                    answer = "Model imported and GGUF metadata validated. Load it before starting offline chat."
+                    modelLoadError = ""
+                    autoLoadAttemptedPath = ""
+                    answer = "Model imported and GGUF metadata validated. Loading it automatically..."
                 } catch (error: Exception) {
                     answer = "Model import failed: ${error.message}"
                 } finally {
@@ -1169,7 +1202,9 @@ private fun NexusScreen(
                                         loadedModelPath = ""
                                         localModelPath = modelPath
                                         onSelectModel(modelPath)
-                                        answer = "Selected model. Load it to start offline inference."
+                                        modelLoadError = ""
+                                        autoLoadAttemptedPath = ""
+                                        answer = "Selected model. Loading automatically..."
                                     } catch (error: Exception) {
                                         answer = "Could not switch model: ${error.message}"
                                     } finally {
@@ -1207,10 +1242,23 @@ private fun NexusScreen(
                         Text("Archiving all models: ${(archiveProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
                     }
                     workspaceModels.forEach { model ->
+                        val onDevicePath = installedModels.firstOrNull { path ->
+                            val name = File(path).name
+                            name.equals(model.fileName, ignoreCase = true) || name.endsWith("-${model.fileName}", ignoreCase = true)
+                        }
+                        val partialOnDevice = File(context.filesDir, "models/${model.id}-${model.fileName}.part").exists()
+                        val deviceStatus = when {
+                            onDevicePath != null && localReady && loadedModelPath == onDevicePath -> "READY · loaded in inference engine"
+                            onDevicePath != null -> "INSTALLED · file present, not currently loaded"
+                            partialOnDevice -> "INCOMPLETE · partial transfer; resume/reinstall required"
+                            else -> "NOT INSTALLED in app storage"
+                        }
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(model.displayName, style = MaterialTheme.typography.titleSmall)
                                 Text("${model.family} · ${model.quantization} · ${model.license}", style = MaterialTheme.typography.bodySmall)
+                                Text("ON THIS DEVICE: $deviceStatus", style = MaterialTheme.typography.labelSmall, color = if (onDevicePath != null && localReady && loadedModelPath == onDevicePath) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("File: ${model.fileName}", style = MaterialTheme.typography.bodySmall)
                                 if (model.downloadable) {
                                     Text("Pinned source · ${model.sizeBytes?.div(1_000_000)} MB · device runtime test pending", style = MaterialTheme.typography.bodySmall)
                                     Button(
@@ -1306,26 +1354,29 @@ private fun NexusScreen(
                     onClick = { modelPicker.launch(arrayOf("*/*")) },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Import GGUF from device") }
-                    Button(
-                        enabled = !busy && localModelPath.isNotBlank() && !localReady,
-                        onClick = {
+                if (modelLoadError.isNotBlank()) {
+                    Text("MODEL LOAD ERROR: $modelLoadError", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(enabled = !busy, onClick = {
+                        autoLoadAttemptedPath = ""
+                        modelLoadError = ""
+                        scope.launch {
                             busy = true
-                            scope.launch {
-                                answer = try {
-                                    onLoadLocal(localModelPath)
-                                    localReady = true
-                                    loadedModelPath = localModelPath
-                                    "Local model loaded. You can chat without internet."
-                                } catch (error: Exception) {
-                                    localReady = false
-                                    loadedModelPath = ""
-                                    "Could not load local model: ${error.message}"
-                                } finally {
-                                    busy = false
-                                }
-                            }
+                            try {
+                                onLoadLocal(localModelPath)
+                                localReady = true
+                                loadedModelPath = localModelPath
+                                answer = "Model loaded successfully."
+                            } catch (error: Exception) {
+                                localReady = false
+                                loadedModelPath = ""
+                                modelLoadError = error.message ?: error.javaClass.simpleName
+                                answer = "Model load failed: $modelLoadError"
+                            } finally { busy = false }
                         }
-                    ) { Text("Load model") }
+                    }) { Text("Retry model load") }
+                } else {
+                    Text(if (localReady && loadedModelPath == localModelPath) "Selected model is loaded and ready." else "Selected model will load automatically. No manual Load Model step is required.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (localModelPath.isNotBlank()) {
                     OutlinedButton(
                         enabled = !busy,
@@ -1578,7 +1629,9 @@ private fun NexusScreen(
                         )
                     }
                 }
-                conversation.takeLast(40).forEach { (user, assistant) ->
+                val conversationStartIndex = (conversation.size - 40).coerceAtLeast(0)
+                conversation.takeLast(40).forEachIndexed { visibleIndex, (user, assistant) ->
+                    val conversationIndex = conversationStartIndex + visibleIndex
                     Column(
                         Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.End
@@ -1587,7 +1640,17 @@ private fun NexusScreen(
                             modifier = Modifier.fillMaxWidth(0.88f),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                         ) {
-                            Text(user, Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Column(Modifier.padding(14.dp)) {
+                                SelectionContainer { Text(user, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = { clipboardManager.setText(AnnotatedString(user)) }) { Text("Copy") }
+                                    TextButton(onClick = {
+                                        prompt = user
+                                        conversation = conversation.take(conversationIndex)
+                                        streamingResponse = ""
+                                    }) { Text("Edit") }
+                                }
+                            }
                         }
                     }
                     Column(
@@ -1596,7 +1659,8 @@ private fun NexusScreen(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
+                        SelectionContainer { Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
+                        TextButton(onClick = { clipboardManager.setText(AnnotatedString(assistant)) }) { Text("Copy response") }
                     }
                 }
                 if (streamingResponse.isNotBlank()) {
@@ -1606,7 +1670,8 @@ private fun NexusScreen(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Text(streamingResponse, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp))
+                        SelectionContainer { Text(streamingResponse, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
+                        TextButton(onClick = { clipboardManager.setText(AnnotatedString(streamingResponse)) }) { Text("Copy response") }
                     }
                 }
                 if (answer.startsWith("Request failed:")) {
