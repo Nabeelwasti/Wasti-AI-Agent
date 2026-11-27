@@ -19,6 +19,21 @@ object NexusSystemAccess {
     fun openAppDetails(context: Context) =
         launch(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
 
+    fun hasAllFilesAccess(): Boolean =
+        android.os.Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()
+
+    fun openAllFilesAccess(context: Context): Boolean {
+        val appIntent = Intent(
+            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:${context.packageName}")
+        )
+        return if (appIntent.resolveActivity(context.packageManager) != null) {
+            launch(context, appIntent)
+        } else {
+            launch(context, Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
+
     fun openOverlayAccess(context: Context) =
         launch(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
 
