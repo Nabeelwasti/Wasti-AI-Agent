@@ -287,8 +287,122 @@ async function invoke(env, modelId, messages, options = {}) {
   }
 }
 
+async function invokeStream(env, modelId, messages, options = {}) {
+  const selected = findModel(env, modelId);
+  if (!selected) throw new GatewayError(`Model '${modelId}' is not configured`, 404);
+  const { provider, model } = selected;
+  const baseUrl = String(provider.base_url || "").replace(/\\/$/, "");
+  const apiKeyName = provider.api_key_env;
+  const apiKey = typeof apiKeyName === "string" ? env[apiKeyName] : "";
+  let parsedBaseUrl;
+  try { parsedBaseUrl = new URL(baseUrl); } catch {
+    throw new GatewayError(`Provider for model '${modelId}' has an invalid base URL`, 503);
+  }
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password || !apiKey) {
+    throw new GatewayError(`Provider for model '${modelId}' is not configured correctly`, 503);
+  }
+
+  const controller = new AbortController();
+  const requestSignal = options.signal;
+  const abortFromRequest = () => controller.abort();
+  if (requestSignal?.aborted) controller.abort();
+  else requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
+  const timeout = Math.max(5000, Math.min(Number(env.REQUEST_TIMEOUT_MS || 45000), 60000));
+  const timer = setTimeout(() => controller.abort(), timeout);
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    clearTimeout(timer);
+    requestSignal?.removeEventListener("abort", abortFromRequest);
+  };
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json", "Accept": "text/event-stream, application/json" },
+      body: JSON.stringify({
+        model: model.upstream_model || model.id,
+        messages,
+        temperature: options.temperature ?? 0.3,
+        max_tokens: Math.min(Number(options.max_tokens || 1200), 4096),
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new GatewayError(`Provider request failed with HTTP ${response.status}`, 502);
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.body) throw new GatewayError("Provider returned an empty streaming response", 502);
+
+    if (!contentType.toLowerCase().includes("text/event-stream")) {
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || !content.trim()) throw new GatewayError("Provider returned no text answer", 502);
+      cleanup();
+      const encoder = new TextEncoder();
+      const chunk = JSON.stringify({ choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }] });
+      const payload = `data: ${chunk}\\n\\ndata: [DONE]\\n\\n`;
+      return new Response(encoder.encode(payload), {
+        status: 200,
+        headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no", "x-nexus-model": model.id, "x-nexus-provider": provider.id },
+      });
+    }
+
+    const reader = response.body.getReader();
+    const stream = new ReadableStream({
+      async pull(target) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            target.close();
+            cleanup();
+          } else {
+            target.enqueue(value);
+          }
+        } catch (error) {
+          cleanup();
+          target.error(error);
+        }
+      },
+      async cancel(reason) {
+        controller.abort();
+        try { await reader.cancel(reason); } finally { cleanup(); }
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no", "x-nexus-model": model.id, "x-nexus-provider": provider.id },
+    });
+  } catch (error) {
+    cleanup();
+    if (error instanceof GatewayError) throw error;
+    if (error?.name === "AbortError") {
+      throw new GatewayError(requestSignal?.aborted ? "Request cancelled" : "Provider request timed out", requestSignal?.aborted ? 499 : 504);
+    }
+    throw new GatewayError("Provider streaming request failed", 502);
+  }
+}
+
+async function streamSingle(request, env, headers, body) {
+  if (body.model === "nexus-auto" || body.model === "nexus-hybrid" || body.nexus?.mode === "auto" || body.nexus?.mode === "hybrid") {
+    throw new GatewayError("Streaming currently requires one explicitly selected model. Use stream=false for Auto or Hybrid orchestration.", 400);
+  }
+  if (typeof body.model !== "string" || !body.model.trim()) throw new GatewayError("A configured model ID is required", 400);
+  const messages = validateMessages(body);
+  if (containsImages(messages)) {
+    const selected = findModel(env, body.model);
+    if (!selected || !selected.model.capabilities?.some(value => String(value).toLowerCase() === "vision")) {
+      throw new GatewayError("The selected model is not verified as vision-capable.", 400);
+    }
+  }
+  const response = await invokeStream(env, body.model, messages, { ...body, signal: request.signal });
+  const responseHeaders = new Headers(response.headers);
+  for (const [name, value] of Object.entries(headers)) responseHeaders.set(name, value);
+  return new Response(response.body, { status: response.status, headers: responseHeaders });
+}
+
 function validateGenerationOptions(body) {
-  if (body.stream === true) throw new GatewayError("Streaming is not implemented; set stream=false", 400);
+  if (body.stream !== undefined && typeof body.stream !== "boolean") throw new GatewayError("stream must be a boolean", 400);
   if (body.max_tokens !== undefined && (!Number.isInteger(body.max_tokens) || body.max_tokens < 1 || body.max_tokens > 8192)) {
     throw new GatewayError("max_tokens must be an integer between 1 and 8192", 400);
   }
@@ -376,6 +490,7 @@ async function autoBody(body, env, headers, requestSignal) {
 async function single(request, env, headers) {
   const body = await parseJson(request);
   validateGenerationOptions(body);
+  if (body.stream === true) return streamSingle(request, env, headers, body);
   if (body.model === "nexus-auto" || body.nexus?.mode === "auto") {
     return autoBody(body, env, headers, request.signal);
   }
@@ -411,6 +526,7 @@ async function single(request, env, headers) {
 async function hybrid(request, env, headers) {
   const body = await parseJson(request);
   validateGenerationOptions(body);
+  if (body.stream === true) throw new GatewayError("Streaming is not available for Hybrid orchestration; set stream=false.", 400);
   return hybridBody(body, env, headers, request.signal);
 }
 
