@@ -222,14 +222,14 @@ function isPublicProviderHostname(hostname) {
   if (ipv4) {
     const octets = ipv4.slice(1).map(Number);
     if (octets.some(value => value > 255)) return false;
-    const [a, b, d] = octets;
+    const [a, b, c, d] = octets;
     if (a === 0 || a === 10 || a === 127 || a >= 224 ||
         (a === 169 && b === 254) ||
         (a === 172 && b >= 16 && b <= 31) ||
-        (a === 192 && (b === 168 || (b === 0 && (d === 0 || d === 2))) ) ||
+        (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
         (a === 100 && b >= 64 && b <= 127) ||
-        (a === 198 && (b === 18 || b === 19 || b === 51)) ||
-        (a === 203 && b === 0 && d === 113)) return false;
+        (a === 198 && ((b === 18 || b === 19) || (b === 51 && c === 100))) ||
+        (a === 203 && b === 0 && c === 113)) return false;
     return true;
   }
   if (host.length > 253 || !host.includes(".")) return false;
