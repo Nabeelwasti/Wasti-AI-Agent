@@ -75,3 +75,35 @@
 ## Release decision
 
 **Status: signed 0.5.5 release candidate; not fully production-certified.** Current main application CI, 37 Android JVM tests, 30 Worker tests, three-language CodeQL execution and signed release build pass. The Worker source is deployed with existing bindings preserved. However, no inference provider is configured and no physical-device validation evidence exists. Persistent history, Markdown chat rendering and single-model remote streaming are now implemented; several customer-grade, recovery, tool and multimodal gates remain open. Do not advertise the whole product as production-ready until the open gates are closed with evidence.
+
+
+---
+
+## 2026-11-27 follow-up: 0.5.9 shared-storage search
+
+**Implementation commit:** `3903f209f7e0c12073ce31f0bca56f92786b0f2e`  
+**App version:** 0.5.9 (`versionCode 14`)  
+**Status:** CI/release verification pending for this follow-up.
+
+### Newly implemented
+- Optional Android All files access declaration and direct Settings handoff.
+- On-demand shared-storage search triggered by natural-language requests such as "find my passport photo".
+- Bounded scan (12,000 filesystem entries, ten results maximum); filename matching for supported text, media and document formats.
+- Bounded local text extraction for supported text/code formats; metadata-only results for PDF, Office, image, video and audio files.
+- Android/data and Android/obb are excluded; other apps' private storage is not accessible.
+- Search excerpts are labeled untrusted in model context.
+- Remote file-context sharing is off by default and requires a separate Settings opt-in. If it remains off, file-search requests fail closed when routing would send excerpts to a remote model.
+- Four JVM tests cover search intent detection and prompt-context safety.
+
+### Still not implemented
+- PDF text extraction, OCR, Office parsing, audio/video transcription and semantic embeddings.
+- SMS and call-log access; these are hard-restricted permissions and cannot be granted unless the installer/role allowlists them. A user tapping a Settings button cannot override that OS restriction.
+- A full default SMS or dialer implementation.
+- Health Connect data connectors and sensor history.
+- Background location, notification content ingestion, device-owner provisioning, package installation, PIP/split-screen orchestration.
+- Persistent NEXUS-owned reminders and a general model-directed action executor.
+- A full agent tool loop with action planning, permission-aware tool schemas, approval UX, result observation, cancellation and audit logs.
+- Physical Redmi Note 14 Pro tests.
+
+### Privacy boundary
+The file-search permission is optional and user-granted. Search is on demand, not continuous. File contents are not automatically persisted into chat history or long-term memory. Remote sharing is a distinct opt-in. Android's protected app directories remain inaccessible.
