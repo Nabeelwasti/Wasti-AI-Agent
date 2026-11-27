@@ -23,8 +23,11 @@ internal data class NexusFileHit(
  */
 internal object NexusFileSearch {
     private const val MAX_VISITED = 12_000
+    private const val MAX_TEXT_FILES = 1_000
+    private const val MAX_TOTAL_TEXT_BYTES = 32L * 1024 * 1024
     private const val MAX_FILE_BYTES = 128 * 1024L
     private const val MAX_RESULTS = 10
+    private const val MAX_CANDIDATES = 250
     private const val MAX_TOTAL_EXCERPT_CHARS = 12_000
 
     private val textExtensions = setOf(
@@ -76,7 +79,11 @@ internal object NexusFileSearch {
             val nameScore = terms.sumOf { term -> if (name.contains(term)) 12 else 0 }
             var excerpt = ""
             var contentScore = 0
-            if (extension in textExtensions && file.length() in 1..MAX_FILE_BYTES) {
+            if (extension in textExtensions && file.length() in 1..MAX_FILE_BYTES &&
+                textFilesScanned < MAX_TEXT_FILES && totalTextBytes + file.length() <= MAX_TOTAL_TEXT_BYTES
+            ) {
+                textFilesScanned++
+                totalTextBytes += file.length()
                 val text = runCatching { file.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() } }.getOrDefault("")
                     .take(64 * 1024)
                 val lower = text.lowercase(Locale.ROOT)
@@ -99,6 +106,10 @@ internal object NexusFileSearch {
                 modifiedAt = file.lastModified(),
                 excerpt = excerpt
             )
+            if (hits.size > MAX_CANDIDATES * 2) {
+                hits.sortByDescending { it.first }
+                while (hits.size > MAX_CANDIDATES) hits.removeAt(hits.lastIndex)
+            }
         }
 
         var remaining = MAX_TOTAL_EXCERPT_CHARS
