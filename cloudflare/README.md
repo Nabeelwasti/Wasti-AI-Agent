@@ -23,13 +23,13 @@ Cloudflare Workers still has platform request, CPU, memory, concurrency and plan
 
 - `GET /healthz` — public health; reports `cloudflare_ai_enabled: false` and `inference_backend: self-hosted-provider-relay-only`.
 - `GET /v1/models` — authenticated list of configured, enabled and licence-approved self-hosted provider models, plus a synthetic `nexus-auto` router when at least one eligible model exists.
-- `POST /v1/chat/completions` — explicit model requests or task-aware `nexus-auto` routing (general, coding and reasoning) across configured self-hosted OpenAI-compatible providers. Unsupported image/audio/training tasks are rejected.
+- `POST /v1/chat/completions` — explicit model requests or task-aware `nexus-auto` routing (general, coding, reasoning and capability-gated vision) across configured self-hosted OpenAI-compatible providers. Image inputs are inline JPEG/PNG/WebP data URLs only, at most two per request and 1 MB each. Unsupported image/audio/training tasks are rejected.
 - `POST /v1/hybrid/chat/completions` — bounded multi-model review using at least two distinct configured self-hosted model IDs.
 - `GET/POST /v1/memory/snapshots` — encrypted memory sync through GitHub Contents API; this is separate from the Google Drive model archive.
 
 ## Configure a self-hosted provider (optional)
 
-Set Worker secret `NEXUS_PROVIDERS_JSON` to a JSON object with `providers`. Each provider must use a trusted HTTPS endpoint and a server-side secret name:
+Set Worker variable `NEXUS_PROVIDERS_JSON` to a JSON object with `providers`. It contains model metadata and endpoint URLs, not credentials. Each provider must use a trusted HTTPS endpoint and a separate server-side secret name:
 
 ```json
 {
@@ -54,9 +54,9 @@ Set Worker secret `NEXUS_PROVIDERS_JSON` to a JSON object with `providers`. Each
 }
 ```
 
-Set `NEXUS_INFERENCE_KEY` as a Worker secret. Never place provider credentials in repository files, Android builds or browser code. The `license_status` value must be `verified` or `approved` and `commercial_allowed` must be explicitly true for customer mode. Restricted, pending or unknown licence records are hidden and blocked.
+Set `NEXUS_INFERENCE_KEY` as a Worker secret. For image understanding, add `vision` to a model only after verifying that its exact checkpoint and provider adapter accept OpenAI-style inline image content. Never place provider credentials in repository files, Android builds or browser code. The `license_status` value must be `verified` or `approved` and `commercial_allowed` must be explicitly true for customer mode. Restricted, pending or unknown licence records are hidden and blocked.
 
-## Google Drive archive rule
+See [the complete provider setup and release checklist](../docs/PROVIDER_SETUP.md). No inference provider is currently configured in the deployed Worker; its health endpoint alone does not prove that a model is available.\n\n## Google Drive archive rule
 
 All model weights, datasets, LoRA adapters, evaluation reports and exported GGUF files belong in the user's selected Google Drive workspace through Android Storage Access Framework. The Worker never stores or proxies model files. Do not add R2 or any Cloudflare storage binding.
 
