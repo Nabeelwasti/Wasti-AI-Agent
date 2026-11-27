@@ -32,7 +32,7 @@ class NexusReminderPolicyTest {
         val draft = NexusReminderParser.parse("remind me to submit assignment tomorrow at 5:30 pm", now)
         assertEquals("submit assignment", draft?.title)
         assertEquals(null, NexusReminderParser.parse("remind me about this later", now))
-        assertEquals(null, NexusReminderParser.parse("remind me to call home tomorrow at 5 pm", now).takeIf { it == null })
+        assertEquals(null, NexusReminderParser.parse("remind me to call home at 5 pm tomorrow", now))
     }
 
     @Test fun nextReminderIdAvoidsExistingIds() {
