@@ -1,41 +1,65 @@
-# Roadmap and release gates
+# WASTI NEXUS roadmap and release gates
 
-This is a living checklist. A task is complete only with implementation and evidence.
+A checkbox is complete only when the implementation exists and evidence is recorded in [STATUS.md](STATUS.md). The project remains one monorepo; routine implementation work should be committed directly to `main` in small, sequential, tested commits.
 
-## Phase 0 — Repository foundation
-- [x] Single monorepo created.
-- [x] Initial architecture and security principles.
-- [ ] CI and test gates.
+## Android client
 
-## Phase 1 — Orchestration API
-- [ ] OpenAI-compatible models and chat endpoints.
-- [ ] Configurable provider adapters.
-- [ ] Parallel agent analysis and bounded review.
-- [ ] Hybrid synthesis and honest participation metadata.
-- [ ] Authentication, tenant isolation, rate limiting and observability.
-- [ ] Contract and integration tests.
+- [x] Kotlin/Compose app shell and local-first routing.
+- [x] Native GGUF import, one-model lifecycle, automatic selected-model loading and visible model health.
+- [x] Task-aware local model selection and resource-aware routing.
+- [x] Local token streaming and Stop action.
+- [x] Remote HTTP cancellation.
+- [x] Copy/select/edit chat message controls.
+- [x] Gateway collaboration metadata panel using real provider outputs and orchestration metadata.
+- [x] Bounded text/code attachments for local and remote prompts.
+- [x] Bounded JPEG/PNG/WebP attachments for remote vision-capable providers.
+- [ ] Real-device regression suite: install/upgrade, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN and mobile data.
+- [ ] Durable Room-backed conversation history, search, rename, delete, export and restore.
+- [ ] SSE remote token streaming and real-time orchestration progress events.
+- [ ] Permission-scoped tools, approvals, sandboxing, audit and revocation.
+- [ ] PDF parsing, audio, offline vision, image generation and training runtimes (only when a verified implementation and licence exists).
 
-## Phase 2 — Model archive
-- [ ] Exact checkpoint selected for each of 12 families.
-- [ ] License and redistribution review for every exact checkpoint.
-- [ ] Pinned revision, snapshot download and SHA-256 manifests.
-- [ ] GGUF/runtime conversion where license and tooling permit.
-- [ ] Archive integrity and restore tests.
+## Gateway and orchestration
 
-## Phase 3 — Android
-- [ ] Compose application shell and API settings.
-- [ ] Local inference runtime integration.
-- [ ] Model download, storage budget and lifecycle manager.
-- [ ] Hybrid UI and agent activity view.
-- [ ] Encrypted Room vault and tenant/project separation.
-- [ ] Permission center, tool registry, approvals and audit history.
-- [ ] Device compatibility, battery, thermal and offline tests.
+- [x] OpenAI-compatible model catalogue and chat-completion API.
+- [x] Configurable self-hosted provider adapters and licence-aware model catalogue.
+- [x] Auto task routing with capability matching and sequential fallback.
+- [x] Hybrid parallel independent answers, bounded peer review and synthesis.
+- [x] Truthful collaboration metadata and failure reporting.
+- [x] Authentication, request size limits, provider timeouts and CORS allowlist.
+- [x] Vision payload validation and capability-gated routing in Worker source.
+- [ ] Deploy latest Worker source and verify deployed version.
+- [ ] Authenticated end-to-end text inference smoke test against a real configured provider.
+- [ ] Authenticated end-to-end vision inference smoke test against a verified vision provider.
+- [ ] SSE progress and provider streaming with cancellation propagation.
+- [ ] Per-customer tenant isolation, quotas, operational monitoring and alerting.
 
-## Phase 4 — Cloud and customer products
-- [ ] Independently deployable API with custom domain.
-- [ ] Tenant authentication and customer workspace isolation.
-- [ ] Encrypted backup and tested restore.
-- [ ] SDK examples for Android, web and backend clients.
+## Model archive and governance
+
+- [x] Preserve the original twelve pinned GGUF archive entries and their manifests.
+- [x] Extended candidate registry and explicit licence/usage review status.
+- [x] Android GGUF metadata validation and pinned Qwen starter download/Drive copy flow.
+- [ ] Exact checkpoint, immutable revision, licence evidence, checksum and runtime adapter for every additional model.
+- [ ] Per-model task quality, memory, speed, thermal and battery benchmarks.
+- [ ] Verified vision, speech, image-generation and fine-tuning models/runtimes before enabling those tasks.
+- [ ] Restore/interruption/retry/checksum-rejection tests for the Drive model archive on a physical device.
+
+## Memory, tools and customer service
+
+- [x] Client-side encrypted local memory snapshots.
+- [x] Optional encrypted snapshot sync/restore API source.
+- [ ] Live upload, restore and cross-device recovery drill.
+- [ ] Documented retention, deletion and export policy.
+- [ ] Permission-scoped tool registry and approvals.
+- [ ] Sandboxed execution and complete audit trail.
+- [ ] Customer identity, tenant isolation, key lifecycle, rate limits and abuse controls.
+- [ ] Monitoring, incident response, backups and recovery runbooks.
 
 ## Release gates
-No production-ready claim until builds pass, security checks pass, model participation is verified, restore succeeds, Android real-device tests pass and a public endpoint is protected by authentication and monitoring.
+
+A release can be signed after CI passes, but the product must not be labelled fully production-ready until:
+1. Main CI and permanent-key signed release pass for the exact source revision.
+2. Target-device tests pass without data loss or regression.
+3. Updated Worker source is deployed and authenticated provider requests pass.
+4. Memory recovery, security and operational drills pass.
+5. All advertised model and modality capabilities have real evidence.
