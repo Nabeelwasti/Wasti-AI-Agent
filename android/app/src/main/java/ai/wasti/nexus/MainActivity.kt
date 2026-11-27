@@ -1544,6 +1544,39 @@ private fun NexusScreen(
                     onClick = { showDeviceControlDisclosure = true },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(if (deviceControlEnabled) "Review device-control permission" else "Set up device control") }
+                OutlinedButton(
+                    onClick = {
+                        val service = NexusAccessibilityService.current()
+                        if (service == null) {
+                            answer = "Enable WASTI NEXUS Device Control in Android Accessibility settings first."
+                        } else if (attachments.size >= 4 || attachments.count { it.imageDataUrl != null } >= 2) {
+                            answer = "Attachment limit reached. Remove an attachment before capturing the screen."
+                        } else {
+                            answer = "Capturing the current screen…"
+                            service.captureScreenshot { bitmap ->
+                                if (bitmap == null) {
+                                    answer = "Screenshot unavailable. Android may block capture on secure or protected screens."
+                                } else {
+                                    runCatching {
+                                        val output = java.io.ByteArrayOutputStream()
+                                        require(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, output)) {
+                                            "Could not encode the screenshot."
+                                        }
+                                        val encoded = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+                                        attachments = attachments + NexusAttachment(
+                                            name = "screen-${System.currentTimeMillis()}.jpg",
+                                            mimeType = "image/jpeg",
+                                            imageDataUrl = "data:image/jpeg;base64,$encoded"
+                                        )
+                                        answer = "Screenshot attached locally. Review it; it is not sent until you press Send."
+                                    }.onFailure { answer = "Screenshot processing failed: ${it.message}" }
+                                    finally { bitmap.recycle() }
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Capture current screen for this chat") }
                 if (showDeviceControlDisclosure) {
                     AlertDialog(
                         onDismissRequest = { showDeviceControlDisclosure = false },
