@@ -73,36 +73,48 @@ internal fun parseNexusMarkdown(source: String): AnnotatedString {
 }
 
 private fun appendInlineMarkdown(builder: AnnotatedString.Builder, text: String) {
-    val tick = 0x60.toChar().toString()
-    val escapedTick = Regex.escape(tick)
-    val token = Regex("(\\*\\*.+?\\*\\*|${escapedTick}[^${tick}]+${escapedTick}|(?<!\\*)\\*[^*]+\\*(?!\\*))")
-    var cursor = 0
-    token.findAll(text).forEach { match ->
-        if (match.range.first > cursor) builder.append(text.substring(cursor, match.range.first))
-        val value = match.value
-        when {
-            value.startsWith("**") && value.endsWith("**") -> {
+    val tick = 0x60.toChar()
+    var index = 0
+    while (index < text.length) {
+        if (text.startsWith("**", index)) {
+            val end = text.indexOf("**", index + 2)
+            if (end > index + 2) {
                 builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                builder.append(value.substring(2, value.length - 2))
+                builder.append(text.substring(index + 2, end))
                 builder.pop()
+                index = end + 2
+                continue
             }
-            value.startsWith(tick) && value.endsWith(tick) -> {
+        }
+
+        if (text[index] == tick) {
+            val end = text.indexOf(tick, index + 1)
+            if (end > index + 1) {
                 builder.pushStyle(
                     SpanStyle(
                         fontFamily = FontFamily.Monospace,
                         background = Color(0x1F808080)
                     )
                 )
-                builder.append(value.substring(1, value.length - 1))
+                builder.append(text.substring(index + 1, end))
                 builder.pop()
-            }
-            value.startsWith("*") && value.endsWith("*") -> {
-                builder.pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                builder.append(value.substring(1, value.length - 1))
-                builder.pop()
+                index = end + 1
+                continue
             }
         }
-        cursor = match.range.last + 1
+
+        if (text[index] == '*' && (index == 0 || text[index - 1] != '*')) {
+            val end = text.indexOf('*', index + 1)
+            if (end > index + 1 && (end + 1 >= text.length || text[end + 1] != '*')) {
+                builder.pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
+                builder.append(text.substring(index + 1, end))
+                builder.pop()
+                index = end + 1
+                continue
+            }
+        }
+
+        builder.append(text[index])
+        index += 1
     }
-    if (cursor < text.length) builder.append(text.substring(cursor))
 }
