@@ -14,7 +14,8 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Screenshot | AccessibilityService.takeScreenshot one-shot API | User manually enables service; secure windows can block capture |
 | Camera | TakePicturePreview system camera intent | User starts capture; no direct CAMERA permission |
 | Photos | Android photo picker | Per-selection URI access |
-| Files | Storage Access Framework OpenDocument / OpenDocumentTree | Per-selection URI access; no all-files permission |
+| Files | On-demand shared-storage search with bounded filename/text matching and metadata for media/PDF/Office files | Optional MANAGE_EXTERNAL_STORAGE; user must grant Android All files access in Settings. Android/data and Android/obb are excluded. |
+| File context in chat | Natural-language file-search requests append bounded local excerpts to the active prompt | On-device route by default; sending excerpts to remote brains requires a separate opt-in in Settings |
 | Voice input | Android speech-recognition activity | User starts recognition; speech provider may require its own network/service |
 | Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |
 | Calendar event | Calendar ACTION_INSERT | User reviews and saves in Calendar |
@@ -23,17 +24,26 @@ This document is the source of truth for Android access requests. NEXUS must req
 
 ## Not requested and why
 
-- MANAGE_EXTERNAL_STORAGE / All files access: not needed; use Storage Access Framework and app-private storage.
-- SMS and call-log permissions: no SMS or dialer core feature exists. Google Play sharply restricts these permissions to qualifying default handlers and approved use cases.
-- Premium SMS: not a normal app permission for a general AI assistant; never attempt to enable it.
-- Device administrator / device owner: not needed for personal device automation. Device-owner provisioning is for managed enterprise devices and is not a general runtime permission.
-- REQUEST_INSTALL_PACKAGES: no app-store/installer core feature exists. NEXUS does not silently install APKs.
-- SYSTEM_ALERT_WINDOW: no floating overlay feature is implemented. A settings shortcut is provided for future optional use only.
+- SMS and call-log permissions: no SMS or dialer core feature exists. Android and distribution channels apply additional restrictions; do not declare these permissions without a complete role/installer strategy and working product flow.
+- Premium SMS: not a normal permission for a general AI assistant; never attempt to enable it.
+- Device administrator / device owner: not needed for personal device automation. Device-owner provisioning is for managed devices and is not a general runtime permission.
+- REQUEST_INSTALL_PACKAGES: no app-installer feature exists. NEXUS does not silently install APKs.
+- SYSTEM_ALERT_WINDOW: no floating overlay feature is implemented.
 - WRITE_SETTINGS: no system-setting mutation feature is implemented.
 - Notification listener: a settings shortcut exists, but NEXUS does not read notification content yet.
 - Usage access: a settings shortcut exists, but NEXUS does not collect app-usage history.
-- Background location, contacts database, calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
-- Exact alarm scheduling and persistent reminders: not implemented as a NEXUS-owned scheduler. The current alarm shortcut hands off to Clock for user-confirmed setup.
+- Background location, contacts/calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
+- Exact alarm scheduling and persistent NEXUS-owned reminders: not implemented as a NEXUS-owned scheduler. The current alarm shortcut hands off to Clock for user-confirmed setup.
+
+## Shared-storage search boundaries
+
+- The user must explicitly grant Android's special All files access in Settings. NEXUS does not grant it silently.
+- Search is on demand, bounded to 12,000 filesystem entries and at most ten results.
+- Plain-text/code formats are searched for filename and bounded text matches. PDF, Office documents, images, video and audio currently return matching metadata only; they are not claimed to be text-extracted or fully analysed.
+- Android/data, Android/obb, other apps' private sandboxes, caches and inaccessible external volumes are excluded.
+- Excerpts are marked as untrusted data in the model context. They are not executed as instructions.
+- Remote file-context sharing is disabled by default. It requires a separate opt-in; otherwise the request must route to an on-device model.
+- The app does not silently index the full contents of all files into long-term memory.
 
 ## Safety and confirmation rules
 
