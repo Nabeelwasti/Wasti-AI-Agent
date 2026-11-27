@@ -104,7 +104,7 @@ Implementation decisions:
 
 - OWASP MASVS: https://mas.owasp.org/MASVS/
 - OWASP API Security Top 10: https://owasp.org/API-Security/editions/2023/en/0x00-header/
-- OWASP Top 10 for LLM Applications: https://genai.owasp.org/llm-top-10/
+- OWASP Top 10 for LLM Applications: https://genai.owasp.org/top-10-for-llm-applications-2026/
 - GitHub CodeQL documentation: https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql
 
 Applied controls include Keystore-backed at-rest encryption, scoped gateway keys, master-only personal-memory access, default customer rate limiting, request bounds, provider HTTPS checks, private/reserved endpoint blocking, cancellation propagation and no automatic execution of model output. These controls are engineering measures, not a formal MASVS or OWASP certification.
