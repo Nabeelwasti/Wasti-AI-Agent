@@ -24,11 +24,22 @@ The service is not root access and does not bypass secure windows, app permissio
 
 The service can be disabled at any time in Android Settings. Do not enable it on a device you do not own or administer.
 
-## Integration boundary
+## Approval-gated chat actions
 
-The service exposes the in-process current service instance for app callers. Invoke its methods on the Android main thread. A snapshot returns a fresh, bounded list of UI nodes. The service does not automatically feed screen content into local or remote model prompts. A future tool executor must request a fresh snapshot only after a user-started task, keep screen context local by default, require confirmation for consequential actions, and record an auditable action result without storing screen text.
+The chat composer now recognizes a small deterministic command set. Each recognized command opens an approval dialog before execution:
 
-This commit provides the Android control foundation and setup UX. It does not yet claim a complete autonomous agent loop, screenshot capture, MediaProjection, app launching, or reliable control of every third-party app.
+- `tap the Settings button`: click an enabled control only when its exact visible label matches uniquely (if the implementation cannot establish a unique target, it must fail closed).
+- `scroll down` / `scroll up`
+- `go back` / `go home`
+- `open notifications`
+- `read current screen`: display a bounded snapshot locally; it is not passed to a model.
+- `read my notifications`: requires separately enabled Notification access and displays a bounded active-notification snapshot locally.
+
+The notification listener does not cache posted events or persist content in the background. A user-requested notification snapshot can be saved in the encrypted conversation history. Neither screen text nor notification content from these deterministic commands is sent to a model.
+
+The executor rejects high-impact click labels such as delete, send, submit, pay, transfer, install, allow, and permission. It does not type text, perform arbitrary coordinate taps, chain actions, make calls, send messages, install APKs, change permissions, or run background plans. Android accepting a click/gesture is not proof that the target app completed an operation. The user must inspect the result.
+
+This is a narrow approved command executor, not a general autonomous agent. It does not claim reliable control of every third-party app or replace Android permission and security controls.
 
 ## Distribution
 
