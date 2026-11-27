@@ -73,6 +73,69 @@ test("Cloudflare AI bindings are ignored and no first-party hosted inference mod
   assert.equal(response.status, 404);
   assert.equal(calls, 0);
 });
+test("single-model chat streams OpenAI-compatible SSE and asks the provider to stream", async () => {
+  const originalFetch = globalThis.fetch;
+  const providerChunks = [
+    'data: {"choices":[{"index":0,"delta":{"role":"assistant","content":"Hello "},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{"content":"from NEXUS."},"finish_reason":null}]}\n\n',
+    "data: [DONE]\n\n",
+  ];
+  let sentStreamRequest = false;
+  globalThis.fetch = async (_input, init = {}) => {
+    sentStreamRequest = JSON.parse(init.body).stream === true;
+    const encoder = new TextEncoder();
+    return new Response(new ReadableStream({
+      start(controller) {
+        providerChunks.forEach(chunk => controller.enqueue(encoder.encode(chunk)));
+        controller.close();
+      },
+    }), { headers: { "content-type": "text/event-stream" } });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "stream-host",
+        base_url: "https://stream.example/v1",
+        api_key_env: "STREAM_KEY",
+        models: [{ id: "stream-model", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+      }] }),
+      STREAM_KEY: "stream-provider-secret",
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "stream-model",
+      messages: [{ role: "user", content: "Say hello." }],
+      stream: true,
+    }), configured);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /text\/event-stream/i);
+    assert.equal(sentStreamRequest, true);
+    const body = await response.text();
+    assert.match(body, /Hello /);
+    assert.match(body, /from NEXUS\./);
+    assert.match(body, /data: \[DONE\]/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Auto and Hybrid requests cannot silently claim single-model streaming", async () => {
+  const configured = {
+    ...env,
+    NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+      id: "stream-host", base_url: "https://stream.example/v1", api_key_env: "STREAM_KEY",
+      models: [{ id: "stream-model", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat"] }],
+    }] }),
+    STREAM_KEY: "stream-provider-secret",
+  };
+  for (const model of ["nexus-auto", "nexus-hybrid"]) {
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model, messages: [{ role: "user", content: "Hello" }], stream: true,
+    }), configured);
+    assert.equal(response.status, 400);
+  }
+});
+
 test("hybrid refuses to present one model as a multi-agent result", async () => {
   const configured = {
     ...env,
