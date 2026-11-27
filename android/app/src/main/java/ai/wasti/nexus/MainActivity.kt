@@ -1018,24 +1018,28 @@ private fun NexusScreen(
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
-    // Native token callbacks can arrive hundreds of times per second. Buffer them away from
-    // Compose state and publish one snapshot every 40 ms instead of recomposing the full screen
-    // for every token.
-    val streamTokens = remember { Channel<String>(Channel.UNLIMITED) }
+    // Coalesce native token callbacks into one bounded signal. Token text is accumulated
+    // separately so a fast model cannot create an unbounded Channel<String> backlog.
+    val streamTokens = remember { Channel<Unit>(Channel.CONFLATED) }
+    val pendingStreamTokens = remember { StringBuilder() }
     val streamBuffer = remember { StringBuilder() }
     LaunchedEffect(streamTokens) {
         while (isActive) {
-            val first = streamTokens.receive()
-            streamBuffer.append(first)
-            while (true) {
-                val next = streamTokens.tryReceive().getOrNull() ?: break
-                streamBuffer.append(next)
-            }
-            streamingResponse = streamBuffer.toString()
+            streamTokens.receive()
             delay(40)
+            val batch = synchronized(pendingStreamTokens) {
+                pendingStreamTokens.toString().also { pendingStreamTokens.setLength(0) }
+            }
+            if (batch.isNotEmpty()) {
+                streamBuffer.append(batch)
+                streamingResponse = streamBuffer.toString()
+            }
         }
     }
-    fun queueStreamToken(token: String) { streamTokens.trySend(token) }
+    fun queueStreamToken(token: String) {
+        synchronized(pendingStreamTokens) { pendingStreamTokens.append(token) }
+        streamTokens.trySend(Unit)
+    }
     suspend fun persistConversation(turns: List<Pair<String, String>>, remoteTurns: List<Pair<String, String>>) {
         if (turns.isEmpty() || initialChatError.isNotBlank()) return
         val existing = chatSessions.firstOrNull { it.id == activeSessionId }
