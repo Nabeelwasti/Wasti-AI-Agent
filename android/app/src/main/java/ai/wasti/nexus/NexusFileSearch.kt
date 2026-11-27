@@ -2,6 +2,7 @@ package ai.wasti.nexus
 
 import android.content.Context
 import android.os.Environment
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Locale
 
@@ -61,7 +62,8 @@ internal object NexusFileSearch {
         var textFilesScanned = 0
         var totalTextBytes = 0L
         root.walkTopDown().onEnter { directory ->
-            val relative = runCatching { directory.canonicalPath.removePrefix(root.path).trimStart(File.separatorChar) }.getOrDefault("")
+            if (!isWithinRoot(root, directory)) return@onEnter false
+            val relative = directory.canonicalFile.path.removePrefix(root.path).trimStart(File.separatorChar)
             val androidPrivate = relative.equals("Android/data", true) ||
                 relative.startsWith("Android/data${File.separator}", true) ||
                 relative.equals("Android/obb", true) ||
@@ -72,6 +74,9 @@ internal object NexusFileSearch {
                 directory.name.equals("lost+found", true)
             !blocked && !directory.name.startsWith(".nomedia-skip")
         }.take(MAX_VISITED).forEach { file ->
+            // Check canonical containment before opening any file. A shared-storage
+            // symlink must never cause NEXUS to read data outside the selected root.
+            if (!isWithinRoot(root, file)) return@forEach
             if (!file.isFile || !file.canRead() || file.length() > 2L * 1024 * 1024 * 1024) return@forEach
             val extension = file.extension.lowercase(Locale.ROOT)
             if (extension !in textExtensions && extension !in mediaExtensions && extension !in documentExtensions) return@forEach
@@ -83,9 +88,10 @@ internal object NexusFileSearch {
                 textFilesScanned < MAX_TEXT_FILES && totalTextBytes + file.length() <= MAX_TOTAL_TEXT_BYTES
             ) {
                 textFilesScanned++
-                totalTextBytes += file.length()
-                val text = runCatching { file.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText() } }.getOrDefault("")
-                    .take(64 * 1024)
+                val boundedText = runCatching { readTextBounded(file) }.getOrNull()
+                if (boundedText == null) return@forEach
+                totalTextBytes += boundedText.second
+                val text = boundedText.first
                 val lower = text.lowercase(Locale.ROOT)
                 contentScore = terms.sumOf { term -> (lower.windowed(term.length, 1).count { it == term }).coerceAtMost(8) * 2 }
                 if (contentScore > 0) {
@@ -96,8 +102,7 @@ internal object NexusFileSearch {
             }
             val score = nameScore + contentScore
             if (score <= 0) return@forEach
-            val canonical = runCatching { file.canonicalFile }.getOrNull() ?: return@forEach
-            if (!canonical.path.startsWith(root.path + File.separator)) return@forEach
+            val canonical = file.canonicalFile
             hits += score to NexusFileHit(
                 name = file.name.take(180),
                 path = canonical.path.take(700),
@@ -118,6 +123,31 @@ internal object NexusFileSearch {
             remaining -= bounded.excerpt.length
             bounded
         }
+    }
+
+    internal fun isWithinRoot(root: File, candidate: File): Boolean = runCatching {
+        val rootPath = root.canonicalFile.path
+        val candidatePath = candidate.canonicalFile.path
+        candidatePath == rootPath || candidatePath.startsWith(rootPath + File.separator)
+    }.getOrDefault(false)
+
+    private fun readTextBounded(file: File): Pair<String, Int>? {
+        val output = ByteArrayOutputStream()
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8 * 1024)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer, 0, minOf(buffer.size, MAX_FILE_BYTES.toInt() + 1 - total))
+                if (count < 0) break
+                total += count
+                if (total > MAX_FILE_BYTES) return null
+                output.write(buffer, 0, count)
+            }
+        }
+        val bytes = output.toByteArray()
+        val content = String(bytes, Charsets.UTF_8)
+        if (content.indexOf(0.toChar()) >= 0) return null
+        return content to bytes.size
     }
 
     fun formatForModel(prompt: String, hits: List<NexusFileHit>): String = buildString {
