@@ -20,7 +20,8 @@ internal data class NexusChatSession(
     val title: String,
     val updatedAt: Long,
     val turns: List<Pair<String, String>>,
-    val remoteTurns: List<Pair<String, String>> = emptyList()
+    val remoteTurns: List<Pair<String, String>> = emptyList(),
+    val pinned: Boolean = false
 ) {
     companion object {
         fun createOrUpdate(
@@ -45,13 +46,13 @@ internal data class NexusChatSession(
 internal object NexusChatHistory {
     fun search(sessions: List<NexusChatSession>, query: String): List<NexusChatSession> {
         val needle = query.trim()
-        if (needle.isEmpty()) return sessions.sortedByDescending { it.updatedAt }
+        if (needle.isEmpty()) return sessions.sortedWith(compareByDescending<NexusChatSession> { it.pinned }.thenByDescending { it.updatedAt })
         return sessions.filter { session ->
             session.title.contains(needle, ignoreCase = true) ||
                 (session.turns + session.remoteTurns).any { (user, assistant) ->
                     user.contains(needle, ignoreCase = true) || assistant.contains(needle, ignoreCase = true)
                 }
-        }.sortedByDescending { it.updatedAt }
+        }.sortedWith(compareByDescending<NexusChatSession> { it.pinned }.thenByDescending { it.updatedAt })
     }
 
     fun exportMarkdown(session: NexusChatSession): String = buildString {
@@ -103,7 +104,8 @@ internal class EncryptedNexusChatStore(context: Context) {
                 title = item.optString("title").take(100).ifBlank { "Conversation" },
                 updatedAt = item.optLong("updated_at"),
                 turns = turns,
-                remoteTurns = remoteTurns
+                remoteTurns = remoteTurns,
+                pinned = item.optBoolean("pinned", false)
             )
         }.sortedByDescending { it.updatedAt }
     }
@@ -117,7 +119,8 @@ internal class EncryptedNexusChatStore(context: Context) {
                     .put("title", session.title.take(100))
                     .put("updated_at", session.updatedAt)
                     .put("turns", encodeTurns(session.turns))
-                    .put("remote_turns", encodeTurns(session.remoteTurns)))
+                    .put("remote_turns", encodeTurns(session.remoteTurns))
+                    .put("pinned", session.pinned))
             }
         }).toString().toByteArray(Charsets.UTF_8)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")

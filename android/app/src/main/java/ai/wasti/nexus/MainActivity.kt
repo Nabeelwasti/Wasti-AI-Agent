@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Send
@@ -2171,6 +2173,13 @@ private fun NexusScreen(
                                             Text(session.title, style = MaterialTheme.typography.titleSmall)
                                             Text("${session.turns.size} turns · ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(session.updatedAt))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                TextButton(onClick = {
+                                                    val updated = chatSessions.map { if (it.id == session.id) it.copy(pinned = !it.pinned, updatedAt = System.currentTimeMillis()) else it }
+                                                    scope.launch {
+                                                        try { withContext(Dispatchers.IO) { onPersistChatSessions(updated) }; chatSessions = updated.sortedWith(compareByDescending<NexusChatSession> { it.pinned }.thenByDescending { it.updatedAt }) }
+                                                        catch (error: Exception) { historyNotice = "Could not update pin: ${error.message}" }
+                                                    }
+                                                }) { Text(if (session.pinned) "Unpin" else "Pin") }
                                                 TextButton(onClick = {
                                                     conversation = session.turns
                                                     remoteConversation = session.remoteTurns
