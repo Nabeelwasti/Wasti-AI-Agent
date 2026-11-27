@@ -131,7 +131,7 @@ internal object NexusFileSearch {
         candidatePath == rootPath || candidatePath.startsWith(rootPath + File.separator)
     }.getOrDefault(false)
 
-    private fun readTextBounded(file: File): Pair<String, Int>? {
+    internal fun readTextBounded(file: File): Pair<String, Int>? {
         val output = ByteArrayOutputStream()
         file.inputStream().use { input ->
             val buffer = ByteArray(8 * 1024)
