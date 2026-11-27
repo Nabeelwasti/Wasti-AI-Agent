@@ -59,7 +59,11 @@ internal object NexusFileSearch {
         root.walkTopDown().onEnter { directory ->
             val relative = runCatching { directory.canonicalPath.removePrefix(root.path).trimStart(File.separatorChar) }.getOrDefault("")
             val first = relative.substringBefore(File.separatorChar, relative)
-            val blocked = first.equals("Android", true) ||
+            val androidPrivate = relative.equals("Android/data", true) ||
+                relative.startsWith("Android/data${File.separator}", true) ||
+                relative.equals("Android/obb", true) ||
+                relative.startsWith("Android/obb${File.separator}", true)
+            val blocked = androidPrivate ||
                 directory.name.equals(".thumbnails", true) ||
                 directory.name.equals("cache", true) ||
                 directory.name.equals("lost+found", true)
