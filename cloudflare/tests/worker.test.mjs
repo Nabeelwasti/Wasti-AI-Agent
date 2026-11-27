@@ -565,3 +565,27 @@ test("gateway rejects external image URLs and unsupported image MIME types", asy
     assert.equal(response.status, 400);
   }
 });
+
+
+test("gateway enforces request-wide image count and aggregate text limits", async () => {
+  const image = { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } };
+  const tooManyImages = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "text-only",
+    messages: [
+      { role: "user", content: [image, image] },
+      { role: "user", content: [image] },
+    ],
+    stream: false,
+  }), env);
+  assert.equal(tooManyImages.status, 400);
+
+  const tooMuchText = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "text-only",
+    messages: [
+      { role: "user", content: "a".repeat(24000) },
+      { role: "user", content: "b".repeat(7000) },
+    ],
+    stream: false,
+  }), env);
+  assert.equal(tooMuchText.status, 413);
+});
