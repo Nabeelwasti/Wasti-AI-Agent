@@ -1014,6 +1014,7 @@ private fun NexusScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     var showDeviceControlDisclosure by remember { mutableStateOf(false) }
     var pendingReminderDraft by remember { mutableStateOf<NexusReminderDraft?>(null) }
+    var pendingDeviceAction by remember { mutableStateOf<NexusDeviceActionDraft?>(null) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         answer = if (granted) "Reminder notification permission enabled." else "Reminder saved, but notifications are disabled. Enable them in Android App permissions to receive alerts."
     }
@@ -1353,6 +1354,11 @@ private fun NexusScreen(
                             enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || attachments.any { it.imageDataUrl != null } || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
+                                val deviceActionDraft = NexusDeviceActionParser.parse(submittedPrompt)
+                                if (deviceActionDraft != null) {
+                                    pendingDeviceAction = deviceActionDraft
+                                    return@Button
+                                }
                                 val reminderDraft = NexusReminderParser.parse(submittedPrompt, System.currentTimeMillis())
                                 if (reminderDraft != null) {
                                     pendingReminderDraft = reminderDraft
@@ -2359,6 +2365,39 @@ private fun NexusScreen(
                 else Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 if (historyNotice.isNotBlank()) {
                     Text(historyNotice, color = if (initialChatError.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+                val deviceActionToConfirm = pendingDeviceAction
+                if (deviceActionToConfirm != null) {
+                    AlertDialog(
+                        onDismissRequest = { pendingDeviceAction = null },
+                        title = { Text("Approve phone action?") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(deviceActionToConfirm.description, style = MaterialTheme.typography.titleMedium)
+                                Text("This action uses the optional Android Accessibility Service. Screen text stays on this phone. NEXUS will not execute it until you approve.")
+                                Text("High-impact actions such as sending, deleting, paying, installing, changing permissions or entering credentials are blocked by this command tool.")
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(enabled = !busy, onClick = {
+                                val approved = deviceActionToConfirm
+                                pendingDeviceAction = null
+                                val originalPrompt = prompt.trim()
+                                val result = NexusDeviceActionExecutor.execute(approved.action)
+                                val reply = result
+                                val updatedTurns = conversation + (originalPrompt to reply)
+                                conversation = updatedTurns
+                                prompt = ""
+                                answer = reply
+                                activityStatus = "Device action returned"
+                                scope.launch {
+                                    runCatching { persistConversation(updatedTurns, remoteConversation) }
+                                        .onFailure { historyNotice = "Action completed, but chat history could not be updated: ${it.message}" }
+                                }
+                            }) { Text("Approve & execute") }
+                        },
+                        dismissButton = { TextButton(onClick = { pendingDeviceAction = null }) { Text("Cancel") } }
+                    )
                 }
                 val reminderDraftToConfirm = pendingReminderDraft
                 if (reminderDraftToConfirm != null) {
