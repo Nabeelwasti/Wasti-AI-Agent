@@ -45,6 +45,10 @@ Apache-2.0 and MIT weights can generally be used commercially with their require
 - The deployed Worker is a relay, not an inference host. At this snapshot, no `NEXUS_PROVIDERS_JSON` provider catalogue is configured, so online model inference is not yet available.
 - Do not label the whole product production-certified until the provider round-trip, Redmi device regression, CodeQL alert triage, operational controls and remaining roadmap items are evidenced.
 
+## Chat workspace details
+
+See [Chat features and storage boundaries](docs/CHAT_FEATURES.md), [verified implementation status](docs/STATUS.md) and [remaining release gates](docs/ROADMAP.md).
+
 ## Termux quick start
 
 ```bash
