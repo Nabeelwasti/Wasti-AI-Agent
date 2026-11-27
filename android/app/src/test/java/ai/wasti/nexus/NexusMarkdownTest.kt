@@ -18,9 +18,9 @@ class NexusMarkdownTest {
 
     @Test
     fun rendersHeadingsListsQuotesAndFencedCode() {
+        val fence = 0x60.toChar().toString().repeat(3)
         val rendered = parseNexusMarkdown(
-            "# Heading\n- First item\n> A quoted note\n\n${0x60.toChar()} ${0x60.toChar()} ${0x60.toChar()}kotlin\nval answer = 42\n${0x60.toChar()} ${0x60.toChar()} ${0x60.toChar()}"
-                .replace("${0x60.toChar()} ", "${0x60.toChar()}")
+            "# Heading\n- First item\n> A quoted note\n\n${fence}kotlin\nval answer = 42\n${fence}"
         )
         assertTrue(rendered.text.contains("Heading"))
         assertTrue(rendered.text.contains("• First item"))
