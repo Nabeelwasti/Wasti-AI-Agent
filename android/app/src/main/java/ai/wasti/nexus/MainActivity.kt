@@ -1205,7 +1205,10 @@ private fun NexusScreen(
                     }
                 },
                 actions = {
-                    IconButton(enabled = !busy, onClick = {
+                    IconButton(onClick = {
+                        // New chat stays responsive even while generation is running.
+                        activeGenerationJob?.cancel()
+                        activeGenerationJob = null
                         // Reset the visible session immediately; native context reset happens in
                         // the background so the + action never waits for a model reload.
                         val resetModelPath = localModelPath
