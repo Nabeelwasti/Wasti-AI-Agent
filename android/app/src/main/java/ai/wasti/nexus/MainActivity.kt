@@ -36,6 +36,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -88,6 +91,18 @@ class MainActivity : ComponentActivity() {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
     private val alias = "wasti.nexus.gateway.key"
+    private suspend fun executeCancellable(request: Request): okhttp3.Response = suspendCancellableCoroutine { continuation ->
+        val call = http.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, error: java.io.IOException) {
+                if (continuation.isActive) continuation.resumeWithException(error)
+            }
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                if (continuation.isActive) continuation.resume(response) else response.close()
+            }
+        })
+    }
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
     private val localEngineDelegate = lazy { AiChat.getInferenceEngine(applicationContext) }
     private val localEngine: InferenceEngine by localEngineDelegate
@@ -719,14 +734,17 @@ class MainActivity : ComponentActivity() {
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
         if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
         val request = requestBuilder.build()
-        http.newCall(request).execute().use { response ->
+        executeCancellable(request).use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
             val responseJson = JSONObject(text)
             val answer = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
                 ?.optString("content")?.takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("Gateway response did not contain an answer.")
-            responseJson.optJSONObject("nexus")?.let { onCollaboration(formatCollaborationTrace(it)) }
+            responseJson.optJSONObject("nexus")?.let { metadata ->
+                val trace = formatCollaborationTrace(metadata)
+                withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+            }
             answer
         }
     }
@@ -996,6 +1014,8 @@ private fun NexusScreen(
                             enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
+                                collaborationTrace = ""
+                                collaborationExpanded = false
                                 busy = true
                                 activeGenerationJob = scope.launch {
                                     var usedRemote = false
