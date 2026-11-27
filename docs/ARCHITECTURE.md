@@ -93,6 +93,10 @@ The app imports only the user's selected model. A resumable in-app model downloa
 - Android permissions and operating-system restrictions remain authoritative.
 - Local-only mode must guarantee no prompt/network egress for inference and memory retrieval.
 
-## Termux integration\n\nAn optional Termux CLI exists for developer testing of the same online gateway. Termux is not part of the production Android inference architecture and is not required to download, load or run local GGUF models. The native inference engine runs in the Android app process.\n\n## Current implementation status
+## Termux integration
+
+An optional Termux CLI exists for developer testing of the same online gateway. Termux is not part of the production Android inference architecture and is not required to download, load or run local GGUF models. The native inference engine runs in the Android app process.
+
+## Current implementation status
 
 The Android app now builds in GitHub Actions, has JVM tests for automatic offline-fallback policy, supports manual GGUF import and native local chat, and defaults to Offline mode. The first pinned Qwen 0.5B catalogue download is implemented with SHA-256 and GGUF validation; it still requires real-device validation. The app still needs target-device install and offline generation evidence. The Cloudflare Worker is deployed with two first-party models (Gemma 4 and Qwen 3.8 27B); public health, exact model-catalogue and unauthenticated-protection checks pass, but the authenticated live chat route smoke test is skipped until the GitHub Actions `NEXUS_API_KEY` secret is configured. Hybrid is guarded and enabled only when at least two distinct model IDs are available. Model catalogue downloads, registry SHA-256 verification for imported files, tenant-isolated customer memory and owner-controlled signed production APKs remain incomplete. Do not claim full production readiness until those gates pass.
