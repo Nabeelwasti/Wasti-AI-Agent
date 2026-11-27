@@ -158,3 +158,16 @@ All three workflows completed successfully for implementation commit `bc233fb2b3
 **Signing certificate SHA-256:** `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`, matching the previously verified owner signing identity. This supports in-place upgrade without uninstalling or clearing app data.
 
 The workflow checks validate source/build/signature, not real-world behavior on the owner's Redmi device. Live inference provider configuration and physical-device acceptance testing remain open.
+
+
+## 2026-11-27 — 0.5.11 reminder implementation
+
+Added a native on-device reminder manager and a narrow chat intent path:
+- User can create, list and delete reminders from Models & settings → My reminders.
+- Strict chat phrases such as `Remind me to call home in 15 minutes` and `Remind me to submit assignment tomorrow at 5:30 pm` are parsed deterministically. The exact title and time are shown in an approval dialog before anything is saved.
+- Reminders are persisted locally, scheduled with Android's inexact `AlarmManager.setAndAllowWhileIdle`, and restored after reboot and system time/time-zone changes.
+- Notification permission is requested only when a reminder is saved; denied notification permission does not crash the receiver.
+- Invalid/corrupt reminder data is not silently overwritten; the UI surfaces a recoverable error.
+- Unit tests cover validation, relative parsing, tomorrow parsing, unsupported syntax and ID allocation.
+
+**Important limitations:** Android may defer inexact alarms under Doze, battery optimization, OEM background restrictions or force-stop. This is not exact scheduling and must not be used for safety-critical reminders. General model tool execution, other device actions and real-device acceptance testing remain outstanding. CI/release/CodeQL must pass for the exact final commit before publishing an APK.
