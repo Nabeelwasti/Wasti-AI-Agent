@@ -14,6 +14,12 @@ class NexusFileSearchTest {
         assertTrue(NexusFileSearch.isSearchRequest("Where is my downloaded PDF?"))
     }
 
+    @Test fun remoteFileContextRequiresExplicitOptInEvenForAutoFallback() {
+        assertFalse(NexusFileSearch.maySendFileContextRemotely(true, false))
+        assertTrue(NexusFileSearch.maySendFileContextRemotely(true, true))
+        assertTrue(NexusFileSearch.maySendFileContextRemotely(false, false))
+    }
+
     @Test fun doesNotMisclassifyOrdinaryConversationAsFileSearch() {
         assertFalse(NexusFileSearch.isSearchRequest("Find a better way to organize my day"))
         assertFalse(NexusFileSearch.isSearchRequest("Explain how photosynthesis works"))
