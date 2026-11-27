@@ -1013,6 +1013,10 @@ private fun NexusScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val context = androidx.compose.ui.platform.LocalContext.current
     var showDeviceControlDisclosure by remember { mutableStateOf(false) }
+    var pendingReminderDraft by remember { mutableStateOf<NexusReminderDraft?>(null) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        answer = if (granted) "Reminder notification permission enabled." else "Reminder saved, but notifications are disabled. Enable them in Android App permissions to receive alerts."
+    }
     var deviceControlEnabled by remember { mutableStateOf(NexusAccessibilityService.isEnabled(context)) }
     var allowFileContextOnline by remember {
         mutableStateOf(context.getSharedPreferences("nexus-accessibility", android.content.Context.MODE_PRIVATE)
@@ -1349,6 +1353,11 @@ private fun NexusScreen(
                             enabled = !busy && (prompt.isNotBlank() || attachments.isNotEmpty()) && (!offlineMode || attachments.any { it.imageDataUrl != null } || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
+                                val reminderDraft = NexusReminderParser.parse(submittedPrompt, System.currentTimeMillis())
+                                if (reminderDraft != null) {
+                                    pendingReminderDraft = reminderDraft
+                                    return@Button
+                                }
                                 val submittedAttachments = attachments.toList()
                                 val imageAttachments = submittedAttachments.any { it.imageDataUrl != null }
                                 collaborationTrace = ""
@@ -2350,6 +2359,74 @@ private fun NexusScreen(
                 else Text(activityStatus, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 if (historyNotice.isNotBlank()) {
                     Text(historyNotice, color = if (initialChatError.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+                if (pendingReminderDraft != null) {
+                    val draft = requireNotNull(pendingReminderDraft)
+                    AlertDialog(
+                        onDismissRequest = { pendingReminderDraft = null },
+                        title = { Text("Confirm this reminder") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(draft.title, style = MaterialTheme.typography.titleMedium)
+                                Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(draft.triggerAtMillis)))
+                                Text("This will be saved on this phone. Android may delay the notification because NEXUS uses battery-friendly inexact alarms.")
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(enabled = !busy, onClick = {
+                                val now = System.currentTimeMillis()
+                                val validation = NexusReminderPolicy.validate(draft.title, draft.triggerAtMillis, now)
+                                if (validation != null) {
+                                    answer = validation
+                                    pendingReminderDraft = null
+                                } else {
+                                    busy = true
+                                    activityStatus = "Saving your reminder…"
+                                    val originalPrompt = prompt.trim()
+                                    scope.launch {
+                                        try {
+                                            val existing = withContext(Dispatchers.IO) { NexusReminderStore.load(context) }
+                                            val reminder = NexusReminder(
+                                                NexusReminderParser.nextId(existing, now),
+                                                draft.title,
+                                                draft.triggerAtMillis
+                                            )
+                                            val updated = (existing + reminder).sortedBy { it.triggerAtMillis }
+                                            withContext(Dispatchers.IO) {
+                                                NexusReminderStore.save(context, updated)
+                                                if (!NexusReminderStore.schedule(context, reminder)) {
+                                                    NexusReminderStore.save(context, existing)
+                                                    error("Android could not schedule this reminder.")
+                                                }
+                                            }
+                                            val reply = "Reminder saved on this phone: ${draft.title} · ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(draft.triggerAtMillis))}. Android may delay the alert to protect battery life."
+                                            val updatedTurns = conversation + (originalPrompt to reply)
+                                            conversation = updatedTurns
+                                            runCatching { persistConversation(updatedTurns, remoteConversation) }
+                                                .onFailure { historyNotice = "Reminder was saved, but chat history could not be updated: ${it.message}" }
+                                            prompt = ""
+                                            answer = reply
+                                            if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                                                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                                            ) {
+                                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                            }
+                                            activityStatus = "Reminder saved"
+                                        } catch (failure: Exception) {
+                                            answer = "Could not save reminder: ${failure.message}"
+                                            activityStatus = "Reminder failed"
+                                        } finally {
+                                            pendingReminderDraft = null
+                                            busy = false
+                                        }
+                                    }
+                                }
+                            }) { Text("Save reminder") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { pendingReminderDraft = null }) { Text("Cancel") }
+                        }
+                    )
                 }
                 if (historyDialog) {
                     AlertDialog(
