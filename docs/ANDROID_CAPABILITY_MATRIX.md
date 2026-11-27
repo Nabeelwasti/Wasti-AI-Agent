@@ -17,7 +17,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Files | On-demand shared-storage search with bounded filename/text matching and metadata for media/PDF/Office files | Optional MANAGE_EXTERNAL_STORAGE; user must grant Android All files access in Settings. Android/data and Android/obb are excluded. |
 | File context in chat | Natural-language file-search requests append bounded local excerpts to the active prompt | On-device route by default; sending excerpts to remote brains requires a separate opt-in in Settings |
 | Voice input | Android speech-recognition activity | User starts recognition; speech provider may require its own network/service |
-| Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |
+| Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |\n| NEXUS reminders | Local reminder manager; SharedPreferences persistence; AlarmManager inexact alarms; notification channel; boot/time-change rescheduling; delete/cancel | User creates and deletes reminders in NEXUS; Android notification permission controls visible alerts; alarms may be delayed by Doze/battery policy |
 | Calendar event | Calendar ACTION_INSERT | User reviews and saves in Calendar |
 | Contacts | Opens Contacts app | User selects/shares manually; no contacts database permission |
 | Wi-Fi / location / overlay / usage / notification-listener / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
@@ -33,7 +33,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 - Notification listener: a settings shortcut exists, but NEXUS does not read notification content yet.
 - Usage access: a settings shortcut exists, but NEXUS does not collect app-usage history.
 - Background location, contacts/calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
-- Exact alarm scheduling and persistent NEXUS-owned reminders: not implemented as a NEXUS-owned scheduler. The current alarm shortcut hands off to Clock for user-confirmed setup.
+- Exact alarm scheduling is not enabled. NEXUS reminders use inexact AlarmManager scheduling and can be delayed by Android power management; they are not a replacement for safety-critical alarms.
 
 ## Shared-storage search boundaries
 
