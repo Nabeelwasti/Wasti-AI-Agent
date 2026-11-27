@@ -144,3 +144,17 @@ The shared-storage security hardening is present through implementation commit `
 This version-code increment is intentional: the earlier 0.5.9 artifact used versionCode 14, so a device that already installed that APK can upgrade without uninstalling or clearing app data.
 
 The 0.5.10 source includes the shared-storage symlink containment check, bounded streaming text reads, and regression tests for out-of-root/symlink paths and oversized text files. A further privacy review found and closed an AUTO-mode fallback path that could otherwise send local file excerpts to a remote model after local inference failed; a policy helper and regression test now require the same explicit opt-in on fallback. The signed release, Android CI and CodeQL workflows have been triggered for the implementation commit. Their final results and the signed artifact must be checked before installing; prior run results do not certify this commit.
+
+
+### 0.5.10 verification completed
+
+All three workflows completed successfully for implementation commit `bc233fb2b39db0bfb9d9e1af13223b04d6c978e7`:
+
+- Android CI [run 46034757596](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46034757596): Android debug APK assembly, Android JVM tests, ephemeral release-signing validation, Python/source validation, Worker tests and deployed gateway-policy smoke test all passed.
+- Signed release [run 46034757379](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46034757379): signed APK assembled, APK Signature Scheme v2 verification passed, and artifact uploaded.
+- CodeQL [run 46034757345](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46034757345): Java/Kotlin, JavaScript/TypeScript and Python analyses all completed successfully. This is not a claim that every repository alert is resolved; alert triage remains a separate review.
+
+**Verified signed APK artifact:** `wasti-nexus-signed-release-apk`, artifact ID `15216636058`, size 21,878,426 bytes, SHA-256 `e8ad82defbbbebb1497bb14ac324a819c2d85ea64fd32fae9512dc9576304a9b`, expires 2026-12-27.  
+**Signing certificate SHA-256:** `10a4e2d8278c946c8af3584b01045c8d6405430a9598f873a17a1201544e8636`, matching the previously verified owner signing identity. This supports in-place upgrade without uninstalling or clearing app data.
+
+The workflow checks validate source/build/signature, not real-world behavior on the owner's Redmi device. Live inference provider configuration and physical-device acceptance testing remain open.
