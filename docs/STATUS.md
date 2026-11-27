@@ -110,7 +110,7 @@ The file-search permission is optional and user-granted. Search is on demand, no
 
 ## 2026-11-27 verified 0.5.9 release and storage-boundary hardening
 
-**Current main commit:** `d51274833d31dd0eaeb516ea2539dacd0ac0833e` (verify branch head before using this snapshot).  
+**Storage-hardening implementation commit:** `7e1a0062f75e1c554f0d710280f9ba549558cb1e` (includes canonical-path and bounded-read tests; later documentation-only commits may advance main).  
 **App version:** 0.5.9 (`versionCode 14`).  
 **Release candidate artifact:** signed APK from [workflow run 46031465824](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46031465824), artifact ID `15215335359`, SHA-256 `ff2c3c233f445949dcc831cb3bac41844dc7591c7f10f529a37de7c0f0aa32cf`. Artifact retention expires 2026-12-27 unless downloaded earlier. No GitHub Release/tag has been published.
 
@@ -130,3 +130,8 @@ The file-search permission is optional and user-granted. Search is on demand, no
 ### Corrected status interpretation
 
 The earlier sections in this file describe prior milestones and should not be read as the current release snapshot. Current Android build/test, signed APK, CodeQL, live inference-provider setup and physical-device test results must be taken from the latest workflow runs and actual device evidence. The app is a signed release candidate, not a fully production-certified autonomous phone agent.
+
+
+### Follow-up correction: implementation head and 25-commit review
+
+The shared-storage security hardening is present through implementation commit `7e1a0062f75e1c554f0d710280f9ba549558cb1e`. The most recent 25 commits were reviewed at the per-commit diff level. They cover the 0.5.8 accessibility/screenshot/streaming/new-chat fixes and the 0.5.9 file-search implementation, permission UX, privacy documentation, resource bounds, and subsequent symlink/read-limit hardening. No unrelated files or model/gateway credentials were changed in this follow-up. CI, signed release and CodeQL results for the implementation head are tracked by runs 46034162193, 46034162260 and 46034162346 respectively; do not treat them as passed until their final conclusions are success.
