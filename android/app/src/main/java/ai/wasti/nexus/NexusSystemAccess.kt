@@ -50,7 +50,7 @@ object NexusSystemAccess {
         launch(context, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR))
 
     fun openClock(context: Context) =
-        launch(context, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CLOCK))
+        launch(context, Intent(AlarmClock.ACTION_SHOW_ALARMS))
 
     private fun launch(context: Context, intent: Intent): Boolean {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
