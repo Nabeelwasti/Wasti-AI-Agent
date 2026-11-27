@@ -1,138 +1,124 @@
 # WASTI NEXUS API reference
 
-## Base URL
+**Gateway:** `https://wasti-nexus-gateway.wastinabeel99.workers.dev`  
+**API prefix:** `/v1`
 
-`https://wasti-nexus-gateway.wastinabeel99.workers.dev`
+Do not append `/v1` to the configured base URL; clients append the route themselves.
 
-Do not append `/v1` to the base URL. Protected endpoints require:
+## Authentication
+
+Protected requests use:
 
 ```http
 Authorization: Bearer YOUR_NEXUS_API_KEY
 Content-Type: application/json
 ```
 
-The bearer key authenticates access to the NEXUS gateway. It is **not** a model-provider API key. The built-in Workers AI model is invoked through the Cloudflare AI binding without a third-party vendor token.
+The bearer key authenticates to your NEXUS gateway. It is **not a paid model-vendor API key**. Offline Android GGUF inference does not need this gateway or any online key. Remote gateway use requires gateway authentication; upstream self-hosted provider credentials are kept as Worker secrets and are never sent to the Android app.
 
-## Live endpoints
+The master `NEXUS_API_KEY` can access the personal encrypted-memory endpoints. Optional scoped client keys configured through `NEXUS_CLIENT_KEYS_JSON` can be limited to `models` and `chat`; they cannot access the personal memory vault, even if a key entry lists a `memory` scope. Customer mode defaults when `NEXUS_DEPLOYMENT_MODE` is absent and fails closed if the `NEXUS_RATE_LIMIT` binding is missing.
+
+## Endpoints
 
 | Method | Path | Authentication | Purpose |
 |---|---|---|---|
-| GET | `/healthz` | Public | Liveness and safe model catalogue summary |
-| GET | `/v1/models` | Required | List configured, enabled models |
-| POST | `/v1/chat/completions` | Required | Single-model chat or Hybrid route |
-| POST | `/v1/hybrid/chat/completions` | Required | Explicit multi-model Hybrid route |
-| GET | `/v1/memory/snapshots` | Required | List encrypted personal-memory snapshots |
-| POST | `/v1/memory/snapshots` | Required | Save one client-encrypted snapshot |
-| GET | `/v1/memory/snapshots/{snapshot_id}` | Required | Retrieve encrypted snapshot for client-side decryption |
+| GET | `/healthz` | Public | Liveness and safe configured-model count; no secrets |
+| GET | `/v1/models` | Required | List enabled, licence-approved self-hosted models |
+| POST | `/v1/chat/completions` | Required | Single model, Auto routing or Hybrid mode |
+| POST | `/v1/hybrid/chat/completions` | Required | Explicit multi-model Hybrid orchestration |
+| GET | `/v1/memory/snapshots` | Master key | List client-encrypted personal-memory snapshots |
+| POST | `/v1/memory/snapshots` | Master key | Store a client-encrypted snapshot |
+| GET | `/v1/memory/snapshots/{snapshot_id}` | Master key | Retrieve ciphertext for client-side decryption |
 
-Streaming is not implemented. Send `"stream": false`.
+## Model catalogue and provider setup
 
-## Current first-party models
+The gateway exposes only models from the owner-configured `NEXUS_PROVIDERS_JSON` Worker variable. A model must be enabled and pass the deployment-mode licence gate. Provider credentials are referenced by `api_key_env` and stored as individual Worker secrets.
 
-The deployed Worker exposes two configured first-party models through the Cloudflare `AI` binding:
+**Current deployment state (2026-11-27):** the Worker has no `NEXUS_PROVIDERS_JSON` variable and no inference provider configured. The health endpoint and relay-policy tests can pass while the model catalogue is empty. Configure an owner-controlled HTTPS OpenAI-compatible inference server before expecting remote chat to work. See [PROVIDER_SETUP.md](PROVIDER_SETUP.md). The relay does not store model weights and does not invoke Cloudflare Workers AI.
 
-| NEXUS model ID | Cloudflare model ID | Licence | Context | Price per 1M tokens (input/output) |
-|---|---|---|---:|---:|
-| `nexus-gemma-4-26b-a4b` | `@cf/google/gemma-4-26b-a4b-it` | Apache-2.0 | 256,000 | $0.10 / $0.30 |
-| `nexus-qwen-3.8-27b` | `@cf/qwen/qwen3.8-27b` | Apache-2.0 | 262,144 | $0.45 / $3.20 |
+## Chat request
 
-Both models were called successfully through the connected Cloudflare account API. No third-party model-provider API token is needed. The separate NEXUS bearer key still authenticates gateway access.
-
-Example single-brain request:
-
-```bash
-curl --fail-with-body \
-  -H "Authorization: Bearer $NEXUS_API_KEY" \
-  -H "Content-Type: application/json" \
-  https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/chat/completions \
-  -d '{
-    "model": "nexus-gemma-4-26b-a4b",
-    "messages": [
-      {"role": "user", "content": "Explain vector search simply."}
-    ],
-    "stream": false,
-    "max_tokens": 512
-  }'
+```json
+{
+  "model": "your-configured-model-id",
+  "messages": [
+    {"role": "user", "content": "Explain this concept simply."}
+  ],
+  "temperature": 0.3,
+  "max_tokens": 1200,
+  "stream": true
+}
 ```
 
-To use Qwen, change the model field to `nexus-qwen-3.8-27b`.
+- `messages`: 1–40 entries; supported roles are `system`, `user` and `assistant`.
+- `temperature`: optional number from 0 to 2.
+- `max_tokens`: optional integer from 1 to 8192; the relay clamps the upstream request to 4096.
+- `stream`: optional boolean; defaults to non-streaming behavior.
+- `nexus.mode`: optional `auto` or `hybrid` orchestration mode.
+- Provider responses are OpenAI-compatible chat completions.
 
-Workers AI Free currently includes 10,000 Neurons per day, not unlimited inference. Actual response counts depend on model and request size; model access, capacity and pricing can change. Check [official Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+### Remote streaming
 
-## List configured models
+Set `stream: true` only with one explicitly selected configured model. The Worker proxies OpenAI-compatible Server-Sent Events, the Android app renders arriving text tokens, and client cancellation is propagated upstream.
 
-```bash
-curl --fail-with-body \
-  -H "Authorization: Bearer $NEXUS_API_KEY" \
-  https://wasti-nexus-gateway.wastinabeel99.workers.dev/v1/models
+- **Single selected model:** SSE supported.
+- **Auto:** use `stream: false`; sequential fallback must finish before the answer is returned.
+- **Hybrid:** use `stream: false`; independent answers, reviews and synthesis complete before the final trace is returned.
+- An Auto or Hybrid request with `stream: true` is rejected rather than pretending to stream.
+
+### Auto mode
+
+```json
+{
+  "model": "nexus-auto",
+  "nexus": {"mode": "auto"},
+  "messages": [{"role": "user", "content": "Review this Kotlin code."}],
+  "stream": false
+}
 ```
 
-The endpoint returns only currently configured and enabled model IDs. The twelve-family local model registry is not twelve live cloud endpoints; two first-party online models are currently configured.
+Auto currently routes only general chat, coding, reasoning and vision to compatible configured models. It does not claim support for audio, image generation or training runtimes that are not installed.
 
-## Hybrid orchestration
-
-Hybrid mode is enabled because two distinct first-party model IDs are configured. It runs independent analysis, bounded peer review and synthesis. It reports actual participants and failures, and rejects the request if fewer than two distinct model IDs are available.
+### Hybrid mode
 
 ```json
 {
   "model": "nexus-hybrid",
-  "messages": [
-    {"role": "user", "content": "Evaluate this plan from different perspectives."}
-  ],
-  "stream": false,
-  "nexus": {
-    "mode": "hybrid",
-    "agents": ["nexus-gemma-4-26b-a4b", "nexus-qwen-3.8-27b"],
-    "review_rounds": 1
-  }
+  "nexus": {"mode": "hybrid", "review_rounds": 1},
+  "messages": [{"role": "user", "content": "Compare these approaches."}],
+  "stream": false
 }
 ```
 
-Hybrid consumes multiple inference calls and therefore more quota. It is a real two-model workflow, not repeated calls to one model presented as separate agents.
+Hybrid requires at least two distinct eligible model IDs. The response includes actual provider participants, independent outputs, peer-review results, synthesis model, failures, trace ID and duration. It does not expose hidden chain-of-thought.
 
-## Authentication and client keys
+## Attachment and request limits
 
-Keep the master `NEXUS_API_KEY` private. Do not embed it in a public Android APK, web bundle or customer source code.
+- Up to 40 messages per request.
+- Text message limit: 24,000 characters; combined text limit: 30,000 characters.
+- Overall request body limit: 5.5 MB.
+- Structured user content: up to five parts per message.
+- Images: inline JPEG, PNG or WebP data URLs only; at most two images, each no larger than 1 MB.
+- Remote image URLs are rejected. Vision requests are routed only to models whose configured capability list explicitly includes `vision`.
+- The Android client additionally limits text/code files to 128 KB each, combined attachment context to 24,000 characters, and four total attachments per request.
 
-For trusted server-side product integrations, generate a unique 256-bit client key per application:
+## Encrypted memory
 
-```bash
-node cloudflare/scripts/create-client-key.mjs --id my-product --scopes models,chat
-```
+Memory payloads are encrypted client-side before upload. The Worker stores and returns ciphertext only; it cannot decrypt the personal memory. The underlying GitHub repository may expose non-sensitive file metadata, so do not put secrets in snapshot metadata. Memory routes are master-key-only.
 
-The script prints the raw key once and a SHA-256 registry entry. Store the raw key only in a server-side secret manager. Add the registry entry to the Cloudflare Worker secret `NEXUS_CLIENT_KEYS_JSON`, preserving any existing entries. Client keys may be scoped to `models` and `chat`; personal memory remains master-key only.
+## Error behavior
 
-Public customer apps must authenticate their own users and call NEXUS through a trusted backend or short-lived-token broker. A long-lived shared key in an APK or browser is extractable and is not customer authentication.
+Responses use JSON errors with an HTTP status and a safe message. Common statuses:
 
-The Worker has a rate-limit binding configured at 60 requests per 60 seconds per key per Cloudflare location. Cloudflare counters are approximate and location-local, not a strict global quota or billing meter.
+| Status | Meaning |
+|---:|---|
+| 400 | Invalid request, unsupported stream mode or unsupported content |
+| 401 | Missing/invalid bearer key |
+| 403 | Valid scoped client key lacks permission |
+| 413 | Request exceeds a size limit |
+| 429 | Rate limit exceeded |
+| 502 | Upstream inference provider failed |
+| 503 | Provider configuration, licence gate or required rate-limit binding unavailable |
+| 504 | Upstream provider timed out |
 
-## Encrypted personal-memory snapshots
-
-The Worker writes encrypted snapshots to the public GitHub repository configured by `NEXUS_MEMORY_REPOSITORY`, `NEXUS_MEMORY_BRANCH` and `NEXUS_MEMORY_PREFIX`, using the Worker secret `NEXUS_GITHUB_TOKEN`. Binding names are present in the deployed Worker settings; live end-to-end memory recovery has not been device-certified.
-
-The Android client derives an AES-256 key from a user-controlled recovery passphrase using PBKDF2-HMAC-SHA256 (600,000 iterations, 16-byte random salt), then encrypts with AES-256-GCM (12-byte random nonce). The passphrase and plaintext are not sent to the Worker. The same passphrase can be used to decrypt a snapshot on another device. GitHub exposes ciphertext, filenames, timestamps and commit metadata publicly; never store plaintext personal/customer data or encryption keys there.
-
-This is one personal vault, not a tenant-isolated customer memory service. Do not use these routes for customer memory until per-tenant authorization, isolation, retention and deletion controls exist.
-
-## Optional external providers
-
-The Worker can route to configured HTTPS OpenAI-compatible providers through the secret `NEXUS_PROVIDERS_JSON`. Provider credentials are separate Worker secrets referenced by `api_key_env`. The built-in Gemma route does not need those credentials. Do not configure a provider unless its model availability, licence, data-retention terms and commercial rights have been reviewed.
-
-## Online/offline client behaviour
-
-The Android app defaults to Auto mode:
-
-1. Try the configured online NEXUS gateway.
-2. On network errors, missing online credentials, HTTP 408/429 or transient 5xx failures, load/use the selected installed GGUF model if one is available.
-3. Keep local-fallback turns out of subsequent cloud conversation history.
-4. Do not hide authentication or permission errors behind local fallback.
-
-Offline inference runs in the Android process through the native GGUF runtime. It does not depend on the Worker or Termux.
-
-## Production security reminders
-
-- Never expose the master API key or GitHub write token in a public client.
-- The GitHub memory vault is public ciphertext, not a private database.
-- The current model archive is not provisioned; Workers AI is not a custom GGUF file host.
-- The app supports manual GGUF import but does not yet have a resumable in-app catalogue downloader or registry SHA-256 verification for manual imports.
-- Do not advertise the service as production-ready for multiple customers until authenticated route smoke tests, customer-key setup, strict quota design, tenant isolation, permanent Android signing and physical-device offline tests have passed.
+Do not expose provider secrets, raw upstream credentials or internal stack traces to clients.
