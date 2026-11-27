@@ -157,8 +157,10 @@ class NexusAccessibilityService : AccessibilityService() {
             override fun onSuccess(screenshot: ScreenshotResult) {
                 val hardwareBuffer = screenshot.hardwareBuffer
                 val bitmap = try {
-                    Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
-                        ?.copy(Bitmap.Config.ARGB_8888, false)
+                    runCatching {
+                        Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
+                            ?.copy(Bitmap.Config.ARGB_8888, false)
+                    }.getOrNull()
                 } finally {
                     hardwareBuffer.close()
                 }
