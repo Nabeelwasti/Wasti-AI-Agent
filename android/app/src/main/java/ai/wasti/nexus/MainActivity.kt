@@ -1575,6 +1575,12 @@ private fun NexusScreen(
                         LinearProgressIndicator(progress = { archiveProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                         Text("Archiving all models: ${(archiveProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
                     }
+
+                } else {
+                    Text("Choose the WASTI-NEXUS-MODEL-WORKSPACE folder from Google Drive. NEXUS receives access only to the folder you select.", style = MaterialTheme.typography.bodySmall)
+                }
+                Text("LOCAL MODEL LIBRARY", style = MaterialTheme.typography.titleMedium)
+                Text("Each model's install, verification and live device status stays on its own action card.", style = MaterialTheme.typography.bodySmall)
                     workspaceModels.forEach { model ->
                         val onDevicePath = installedModels.firstOrNull { path ->
                             val name = File(path).name
@@ -1595,8 +1601,14 @@ private fun NexusScreen(
                                 Text("File: ${model.fileName}", style = MaterialTheme.typography.bodySmall)
                                 if (model.downloadable) {
                                     Text("Pinned source · ${model.sizeBytes?.div(1_000_000)} MB · device runtime test pending", style = MaterialTheme.typography.bodySmall)
+                                    if (driveWorkspaceUri.isBlank()) {
+                                        OutlinedButton(
+                                            enabled = !busy,
+                                            onClick = { driveWorkspacePicker.launch(null) }
+                                        ) { Text("Connect Drive to download") }
+                                    }
                                     Button(
-                                        enabled = !busy,
+                                        enabled = !busy && driveWorkspaceUri.isNotBlank(),
                                         onClick = {
                                             downloadingModel = true
                                             downloadProgress = 0f
@@ -1636,9 +1648,6 @@ private fun NexusScreen(
                             }
                         }
                     }
-                } else {
-                    Text("Choose the WASTI-NEXUS-MODEL-WORKSPACE folder from Google Drive. NEXUS receives access only to the folder you select.", style = MaterialTheme.typography.bodySmall)
-                }
                 if (confirmArchiveAll) {
                     AlertDialog(
                         onDismissRequest = { if (!busy) confirmArchiveAll = false },
