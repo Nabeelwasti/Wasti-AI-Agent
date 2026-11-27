@@ -1683,7 +1683,7 @@ private fun NexusScreen(
                     else "Overlay settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Display over other apps · optional") }
                 OutlinedButton(onClick = {
-                    answer = if (NexusSystemAccess.openNotificationListenerSettings(context)) "Opened notification access settings. Notification reading is not enabled by this build."
+                    answer = if (NexusSystemAccess.openNotificationListenerSettings(context)) "Opened notification access settings. If you enable WASTI NEXUS, you can explicitly ask to read active notifications locally; the app does not collect or forward them in the background."
                     else "Notification access settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Notification access settings") }
                 OutlinedButton(onClick = {
