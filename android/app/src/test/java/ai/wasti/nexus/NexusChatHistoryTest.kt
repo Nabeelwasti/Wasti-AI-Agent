@@ -60,6 +60,16 @@ class NexusChatHistoryTest {
     }
 
     @Test
+    fun pinnedConversationsStayFirstAndRemainPinnedWhenUpdated() {
+        val pinned = NexusChatSession("pinned", "Pinned", 1, emptyList(), pinned = true)
+        val recent = NexusChatSession("recent", "Recent", 99, emptyList())
+        val ordered = NexusChatHistory.search(listOf(recent, pinned), "")
+        assertEquals(listOf("pinned", "recent"), ordered.map { it.id })
+        val updated = NexusChatSession.createOrUpdate(pinned, listOf("Continue" to "Done"), emptyList())
+        assertTrue(updated.pinned)
+    }
+
+    @Test
     fun searchMatchesTitleUserAndAssistantTextCaseInsensitively() {
         val sessions = listOf(
             NexusChatSession("1", "University", 1, listOf("Math assignment" to "Use active recall")),

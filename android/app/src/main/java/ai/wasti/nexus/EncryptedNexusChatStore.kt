@@ -37,7 +37,8 @@ internal data class NexusChatSession(
                 title = title,
                 updatedAt = System.currentTimeMillis(),
                 turns = turns.toList(),
-                remoteTurns = remoteTurns.toList()
+                remoteTurns = remoteTurns.toList(),
+                pinned = existing?.pinned ?: false
             )
         }
     }
@@ -113,7 +114,7 @@ internal class EncryptedNexusChatStore(context: Context) {
     @Synchronized
     fun save(sessions: List<NexusChatSession>) {
         val payload = JSONObject().put("schema_version", 1).put("sessions", JSONArray().apply {
-            sessions.sortedByDescending { it.updatedAt }.forEach { session ->
+            sessions.sortedWith(compareByDescending<NexusChatSession> { it.pinned }.thenByDescending { it.updatedAt }).forEach { session ->
                 put(JSONObject()
                     .put("id", session.id)
                     .put("title", session.title.take(100))
