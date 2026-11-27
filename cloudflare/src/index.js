@@ -485,6 +485,7 @@ async function hybridBody(body, env, headers, requestSignal) {
     }));
     reviews.push(...roundResults);
   }
+  if (requestSignal?.aborted) throw new GatewayError("Request cancelled", 499);
 
   const requestedSynthesis = body.synthesis_model || body.nexus?.synthesis_agent;
   if (requestedSynthesis && !available.some(model => model.id === requestedSynthesis)) {
