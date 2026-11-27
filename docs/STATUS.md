@@ -171,3 +171,10 @@ Added a native on-device reminder manager and a narrow chat intent path:
 - Unit tests cover validation, relative parsing, tomorrow parsing, unsupported syntax and ID allocation.
 
 **Important limitations:** Android may defer inexact alarms under Doze, battery optimization, OEM background restrictions or force-stop. This is not exact scheduling and must not be used for safety-critical reminders. General model tool execution, other device actions and real-device acceptance testing remain outstanding. CI/release/CodeQL must pass for the exact final commit before publishing an APK.
+
+
+### Follow-up: approval-gated device action foundation
+
+A small deterministic device-action executor is now connected to the chat composer. Supported exact commands include `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`. The app shows an approval dialog before executing. High-impact/destructive button labels are rejected; screen text is displayed locally and is not sent to a model. AccessibilityService acceptance is not proof that the target app completed an operation.
+
+This is not the requested general autonomous agent. Typing, arbitrary taps, sending messages, calls, app installation, changing permissions, multi-step plans, general model tool calls and action postcondition verification remain unimplemented. The device-action additions require a fresh successful Android build and JVM test run before release.
