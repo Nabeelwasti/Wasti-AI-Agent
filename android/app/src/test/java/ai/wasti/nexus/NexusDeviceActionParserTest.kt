@@ -13,6 +13,7 @@ class NexusDeviceActionParserTest {
         assertEquals(NexusDeviceAction.Home, NexusDeviceActionParser.parse("go home")?.action)
         assertEquals(NexusDeviceAction.Notifications, NexusDeviceActionParser.parse("open notifications")?.action)
         assertEquals(NexusDeviceAction.ReadScreen, NexusDeviceActionParser.parse("read current screen")?.action)
+        assertEquals(NexusDeviceAction.ReadNotifications, NexusDeviceActionParser.parse("read my notifications")?.action)
     }
 
     @Test fun parsesExactLabelClicksAndRejectsHighImpactLabels() {
