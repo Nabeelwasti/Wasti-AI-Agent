@@ -6,7 +6,7 @@ Updated: 2026-11-27
 
 - Version name: `0.5.10`
 - Version code: `15`
-- Implementation commit: `3653563141c59ae56205c99889b16125d64ac628`
+- Implementation commit: `bc233fb2b39db0bfb9d9e1af13223b04d6c978e7`
 - This increments the previous 0.5.9 version code 14, so Android can install it as an in-place update over 0.5.9 using the same signing identity. Do not uninstall the existing app.
 
 ## Changes in this candidate
@@ -15,7 +15,7 @@ Updated: 2026-11-27
 - Canonical path checks before opening files and before descending into directories; symlinks targeting outside the shared-storage root are rejected.
 - Streaming text reads enforce the 128 KiB limit even if a file changes size during reading.
 - JVM regression tests cover canonical path containment, symlink escape rejection and oversized text reads.
-- Remote file-context sharing remains off by default and requires a separate opt-in.
+- Remote file-context sharing remains off by default and requires a separate opt-in, including when AUTO mode falls back to a remote brain after local inference fails. A regression test protects this boundary.
 
 ## Verification
 
@@ -28,7 +28,7 @@ Do not install a previous 0.5.9 artifact as if it contained these changes. Insta
 
 ## Installation after verification
 
-1. Open the successful signed-release workflow run for commit `3653563141c59ae56205c99889b16125d64ac628`.
+1. Open the successful signed-release workflow run for commit `bc233fb2b39db0bfb9d9e1af13223b04d6c978e7`.
 2. Under **Artifacts**, download `wasti-nexus-signed-release-apk`.
 3. Extract the ZIP and install `app-release.apk`.
 4. Keep the existing app installed; Android should offer an update.
