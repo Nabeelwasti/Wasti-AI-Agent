@@ -2,6 +2,11 @@
 
 A checkbox is complete only when the implementation exists and evidence is recorded in [STATUS.md](STATUS.md). The project remains one monorepo; routine implementation work should be committed directly to `main` in small, sequential, tested commits.
 
+## Repository security
+
+- [x] Scheduled and push-triggered CodeQL security-extended analysis for Java/Kotlin, Python and JavaScript/TypeScript; successful three-language run recorded in [STATUS.md](STATUS.md).
+- [ ] Review and triage CodeQL findings; resolve all confirmed high/critical findings before production customer deployment.
+
 ## Android client
 
 - [x] Kotlin/Compose app shell and local-first routing.
