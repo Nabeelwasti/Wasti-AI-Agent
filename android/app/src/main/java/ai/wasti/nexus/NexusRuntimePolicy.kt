@@ -37,7 +37,7 @@ internal object NexusRuntimePolicy {
     }.getOrDefault(false)
 
     private const val GIB = 1024L * 1024L * 1024L
-    private const val LOCAL_RESERVE_BYTES = 1_229L * 1024L * 1024L
+    private const val LOCAL_RESERVE_BYTES = 512L * 1024L * 1024L
     private const val MIN_TERMUX_HEADROOM_BYTES = 768L * 1024L * 1024L
     private const val SEVERE_THERMAL_STATUS = 3
     private const val LOW_BATTERY_PERCENT = 12
@@ -68,7 +68,7 @@ internal object NexusRuntimePolicy {
     fun estimatedLocalWorkingSet(modelPath: String): Long {
         val modelBytes = runCatching { File(modelPath).takeIf { it.isFile }?.length() ?: 0L }.getOrDefault(0L)
         if (modelBytes <= 0L) return Long.MAX_VALUE
-        return (modelBytes.toDouble() * 2.5).toLong() + LOCAL_RESERVE_BYTES
+        return (modelBytes.toDouble() * 1.2).toLong() + LOCAL_RESERVE_BYTES
     }
 
     fun localCanHandle(task: NexusTask, modelPath: String): Boolean {
