@@ -1,8 +1,7 @@
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
-**Current main:** `520e2b6096548c9d4ce24408d14fdb4e16d5c912` (documentation-only commits followed the validated code commit)  
-**Validated code commit:** `c157f162b6705196ba58ca65cfc7fdfb6b2206d2`  
+**Validated code commit:** `c157f162b6705196ba58ca65cfc7fdfb6b2206d2` (subsequent commits in this snapshot update documentation only)  
 **Android source version:** 0.5.3 (`versionCode 8`)  
 **Repository:** `Nabeelwasti/Wasti-AI-Agent`  
 **Workflow:** existing PR #35 merged as `fd575a9c24a4e9e0c806aba095dfa32c38a2459f`; subsequent feature, fix and documentation commits were made directly on `main`. No open PRs remain.
