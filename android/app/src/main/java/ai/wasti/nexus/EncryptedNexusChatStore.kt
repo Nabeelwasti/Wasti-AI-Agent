@@ -48,7 +48,7 @@ internal object NexusChatHistory {
         if (needle.isEmpty()) return sessions.sortedByDescending { it.updatedAt }
         return sessions.filter { session ->
             session.title.contains(needle, ignoreCase = true) ||
-                session.turns.any { (user, assistant) ->
+                (session.turns + session.remoteTurns).any { (user, assistant) ->
                     user.contains(needle, ignoreCase = true) || assistant.contains(needle, ignoreCase = true)
                 }
         }.sortedByDescending { it.updatedAt }
