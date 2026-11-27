@@ -23,7 +23,7 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Encrypted local conversation history, search, open, rename, delete and Markdown export (AES-256-GCM / Android Keystore; local-only; no cross-device restore).
 - [x] SSE remote token streaming for explicitly selected single models with upstream cancellation.
 - [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.
-- [ ] Permission-scoped tools, approvals, sandboxing, audit and revocation.
+- [ ] Permission-scoped tools, approvals, sandboxing, audit and revocation.\n- [x] Local persistent reminder manager with notification permission, inexact alarms, reboot/time-change restoration and delete/cancel.\n- [ ] Natural-language reminder parsing and confirmation integrated into the model tool executor.
 - [ ] PDF parsing, audio, offline vision, image generation and training runtimes (only when a verified implementation and licence exists).
 
 ## Gateway and orchestration
