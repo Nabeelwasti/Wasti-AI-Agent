@@ -36,6 +36,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -59,6 +62,7 @@ internal class GatewayHttpException(
 ) : IllegalStateException(message)
 
 internal data class ModelContentRange(val first: Long, val last: Long, val total: Long)
+
 
 internal fun parseModelContentRange(value: String?): ModelContentRange? {
     val match = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$", RegexOption.IGNORE_CASE)
@@ -87,6 +91,18 @@ class MainActivity : ComponentActivity() {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
     private val alias = "wasti.nexus.gateway.key"
+    private suspend fun executeCancellable(request: Request): okhttp3.Response = suspendCancellableCoroutine { continuation ->
+        val call = http.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, error: java.io.IOException) {
+                if (continuation.isActive) continuation.resumeWithException(error)
+            }
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                if (continuation.isActive) continuation.resume(response) else response.close()
+            }
+        })
+    }
     private val prefs by lazy { getSharedPreferences("nexus-config", MODE_PRIVATE) }
     private val localEngineDelegate = lazy { AiChat.getInferenceEngine(applicationContext) }
     private val localEngine: InferenceEngine by localEngineDelegate
@@ -136,8 +152,8 @@ class MainActivity : ComponentActivity() {
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
                     onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns, passphrase -> syncMemorySnapshot(url, key, turns, passphrase) },
-                    onSendRemote = { url, key, history, prompt, hybrid, agentId ->
-                        sendRemote(url, key, history, prompt, hybrid, agentId)
+                    onSendRemote = { url, key, history, prompt, hybrid, agentId, onCollaboration ->
+                        sendRemote(url, key, history, prompt, hybrid, agentId, onCollaboration)
                     }
                 )
             }
@@ -679,7 +695,8 @@ class MainActivity : ComponentActivity() {
         history: List<Pair<String, String>>,
         prompt: String,
         hybrid: Boolean,
-        agentId: String
+        agentId: String,
+        onCollaboration: (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
         val root = url.trim().trimEnd('/')
         val local = NexusRuntimePolicy.isLoopbackHttp(root)
@@ -717,15 +734,52 @@ class MainActivity : ComponentActivity() {
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
         if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
         val request = requestBuilder.build()
-        http.newCall(request).execute().use { response ->
+        executeCancellable(request).use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $text")
-            JSONObject(text).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
-                ?.optString("content")
+            val responseJson = JSONObject(text)
+            val answer = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                ?.optString("content")?.takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("Gateway response did not contain an answer.")
+            responseJson.optJSONObject("nexus")?.let { metadata ->
+                val trace = formatCollaborationTrace(metadata)
+                withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+            }
+            answer
         }
     }
 
+    private fun formatCollaborationTrace(metadata: JSONObject): String {
+        val lines = mutableListOf<String>()
+        listOf("mode" to "Mode", "task" to "Task", "trace_id" to "Trace", "selected_agent" to "Selected brain", "synthesis_agent" to "Synthesis brain").forEach { (key, label) ->
+            metadata.optString(key).takeIf { it.isNotBlank() }?.let { lines += "$label: $it" }
+        }
+        if (metadata.has("duration_ms")) lines += "Duration: ${metadata.optLong("duration_ms")} ms"
+        val participants = metadata.optJSONArray("participants") ?: metadata.optJSONArray("participating_agents")
+        if (participants != null && participants.length() > 0) {
+            lines += "Participating brains:"
+            for (i in 0 until participants.length()) {
+                val item = participants.opt(i)
+                val id = if (item is JSONObject) item.optString("id", item.optString("agent")) else item?.toString().orEmpty()
+                if (id.isNotBlank()) lines += "• $id"
+            }
+        }
+        fun reports(title: String, items: JSONArray?, key: String = "content") {
+            if (items == null || items.length() == 0) return
+            lines += ""; lines += "$title:"
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                val id = item.optString("id", item.optString("agent", "Brain ${i + 1}"))
+                lines += "[$id${if (item.has("ok") && !item.optBoolean("ok")) " · failed" else ""}]"
+                item.optString(key).takeIf { it.isNotBlank() }?.let { lines += it.take(6000) }
+                item.optString("error").takeIf { it.isNotBlank() }?.let { lines += "Error: $it" }
+            }
+        }
+        reports("Independent model responses", metadata.optJSONArray("independent_answers") ?: metadata.optJSONArray("specialist_results"))
+        reports("Peer review / discussion", metadata.optJSONArray("peer_reviews") ?: metadata.optJSONArray("peer_review_reports"))
+        reports("Failed agents", metadata.optJSONArray("failed_agents"), "error")
+        return lines.joinToString("\n").ifBlank { "The connected server returned no detailed collaboration trace." }
+    }
     override fun onDestroy() {
         // AiChat.getInferenceEngine() returns a process-wide singleton. An Activity can be
         // destroyed for configuration changes while the process remains alive; destroying the
@@ -767,7 +821,7 @@ private fun NexusScreen(
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
-    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String) -> String
+    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, (String) -> Unit) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -805,6 +859,8 @@ private fun NexusScreen(
     var autoLoadAttemptedPath by remember { mutableStateOf("") }
     var modelLoadError by remember { mutableStateOf("") }
     var activityStatus by remember { mutableStateOf("Ready") }
+    var collaborationTrace by remember { mutableStateOf("") }
+    var collaborationExpanded by remember { mutableStateOf(false) }
     var activeGenerationJob by remember { mutableStateOf<Job?>(null) }
     var agentId by remember { mutableStateOf("nexus-gemma-4-26b-a4b") }
     var remoteModels by remember { mutableStateOf(emptyList<String>()) }
@@ -958,6 +1014,8 @@ private fun NexusScreen(
                             enabled = !busy && prompt.isNotBlank() && (!offlineMode || localReady || (url.startsWith("http://localhost") && remoteModels.isNotEmpty())),
                             onClick = {
                                 val submittedPrompt = prompt.trim()
+                                collaborationTrace = ""
+                                collaborationExpanded = false
                                 busy = true
                                 activeGenerationJob = scope.launch {
                                     var usedRemote = false
@@ -1025,12 +1083,12 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto")
+                                                            onSendRemote(url, key, remoteConversation, submittedPrompt, false, "nexus-auto") { collaborationTrace = it }
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1041,7 +1099,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first())
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, false, remoteModels.first()) { collaborationTrace = it }
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
@@ -1050,7 +1108,7 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, submittedPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent)
+                                                onSendRemote(url, key, remoteConversation, submittedPrompt, hybrid && mode != NexusMode.AUTO, remoteAgent) { collaborationTrace = it }
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
@@ -1704,6 +1762,20 @@ private fun NexusScreen(
                         Text("WASTI NEXUS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         SelectionContainer { Text(assistant, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) }
                         TextButton(onClick = { clipboardManager.setText(AnnotatedString(assistant)) }) { Text("Copy response") }
+                    }
+                }
+                if (collaborationTrace.isNotBlank()) {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("NEXUS · MODEL COLLABORATION", style = MaterialTheme.typography.labelLarge)
+                                TextButton(onClick = { collaborationExpanded = !collaborationExpanded }) { Text(if (collaborationExpanded) "Hide" else "View discussion") }
+                            }
+                            if (collaborationExpanded) {
+                                SelectionContainer { Text(collaborationTrace, style = MaterialTheme.typography.bodySmall) }
+                                TextButton(onClick = { clipboardManager.setText(AnnotatedString(collaborationTrace)) }) { Text("Copy collaboration log") }
+                            } else Text("The connected server returned actual model participation and review metadata.", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
                 if (streamingResponse.isNotBlank()) {

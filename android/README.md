@@ -59,3 +59,11 @@ Open `android/` in Android Studio or run the CI Gradle build. The native library
 - Chat messages support text selection, copy actions, and editing a prior user prompt. Active local generation can be stopped; request progress shows task classification and completion/failure state.
 - The current native Arm AI Chat integration loads one local GGUF model at a time and exposes text generation only. Local multi-model debate, image understanding, audio, file parsing, background parallel agents and a full tool execution framework are not claimed as implemented by this release. Online Hybrid can orchestrate only the distinct models actually configured on the connected gateway. UI progress reports actual workflow stages, not private chain-of-thought.
 - Device-specific load success still depends on Android RAM, thermals and the exact GGUF. A catalogue file being present is not proof that its native runtime can initialize it; the status panel surfaces the load result.
+
+
+## Multi-model collaboration activity (0.5.3)
+
+- Online requests now display the collaboration metadata actually returned by the configured gateway: task/mode, trace ID, selected and participating models, synthesis model, duration, independent responses, peer reviews, and reported failures.
+- The collaboration panel is expandable, selectable, and copyable. It does not fabricate hidden model reasoning; only provider outputs and orchestration metadata are displayed.
+- Remote HTTP requests are cancellable by the Stop action. Cancellation closes the OkHttp call instead of waiting for the network read timeout.
+- Hybrid collaboration requires at least two distinct, enabled and appropriately licensed models configured on the remote gateway. It is not a promise that all twelve on-device catalogue models run simultaneously.
