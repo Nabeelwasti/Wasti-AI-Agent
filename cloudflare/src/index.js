@@ -240,6 +240,10 @@ async function invoke(env, modelId, messages, options = {}) {
   }
 
   const controller = new AbortController();
+  const requestSignal = options.signal;
+  const abortFromRequest = () => controller.abort();
+  if (requestSignal?.aborted) controller.abort();
+  else requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
   const timeout = Math.max(5000, Math.min(Number(env.REQUEST_TIMEOUT_MS || 45000), 60000));
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -279,6 +283,7 @@ async function invoke(env, modelId, messages, options = {}) {
     throw new GatewayError("Provider request failed", 502);
   } finally {
     clearTimeout(timer);
+    requestSignal?.removeEventListener("abort", abortFromRequest);
   }
 }
 
@@ -309,14 +314,14 @@ function classifyAutoTask(messages) {
   return "general";
 }
 
-async function autoBody(body, env, headers) {
+async function autoBody(body, env, headers, requestSignal) {
   const messages = validateMessages(body);
   const task = classifyAutoTask(messages);
   if (!["general", "coding", "reasoning", "vision"].includes(task)) {
     throw new GatewayError(
       "This self-hosted text gateway does not have a verified runtime for the requested modality.",
       400,
-      { task, supported_tasks: ["general", "coding", "reasoning"] },
+      { task, supported_tasks: ["general", "coding", "reasoning", "vision"] },
     );
   }
   const available = modelCatalog(env);
@@ -339,7 +344,7 @@ async function autoBody(body, env, headers) {
   const failures = [];
   for (const model of candidates) {
     try {
-      const result = await invoke(env, model.id, messages, body);
+      const result = await invoke(env, model.id, messages, { ...body, signal: requestSignal });
       return json({
         id: crypto.randomUUID(),
         object: "chat.completion",
@@ -361,6 +366,7 @@ async function autoBody(body, env, headers) {
         },
       }, 200, headers);
     } catch (error) {
+      if (requestSignal?.aborted) throw error;
       failures.push({ model: model.id, error: error.message || "provider_failed" });
     }
   }
@@ -371,10 +377,10 @@ async function single(request, env, headers) {
   const body = await parseJson(request);
   validateGenerationOptions(body);
   if (body.model === "nexus-auto" || body.nexus?.mode === "auto") {
-    return autoBody(body, env, headers);
+    return autoBody(body, env, headers, request.signal);
   }
   if (body.model === "nexus-hybrid" || body.nexus?.mode === "hybrid") {
-    return hybridBody(body, env, headers);
+    return hybridBody(body, env, headers, request.signal);
   }
   if (typeof body.model !== "string" || !body.model.trim()) {
     throw new GatewayError("A configured model ID is required", 400);
@@ -386,7 +392,7 @@ async function single(request, env, headers) {
       throw new GatewayError("The selected model is not verified as vision-capable. Choose a configured model with the vision capability.", 400);
     }
   }
-  const result = await invoke(env, body.model, messages, body);
+  const result = await invoke(env, body.model, messages, { ...body, signal: request.signal });
   return json({
     id: crypto.randomUUID(),
     object: "chat.completion",
@@ -405,10 +411,10 @@ async function single(request, env, headers) {
 async function hybrid(request, env, headers) {
   const body = await parseJson(request);
   validateGenerationOptions(body);
-  return hybridBody(body, env, headers);
+  return hybridBody(body, env, headers, request.signal);
 }
 
-async function hybridBody(body, env, headers) {
+async function hybridBody(body, env, headers, requestSignal) {
   const messages = validateMessages(body);
   const prompt = [...messages].reverse().find(message => message.role === "user");
   const promptText = prompt ? (typeof prompt.content === "string" ? prompt.content : prompt.content.filter(part => part.type === "text").map(part => part.text).join(" ")) : "";
@@ -442,11 +448,12 @@ async function hybridBody(body, env, headers) {
   const started = Date.now();
   const firstPass = await Promise.all(selected.map(async id => {
     try {
-      return { ok: true, ...await invoke(env, id, messages, body) };
+      return { ok: true, ...await invoke(env, id, messages, { ...body, signal: requestSignal }) };
     } catch (error) {
       return { ok: false, id, error: error.message || "agent_failed" };
     }
   }));
+  if (requestSignal?.aborted) throw new GatewayError("Request cancelled", 499);
   const successful = firstPass.filter(item => item.ok);
   const failed = firstPass.filter(item => !item.ok);
   if (!successful.length) {
@@ -456,6 +463,7 @@ async function hybridBody(body, env, headers) {
   const reviewRounds = Math.max(0, Math.min(Number(body.nexus?.review_rounds ?? body.review_rounds ?? 1), 2));
   const reviews = [];
   for (let round = 0; round < reviewRounds; round++) {
+    if (requestSignal?.aborted) throw new GatewayError("Request cancelled", 499);
     const reviewMessages = [
       {
         role: "system",
@@ -469,7 +477,7 @@ async function hybridBody(body, env, headers) {
     ];
     const roundResults = await Promise.all(successful.map(async item => {
       try {
-        const result = await invoke(env, item.id, reviewMessages, { max_tokens: 650, temperature: 0.2 });
+        const result = await invoke(env, item.id, reviewMessages, { max_tokens: 650, temperature: 0.2, signal: requestSignal });
         return { id: item.id, round: round + 1, ok: true, content: result.content };
       } catch (error) {
         return { id: item.id, round: round + 1, ok: false, error: error.message || "review_failed" };
@@ -504,6 +512,7 @@ async function hybridBody(body, env, headers) {
     final = await invoke(env, synthesisId, synthesisMessages, {
       max_tokens: Math.min(Number(body.max_tokens || 2200), 4096),
       temperature: 0.25,
+      signal: requestSignal,
     });
   } catch (error) {
     return json({
