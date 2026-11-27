@@ -1016,6 +1016,8 @@ private fun NexusScreen(
                                                     streamingResponse = ""
                                                     attemptedLocalInference = true
                                                     onSendLocal(submittedPrompt) { token -> streamingResponse += token }
+                                                } catch (cancelled: CancellationException) {
+                                                    throw cancelled
                                                 } catch (localError: Exception) {
                                                     localReady = false
                                                     loadedModelPath = ""
