@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Context
 import android.graphics.Path
+import android.graphics.Bitmap
+import android.view.Display
 import android.graphics.Rect
 import android.os.Looper
 import android.provider.Settings
@@ -138,6 +140,35 @@ class NexusAccessibilityService : AccessibilityService() {
     fun openNotifications(): Boolean {
         requireMainThread()
         return performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+    }
+
+    /**
+     * Capture one user-requested screenshot. Secure windows may be blank or unavailable.
+     * The caller owns the returned bitmap and must recycle it after use.
+     */
+    @android.annotation.TargetApi(30)
+    fun captureScreenshot(onResult: (Bitmap?) -> Unit) {
+        requireMainThread()
+        if (android.os.Build.VERSION.SDK_INT < 30) {
+            onResult(null)
+            return
+        }
+        takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+            override fun onSuccess(screenshot: ScreenshotResult) {
+                val hardwareBuffer = screenshot.hardwareBuffer
+                val bitmap = try {
+                    Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
+                        ?.copy(Bitmap.Config.ARGB_8888, false)
+                } finally {
+                    hardwareBuffer.close()
+                }
+                onResult(bitmap)
+            }
+
+            override fun onFailure(errorCode: Int) {
+                onResult(null)
+            }
+        })
     }
 
     private fun dispatchPathGesture(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long): Boolean {
