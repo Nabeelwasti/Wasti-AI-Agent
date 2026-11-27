@@ -76,18 +76,15 @@ internal class EncryptedNexusChatStore(context: Context) {
     private val chatDirectory = File(context.filesDir, "chat").apply { check(exists() || mkdirs()) { "Could not create the private chat-history directory." } }
     private val atomicFile = AtomicFile(File(chatDirectory, "sessions.v1.enc"))
     private val aad = "WASTI-NEXUS-CHAT-STORE-V1".toByteArray(Charsets.UTF_8)
-    private val maxStoreBytes = 5 * 1024 * 1024
-    private val maxSessions = 100
-    private val maxTurnsPerSession = 500
 
     @Synchronized
     fun load(): List<NexusChatSession> {
         val source = atomicFile.baseFile
-        if (!source.exists()) return emptyList()
-        require(source.length() in 1..(maxStoreBytes + 4096).toLong()) {
-            "Encrypted chat history exceeds the safe storage limit and was not opened."
-        }
-        val envelope = JSONObject(atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() })
+        // AtomicFile may have a recoverable .bak even when the base file is absent.
+        // openRead() performs that recovery before we inspect the restored file.
+        if (!source.exists() && !File(source.path + ".bak").exists()) return emptyList()
+        val input = atomicFile.openRead()
+        val envelope = JSONObject(input.bufferedReader(Charsets.UTF_8).use { it.readText() })
         require(envelope.optInt("version") == 1) { "This chat-history format is not supported by this app version." }
         val iv = Base64.decode(envelope.getString("iv"), Base64.NO_WRAP)
         val ciphertext = Base64.decode(envelope.getString("ciphertext"), Base64.NO_WRAP)
@@ -97,14 +94,10 @@ internal class EncryptedNexusChatStore(context: Context) {
         cipher.updateAAD(aad)
         val payload = JSONObject(String(cipher.doFinal(ciphertext), Charsets.UTF_8))
         val array = payload.getJSONArray("sessions")
-        require(array.length() <= maxSessions) { "Chat history contains too many sessions." }
         return (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             val turns = decodeTurns(item.optJSONArray("turns") ?: JSONArray())
             val remoteTurns = decodeTurns(item.optJSONArray("remote_turns") ?: JSONArray())
-            require(turns.size <= maxTurnsPerSession && remoteTurns.size <= maxTurnsPerSession) {
-                "A saved conversation exceeds the supported history limit."
-            }
             NexusChatSession(
                 id = item.getString("id").also { require(runCatching { UUID.fromString(it) }.isSuccess) },
                 title = item.optString("title").take(100).ifBlank { "Conversation" },
@@ -117,12 +110,8 @@ internal class EncryptedNexusChatStore(context: Context) {
 
     @Synchronized
     fun save(sessions: List<NexusChatSession>) {
-        require(sessions.size <= maxSessions) { "Chat history is full. Delete an old conversation before saving another." }
         val payload = JSONObject().put("schema_version", 1).put("sessions", JSONArray().apply {
             sessions.sortedByDescending { it.updatedAt }.forEach { session ->
-                require(session.turns.size <= maxTurnsPerSession && session.remoteTurns.size <= maxTurnsPerSession) {
-                    "This conversation is too long to save safely."
-                }
                 put(JSONObject()
                     .put("id", session.id)
                     .put("title", session.title.take(100))
@@ -131,9 +120,6 @@ internal class EncryptedNexusChatStore(context: Context) {
                     .put("remote_turns", encodeTurns(session.remoteTurns)))
             }
         }).toString().toByteArray(Charsets.UTF_8)
-        require(payload.size <= maxStoreBytes) {
-            "Encrypted chat history reached its 5 MB limit. Export and remove older conversations to continue."
-        }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey())
         cipher.updateAAD(aad)
