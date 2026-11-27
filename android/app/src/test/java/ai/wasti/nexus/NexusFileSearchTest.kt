@@ -4,6 +4,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 class NexusFileSearchTest {
     @Test fun detectsNaturalLanguageFileSearchRequests() {
@@ -32,6 +34,28 @@ class NexusFileSearchTest {
         assertTrue(context.contains("salary.csv"))
         assertTrue(context.contains("not the complete file"))
         assertTrue(context.contains("Printing,50000"))
+    }
+
+    @Test fun canonicalPathGuardRejectsFilesOutsideSharedStorageRoot() {
+        val parent = Files.createTempDirectory("nexus-file-search").toFile()
+        val root = File(parent, "shared").apply { mkdirs() }
+        val inside = File(root, "notes.txt").apply { writeText("private note") }
+        val outside = File(parent, "outside.txt").apply { writeText("must not be read") }
+        try {
+            assertTrue(NexusFileSearch.isWithinRoot(root, inside))
+            assertFalse(NexusFileSearch.isWithinRoot(root, outside))
+            val link = File(root, "outside-link.txt")
+            try {
+                Files.createSymbolicLink(link.toPath(), outside.toPath())
+                assertFalse(NexusFileSearch.isWithinRoot(root, link))
+            } catch (_: UnsupportedOperationException) {
+                // Symlink creation is unavailable on some CI hosts.
+            } catch (_: java.io.IOException) {
+                // Filesystem permissions may disable symlink creation.
+            }
+        } finally {
+            parent.deleteRecursively()
+        }
     }
 
     @Test fun emptyResultsAreExplicit() {
