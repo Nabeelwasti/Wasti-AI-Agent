@@ -94,6 +94,12 @@ val nexusKnowledgePatterns = listOf(
     "docs/**/*.md",
     "models/registry.json",
     "models/extended-model-registry.json",
+    "models/*.py",
+    "sdks/**/*.ts",
+    "sdks/**/*.py",
+    "termux/README.md",
+    "termux/nexus",
+    "termux/env.example",
     "tests/**/*.py",
     ".github/workflows/**/*.yml"
 )
