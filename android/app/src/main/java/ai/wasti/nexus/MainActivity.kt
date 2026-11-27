@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Send
@@ -1177,8 +1175,10 @@ private fun NexusScreen(
                 NavigationDrawerItem(label = { Text("Models & settings") }, selected = drawerDestination == "Settings", icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {
                     drawerDestination = "Settings"; settingsExpanded = true; scope.launch { drawerState.close() }
                 })
-                NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }, enabled = !offlineMode && configuredRemoteModelCount >= 2, onClick = {
-                    hybrid = !hybrid; scope.launch { drawerState.close() }
+                NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {
+                    if (!offlineMode && configuredRemoteModelCount >= 2) hybrid = !hybrid
+                    else answer = "Hybrid Team requires Online mode and at least two configured remote models."
+                    scope.launch { drawerState.close() }
                 })
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 Text("Private on-device inference and your configured model workspace.", modifier = Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
