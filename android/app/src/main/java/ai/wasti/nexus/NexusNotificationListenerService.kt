@@ -55,6 +55,22 @@ class NexusNotificationListenerService : NotificationListenerService() {
             }.toList()
     }
 
+    internal fun dismissActiveNotifications(limit: Int = 25): Int {
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            "Notification dismissal must be approved and requested on the Android main thread."
+        }
+        val targets = (activeNotifications ?: emptyArray())
+            .asSequence()
+            .filterNot { it.packageName == packageName }
+            .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
+            .filterNot { it.notification.flags and Notification.FLAG_ONGOING_EVENT != 0 }
+            .filterNot { it.notification.flags and Notification.FLAG_NO_CLEAR != 0 }
+            .take(limit.coerceIn(1, 25))
+            .map { it.key }
+            .toList()
+        targets.forEach { key -> runCatching { cancelNotification(key) } }
+        return targets.size
+    }
     companion object {
         @Volatile private var active: NexusNotificationListenerService? = null
 
