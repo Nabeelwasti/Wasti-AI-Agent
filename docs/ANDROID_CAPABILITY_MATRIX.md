@@ -1,6 +1,6 @@
 # WASTI NEXUS Android capability and permission matrix
 
-Updated: 2026-11-27
+Updated: 2026-11-28
 
 This document is the source of truth for Android access requests. NEXUS must request or open a permission only when a shipped feature actually uses it. Android has no supported grant-all switch. A permission being technically requestable does not make it necessary or appropriate.
 
@@ -14,7 +14,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Screenshot | AccessibilityService.takeScreenshot one-shot API | User manually enables service; secure windows can block capture |
 | Camera | TakePicturePreview system camera intent | User starts capture; no direct CAMERA permission |
 | Photos | Android photo picker | Per-selection URI access |
-| Files | On-demand shared-storage search with bounded filename/text matching and metadata for media/PDF/Office files | Optional MANAGE_EXTERNAL_STORAGE; user must grant Android All files access in Settings. Android/data and Android/obb are excluded. |
+| Files | On-demand shared-storage search with bounded filename/text matching plus local PDF/modern Office extraction and image OCR/labels | Optional MANAGE_EXTERNAL_STORAGE; user must grant Android All files access in Settings. Android/data and Android/obb are excluded. |
 | File context in chat | Natural-language file-search requests append bounded local excerpts to the active prompt | On-device route by default; sending excerpts to remote brains requires a separate opt-in in Settings |
 | Voice input | Android speech-recognition activity | User starts recognition; speech provider may require its own network/service |
 | Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |
@@ -48,7 +48,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 
 - The user must explicitly grant Android's special All files access in Settings. NEXUS does not grant it silently.
 - Search is on demand, bounded to 12,000 filesystem entries and at most ten results.
-- Plain-text/code formats are searched for filename and bounded text matches. PDF, Office documents, images, video and audio currently return matching metadata only; they are not claimed to be text-extracted or fully analysed.
+- Plain-text/code formats are searched for filename and bounded text matches. PDF (first 100 pages), DOCX/XLSX/PPTX and ODT/ODS/ODP are extracted locally; JPEG/PNG/WebP receive on-device OCR and coarse visual labels. Legacy DOC/XLS/PPT, scanned-PDF OCR, HEIC/HEIF shared-storage search, video and audio remain metadata-only/unsupported.
 - Android/data, Android/obb, other apps' private sandboxes, caches and inaccessible external volumes are excluded.
 - Excerpts are marked as untrusted data in the model context. They are not executed as instructions.
 - Remote file-context sharing is disabled by default. It requires a separate opt-in; otherwise the request must route to an on-device model.
