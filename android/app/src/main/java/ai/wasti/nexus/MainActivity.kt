@@ -25,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
@@ -1262,6 +1263,10 @@ private fun NexusScreen(
                 })
                 NavigationDrawerItem(label = { Text("Contacts & calling") }, selected = false, icon = { Icon(Icons.Default.Person, contentDescription = null) }, onClick = {
                     context.startActivity(Intent(context, NexusContactsActivity::class.java))
+                    scope.launch { drawerState.close() }
+                })
+                NavigationDrawerItem(label = { Text("My location") }, selected = false, icon = { Icon(Icons.Default.Place, contentDescription = null) }, onClick = {
+                    context.startActivity(Intent(context, NexusLocationActivity::class.java))
                     scope.launch { drawerState.close() }
                 })
                 NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {

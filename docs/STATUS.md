@@ -202,3 +202,11 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Contact actions launch Android's dialer (ACTION_DIAL) or SMS composer (ACTION_SENDTO). The user reviews and initiates the call/message in the system app; NEXUS does not silently place calls or send SMS.
 - SMS inbox/history and call-log reading remain unavailable in this build. READ_SMS/RECEIVE_SMS and READ_CALL_LOG are restricted by Android role/installer policy. NEXUS does not request default SMS/dialer takeover or attempt to bypass the restriction.
 - CI and physical-device permission-revocation tests remain pending for this feature.
+
+
+## 2026-11-28: one-time foreground location
+
+- Added a My location screen that requests Android approximate location only after the user opens the screen and taps Get current location.
+- Uses Android's one-shot foreground LocationManager API, a 25-second timeout and cancellation. No background-location permission, continuous updates, location history or automatic remote upload.
+- Shows coordinates, reported accuracy and fix time; opening Maps is a separate user action.
+- Permission denial/revocation is handled without retry loops. Physical Redmi/HyperOS location-provider testing remains required.

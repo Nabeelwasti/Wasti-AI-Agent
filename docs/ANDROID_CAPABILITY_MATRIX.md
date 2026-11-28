@@ -26,7 +26,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Call history | Not read inside NEXUS; Phone app can be opened | READ_CALL_LOG is restricted; NEXUS does not request default dialer role or installer allowlisting |
 | Contact-based calling | Opens system dialer with selected number | ACTION_DIAL handoff; user places the call; no CALL_PHONE permission |
 | Notification content | On-demand snapshot of up to 25 active notifications through NotificationListenerService; no event cache or background persistence | User manually enables Notification access and approves the chat command; content is shown locally and saved only in the user-requested encrypted chat history |
-| Wi-Fi / location / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
+| One-time location | Foreground-only current location fix; approximate accuracy; opens Maps via geo intent | Runtime ACCESS_COARSE_LOCATION requested only when user opens My location and taps Get current location; no background permission, tracking or history |\n| Wi-Fi / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
 
 ## Not requested and why
 
