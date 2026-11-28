@@ -4,7 +4,7 @@ The Cloudflare Worker is a protected relay, not an inference host. It does not d
 
 ## Current deployment state
 
-The Worker source with bounded vision attachment validation is deployed. Its existing client authentication, GitHub memory secret, rate-limit binding and non-AI relay configuration were preserved. **No inference provider is currently configured in the deployed Worker**, so a healthy gateway does not mean that `/v1/models` will return usable model IDs or that chat inference is available.
+The Worker source with bounded vision attachment validation is deployed. Its existing client authentication, GitHub memory secret, rate-limit binding and non-AI relay configuration were preserved. **No inference provider is currently configured in the deployed Worker**, so a healthy gateway does not mean that `/v1/models` will return usable model IDs or that chat inference is available. The repository's latest source also includes the new validated NEXUS function-call transport, but that code has not yet been deployed to the live Worker. The connected Cloudflare script still has its existing client-auth, GitHub-memory and rate-limit bindings; a future deployment must preserve them.
 
 ## Provider requirements
 
