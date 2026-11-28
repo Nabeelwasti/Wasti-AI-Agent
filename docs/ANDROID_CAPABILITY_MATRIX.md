@@ -22,13 +22,15 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Calendar event | Calendar ACTION_INSERT | User reviews and saves in Calendar |
 | Contacts | Read-only on-demand address-book search (up to 1,000 phone entries); contact actions open system dialer or SMS composer | Runtime READ_CONTACTS permission requested only when user opens Contacts & calling; NEXUS does not upload or persist the address book |
 | SMS compose | Opens system SMS composer with selected contact number | ACTION_SENDTO handoff; user reviews and sends in the messaging app; no SEND_SMS permission |
-| SMS inbox/history | Not read inside NEXUS | Android restricts READ_SMS/RECEIVE_SMS; NEXUS does not request default SMS role or installer allowlisting |
-| Call history | Not read inside NEXUS; Phone app can be opened | READ_CALL_LOG is restricted; NEXUS does not request default dialer role or installer allowlisting |
-| Contact-based calling | Opens system dialer with selected number | ACTION_DIAL handoff; user places the call; no CALL_PHONE permission |
+| SMS inbox/history | Opens the system Messages app on request; message contents are not read inside NEXUS | Android restricts READ_SMS/RECEIVE_SMS; NEXUS does not request default SMS role or installer allowlisting |
+| Call history | Opens the system dialer so the user can review Recents; records are not read inside NEXUS | READ_CALL_LOG is restricted; NEXUS does not request default dialer role or installer allowlisting |
+| Contact-based calling | Opens system dialer with selected number, including from approved agent tool calls | ACTION_DIAL handoff; user places the call; no CALL_PHONE permission |
 | Notification content | On-demand snapshot of up to 25 active notifications through NotificationListenerService; no event cache or background persistence | User manually enables Notification access and approves the chat command; content is shown locally and saved only in the user-requested encrypted chat history |
 | Picture-in-picture | NEXUS can enter its own PiP window on supported Android devices; resizeable activity also permits OS-managed split screen | User taps PiP; Android controls windowing; NEXUS does not force other apps into split screen |
 | Health Connect | Read-only aggregated steps and heart-rate records for the last 7 days | Health Connect permission controller requests only READ_STEPS and READ_HEART_RATE; no write or background-health permission |
 | On-device step sensor | TYPE_STEP_COUNTER sample while Health & sensors screen is open; cumulative since reboot | ACTIVITY_RECOGNITION runtime permission; listener unregisters when activity stops |
+| Permission dashboard | Read-only snapshot of Contacts, approximate location, activity recognition, All files, Accessibility, notification access, post notifications, and install-source access | Status only; Android Settings remains responsible for grants and revocation |
+| Encrypted action audit | Bounded last-200 approvals, denials and outcomes for deterministic device actions and AI-requested tools | AES-GCM with Android Keystore key; logs labels/outcomes only, never screen/notification/contact/file content |
 | One-time location | Foreground-only current location fix; approximate accuracy; opens Maps via geo intent | Runtime ACCESS_COARSE_LOCATION requested only when user opens My location and taps Get current location; no background permission, tracking or history |\n| Wi-Fi / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
 
 ## Not requested and why
@@ -46,10 +48,12 @@ This document is the source of truth for Android access requests. NEXUS must req
 
 ## Approved device action boundaries
 
-- Supported exact chat commands: `tap the Settings button`, `scroll down`, `scroll up`, `go back`, `go home`, `open notifications`, and `read current screen`, and `read my notifications` (requires separately enabled Notification access). The app displays an action summary and waits for a separate approval before execution.
-- Label-click actions require an exact visible text/content-description match and a clickable, enabled control. Destructive/high-impact labels (delete/remove/send/submit/pay/transfer/install/allow/permission/credentials, etc.) are rejected by the parser.
-- Screen text and notification content are returned in the chat locally and are not passed to a model by these commands. Password fields remain redacted by the AccessibilityService. Secure windows and app-specific accessibility restrictions still apply.
-- Android accepting a click/gesture does not prove the target app completed the requested business operation. The user must inspect the screen after each action. No chained or autonomous action plans are supported.
+- Deterministic exact chat commands include visible-label click, scrolling, Back, Home, notification shade, local screen-text read and active-notification read/dismiss. Each command has a separate approval.
+- Optional AI-requested tools are available only when explicitly enabled in Settings and only for one selected online model. The fixed 13-tool registry covers screen/notification actions, contact name search, shared-file search (requires a separate file-sharing opt-in), local reminders, exact-label click, scroll/navigation, contact-based dialer/SMS-composer handoff and opening system Messages/dialer apps. Every call pauses for individual user approval. Limits: four rounds, four calls per round and eight calls per user turn. Cancellation stops the loop.
+- Tool results are sent back to the selected online model only after the user approves the individual call. Screen, notification and file excerpts may contain private information; file excerpts additionally require the separate online file-sharing setting. Contact phone numbers are kept on-device and never returned to the model.
+- Offline local models and Auto/Hybrid do not execute model-generated tools. There is no arbitrary shell/code execution, password entry, direct SMS sending, direct calling, payments, purchases, APK install or permission mutation.
+- Label-click actions require an exact visible text/content-description match and a unique enabled clickable control. Destructive/high-impact labels are rejected by the parser.
+- Android accepting a click/gesture does not prove the target app completed its requested operation. The user must inspect the screen; a later read-screen tool can provide additional evidence but does not guarantee a business transaction succeeded.
 
 ## Shared-storage search boundaries
 
