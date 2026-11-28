@@ -197,6 +197,108 @@ test("self-hosted providers expose verified capabilities and are the only infere
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("single-model NEXUS function calls and tool results round-trip through a self-hosted provider", async () => {
+  const originalFetch = globalThis.fetch;
+  const forwarded = [];
+  globalThis.fetch = async (_input, init = {}) => {
+    const body = JSON.parse(init.body);
+    forwarded.push(body);
+    if (!body.messages.some(message => message.role === "tool")) {
+      return Response.json({
+        choices: [{
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: [{
+              id: "call_read_1",
+              type: "function",
+              function: { name: "nexus_read_screen", arguments: "{}" },
+            }],
+          },
+          finish_reason: "tool_calls",
+        }],
+      });
+    }
+    return Response.json({
+      choices: [{ message: { role: "assistant", content: "I read the visible screen locally." }, finish_reason: "stop" }],
+    });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "tool-host",
+        base_url: "https://tools.example/v1",
+        api_key_env: "TOOL_HOST_KEY",
+        models: [{ id: "tool-model", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "tools"] }],
+      }] }),
+      TOOL_HOST_KEY: "tool-provider-secret",
+    };
+    const tools = [{
+      type: "function",
+      function: {
+        name: "nexus_read_screen",
+        description: "Read visible UI labels locally after explicit approval.",
+        parameters: { type: "object", properties: {}, additionalProperties: false },
+      },
+    }];
+    const first = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "tool-model",
+      messages: [{ role: "user", content: "Read the current screen." }],
+      tools,
+      stream: false,
+    }), configured);
+    assert.equal(first.status, 200);
+    const firstData = await first.json();
+    const call = firstData.choices[0].message.tool_calls[0];
+    assert.equal(call.function.name, "nexus_read_screen");
+    assert.equal(firstData.choices[0].finish_reason, "tool_calls");
+    assert.equal(forwarded[0].tools[0].function.name, "nexus_read_screen");
+
+    const second = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "tool-model",
+      messages: [
+        { role: "user", content: "Read the current screen." },
+        { role: "assistant", content: null, tool_calls: [call] },
+        { role: "tool", tool_call_id: call.id, content: "Screen labels: Settings, Wi-Fi." },
+      ],
+      tools,
+      stream: false,
+    }), configured);
+    assert.equal(second.status, 200);
+    assert.equal((await second.json()).choices[0].message.content, "I read the visible screen locally.");
+    assert.equal(forwarded[1].messages[1].tool_calls[0].id, call.id);
+    assert.equal(forwarded[1].messages[2].role, "tool");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("NEXUS rejects unsupported function names and malformed tool-result messages", async () => {
+  const configured = {
+    ...env,
+    NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+      id: "tool-host", base_url: "https://tools.example/v1", api_key_env: "TOOL_HOST_KEY",
+      models: [{ id: "tool-model", enabled: true, commercial_allowed: true, license_status: "verified", capabilities: ["chat", "tools"] }],
+    }] }),
+    TOOL_HOST_KEY: "tool-provider-secret",
+  };
+  const unsupported = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "tool-model",
+    messages: [{ role: "user", content: "Run arbitrary code." }],
+    tools: [{ type: "function", function: { name: "run_shell", parameters: { type: "object", properties: {} } } }],
+    stream: false,
+  }), configured);
+  assert.equal(unsupported.status, 400);
+
+  const invalidResult = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+    model: "tool-model",
+    messages: [{ role: "tool", content: "Unlinked tool output." }],
+    stream: false,
+  }), configured);
+  assert.equal(invalidResult.status, 400);
+});
+
 test("hybrid uses two distinct self-hosted model IDs and reports actual participants", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
