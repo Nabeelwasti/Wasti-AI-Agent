@@ -1405,7 +1405,7 @@ private fun NexusScreen(
                                             else -> NexusMode.ONLINE
                                         }
                                         activityStatus = "Understanding your request and classifying the task..."
-                                        if (imageAttachments) {
+                                        if (imageAttachments && !offlineMode) {
                                             require(!offlineMode) { "Image understanding requires Online or Auto mode and a configured vision-capable self-hosted model." }
                                             val root = url.trim().trimEnd('/')
                                             val loopback = NexusRuntimePolicy.isLoopbackHttp(root)
@@ -1414,9 +1414,14 @@ private fun NexusScreen(
                                                 "Configure and refresh a remote gateway with a vision-capable model before sending images."
                                             }
                                             val targetAgent = if (autoMode) "nexus-auto" else agentId
-                                            val appAwarePrompt = NexusAppKnowledge.enrich(
-                                            context, submittedPrompt.ifBlank { "Analyze attached image(s)." }
-                                        )
+                                            val imageAnalysisContext = buildString {
+                                            append(submittedPrompt.ifBlank { "Analyze attached image(s)." })
+                                            submittedAttachments.filter { it.imageDataUrl != null && !it.textContent.isNullOrBlank() }.forEach { attachment ->
+                                                append("\n\n[On-device OCR and visual labels for ").append(attachment.name).append("]\n")
+                                                append(attachment.textContent.orEmpty())
+                                            }
+                                        }
+                                        val appAwarePrompt = NexusAppKnowledge.enrich(context, imageAnalysisContext)
                                         val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
