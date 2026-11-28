@@ -2,6 +2,8 @@ package ai.wasti.nexus
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import android.os.Build
@@ -35,7 +37,11 @@ internal object NexusAgentToolRuntime {
             Triple("nexus_create_reminder", "Create a one-shot local reminder. Use ISO-8601 with an explicit UTC offset for the trigger time.", schema("title" to "string", "trigger_at" to "string")),
             Triple("nexus_click_visible_control", "Click one unique, exact visible control label. This may change the foreground app; each click requires approval.", schema("label" to "string")),
             Triple("nexus_scroll", "Scroll the current screen forward or backward.", schema("direction" to "string")),
-            Triple("nexus_navigate", "Perform one Android global navigation action: back, home or notifications.", schema("action" to "string"))
+            Triple("nexus_navigate", "Perform one Android global navigation action: back, home or notifications.", schema("action" to "string")),
+            Triple("nexus_dial_contact", "Find one unambiguous contact and open the Android dialer with that number. The user must press Call manually.", schema("contact_name" to "string")),
+            Triple("nexus_compose_sms", "Find one unambiguous contact and open the Android SMS composer with a draft. The user must review and press Send manually.", schema("contact_name" to "string", "message" to "string")),
+            Triple("nexus_open_sms_inbox", "Open the system messaging app so the user can read their SMS inbox. NEXUS does not read SMS history.", emptySchema()),
+            Triple("nexus_open_call_history", "Open the system dialer so the user can review Recents. NEXUS does not read call-log history.", emptySchema())
         )
         return JSONArray().apply {
             specs.forEach { (name, description, parameters) ->
@@ -60,6 +66,8 @@ internal object NexusAgentToolRuntime {
             "nexus_click_visible_control" -> setOf("label")
             "nexus_scroll" -> setOf("direction")
             "nexus_navigate" -> setOf("action")
+            "nexus_dial_contact" -> setOf("contact_name")
+            "nexus_compose_sms" -> setOf("contact_name", "message")
             else -> emptySet()
         }
         val keys = args.keys().asSequence().toSet()
@@ -74,6 +82,10 @@ internal object NexusAgentToolRuntime {
             "nexus_click_visible_control" -> "Click the exact visible control “${args.getString("label").take(60)}”."
             "nexus_scroll" -> "Scroll the current screen ${args.getString("direction")}."
             "nexus_navigate" -> "Perform Android navigation: ${args.getString("action")}."
+            "nexus_dial_contact" -> "Find contact “${args.getString("contact_name").take(80)}” and open the system dialer. You must tap Call manually."
+            "nexus_compose_sms" -> "Open an SMS draft for “${args.getString("contact_name").take(80)}” with this message: “${args.getString("message").take(160)}”. You must review and tap Send manually."
+            "nexus_open_sms_inbox" -> "Open the system Messages app. NEXUS will not read your SMS inbox."
+            "nexus_open_call_history" -> "Open the system dialer. NEXUS will not read your call history."
             else -> error("Unsupported tool.")
         }
         return NexusAgentToolDraft(id, name, description, args)
@@ -179,8 +191,71 @@ internal object NexusAgentToolRuntime {
                     else -> "Unsupported navigation action."
                 }
             }
+            "nexus_dial_contact" -> launchContactHandoff(context, draft, composeSms = false)
+            "nexus_compose_sms" -> launchContactHandoff(context, draft, composeSms = true)
+            "nexus_open_sms_inbox" -> withContext(Dispatchers.Main.immediate) {
+                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (intent.resolveActivity(context.packageManager) == null) "No compatible messaging app was found."
+                else { context.startActivity(intent); "Opened the system messaging app. Review your inbox there; NEXUS did not read SMS history." }
+            }
+            "nexus_open_call_history" -> withContext(Dispatchers.Main.immediate) {
+                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_DIALER)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (intent.resolveActivity(context.packageManager) == null) {
+                    val fallback = Intent(Intent.ACTION_DIAL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (fallback.resolveActivity(context.packageManager) == null) "No compatible dialer app was found."
+                    else { context.startActivity(fallback); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
+                } else { context.startActivity(intent); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
+            }
             else -> error("Unsupported NEXUS tool.")
         }.take(6000)
+
+    private suspend fun launchContactHandoff(context: Context, draft: NexusAgentToolDraft, composeSms: Boolean): String =
+        withContext(Dispatchers.IO) {
+            if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED)
+                return@withContext "Contacts permission is not granted. No contact was accessed."
+            val name = draft.arguments.getString("contact_name").trim().take(80)
+            require(name.isNotBlank()) { "Enter a contact name." }
+            val matches = LinkedHashMap<String, Pair<String, String>>()
+            context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
+                arrayOf("%$name%"),
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+            )?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                while (cursor.moveToNext() && matches.size < 20) {
+                    val displayName = cursor.getString(nameIndex).orEmpty().trim()
+                    val number = cursor.getString(numberIndex).orEmpty().trim()
+                    if (displayName.isNotBlank() && number.isNotBlank()) matches.putIfAbsent(displayName + "|" + number, displayName to number)
+                }
+            } ?: error("Android could not read the contacts database.")
+            if (matches.isEmpty()) return@withContext "No matching contact with a phone number was found."
+            if (matches.size != 1) return@withContext "More than one contact or phone number matched. Open Contacts and choose the correct entry manually."
+            val (displayName, number) = matches.values.single()
+            val intent = if (composeSms) {
+                val message = draft.arguments.getString("message").trim().take(2000)
+                require(message.isNotBlank()) { "The SMS draft cannot be empty." }
+                Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null))
+                    .putExtra("sms_body", message)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            } else {
+                Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                if (intent.resolveActivity(context.packageManager) == null) {
+                    if (composeSms) "No compatible SMS composer was found." else "No compatible dialer was found."
+                } else {
+                    context.startActivity(intent)
+                    if (composeSms) "Opened the SMS composer for $displayName with a draft. Review the recipient and message, then press Send manually. NEXUS did not send anything."
+                    else "Opened the dialer for $displayName. Review the number and press Call manually. NEXUS did not place a call."
+                }
+            }
+        }
 
     private fun emptySchema() = JSONObject()
         .put("type", "object")
