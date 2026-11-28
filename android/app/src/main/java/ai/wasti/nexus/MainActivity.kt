@@ -982,6 +982,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        error("Agent tool loop exited without a final model response.")
     }
 
     private fun formatCollaborationTrace(metadata: JSONObject): String {
@@ -1102,9 +1103,6 @@ private fun NexusScreen(
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
-    var agentToolsEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("nexus-agent-tools", android.content.Context.MODE_PRIVATE).getBoolean("enabled", false))
-    }
     var localReady by remember { mutableStateOf(false) }
     var loadedModelPath by remember { mutableStateOf("") }
     var autoLoadAttemptedPath by remember { mutableStateOf("") }
@@ -1120,6 +1118,9 @@ private fun NexusScreen(
     var drawerDestination by remember { mutableStateOf("Chat") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val context = androidx.compose.ui.platform.LocalContext.current
+    var agentToolsEnabled by remember {
+        mutableStateOf(context.getSharedPreferences("nexus-agent-tools", android.content.Context.MODE_PRIVATE).getBoolean("enabled", false))
+    }
     var showDeviceControlDisclosure by remember { mutableStateOf(false) }
     var pendingReminderDraft by remember { mutableStateOf<NexusReminderDraft?>(null) }
     var pendingDeviceAction by remember { mutableStateOf<NexusDeviceActionDraft?>(null) }
