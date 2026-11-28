@@ -83,7 +83,7 @@ class NexusLocationActivity : ComponentActivity() {
                         Modifier.fillMaxSize().padding(padding).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("NEXUS requests approximate location only while this screen is open. It does not request background location or keep a location history.")
+                        Text("NEXUS requests approximate location only while this screen is open. It does not request background location or keep a location history. The online agent may request a separate one-time fix; coordinates are shared only after you approve that tool call.")
                         Button(onClick = { requestLocation() }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
                             Text(if (loading) "Getting location…" else if (granted) "Get current location" else "Allow approximate location")
                         }
