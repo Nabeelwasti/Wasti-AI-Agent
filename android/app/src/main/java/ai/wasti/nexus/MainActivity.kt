@@ -73,7 +73,7 @@ import java.util.concurrent.TimeUnit
 
 internal data class NexusAttachment(val name: String, val mimeType: String, val textContent: String? = null, val imageDataUrl: String? = null)
 
-private fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
+private suspend fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
     val resolver = context.contentResolver
     val mime = (resolver.getType(uri) ?: "").lowercase().substringBefore(';')
     val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
@@ -83,7 +83,10 @@ private fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
     val textTypes = setOf("text/plain", "text/markdown", "text/csv", "application/json", "application/xml", "text/xml", "text/html")
     val textExtensions = setOf("txt", "md", "csv", "json", "xml", "html", "kt", "py", "js", "log")
     val imageTypes = setOf("image/jpeg", "image/png", "image/webp")
+    val richExtensions = setOf("pdf", "docx", "xlsx", "pptx", "odt", "ods", "odp")
     val isText = mime in textTypes || extension in textExtensions
+    val isImage = mime in imageTypes || extension in setOf("jpg", "jpeg", "png", "webp")
+    val isRichDocument = extension in richExtensions || mime == "application/pdf"
     val normalizedMime = when {
         isText -> mime.takeIf { it in textTypes } ?: when (extension) {
             "json" -> "application/json"; "xml" -> "application/xml"; "csv" -> "text/csv"
@@ -91,8 +94,14 @@ private fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
         }
         else -> mime
     }
-    require(isText || normalizedMime in imageTypes) { "Unsupported type. Use TXT, MD, CSV, JSON, XML, HTML, KT, PY, JS, LOG, JPEG, PNG or WebP." }
-    val limit = if (isText) 128 * 1024 else 1_000_000
+    require(isText || isImage || isRichDocument) {
+        "Supported: TXT, MD, CSV, JSON, XML, HTML, code/log files, PDF, DOCX, XLSX, PPTX, ODT, ODS, ODP, JPEG, PNG and WebP. Legacy DOC/XLS/PPT files are not supported."
+    }
+    val limit = when {
+        isRichDocument -> NexusDocumentExtractor.MAX_INPUT_BYTES
+        isText -> 128 * 1024
+        else -> 1_000_000
+    }
     val bytes = resolver.openInputStream(uri)?.use { input ->
         val output = java.io.ByteArrayOutputStream()
         val buffer = ByteArray(8192)
@@ -101,20 +110,33 @@ private fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
             val count = input.read(buffer)
             if (count < 0) break
             total += count
-            require(total <= limit) { if (isText) "Text attachments must be 128 KB or smaller." else "Images must be 1 MB or smaller." }
+            require(total <= limit) { "The selected file exceeds " + (limit / (1024 * 1024)) + " MB." }
             output.write(buffer, 0, count)
         }
         output.toByteArray()
     } ?: throw IllegalStateException("Could not open the selected attachment.")
-    require(bytes.isNotEmpty()) { "The selected attachment is empty." }
-    return if (isText) {
-        val content = String(bytes, Charsets.UTF_8)
-        require('\u0000' !in content) { "The selected file is not valid UTF-8 text." }
-        NexusAttachment(name, normalizedMime, textContent = content)
-    } else {
-        NexusAttachment(name, normalizedMime, imageDataUrl = "data:" + normalizedMime + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP))
+    require(bytes.isNotEmpty()) { "The selected file is empty." }
+    return when {
+        isText -> {
+            val content = String(bytes, Charsets.UTF_8)
+            require('\u0000' !in content) { "The selected file is not valid UTF-8 text." }
+            NexusAttachment(name, normalizedMime, textContent = content)
+        }
+        isRichDocument -> {
+            val extracted = NexusDocumentExtractor.extract(context, uri, name, mime)
+            NexusAttachment(name, mime.ifBlank { "application/octet-stream" }, textContent = extracted)
+        }
+        else -> {
+            val analysis = NexusDocumentExtractor.extract(context, uri, name, mime)
+            NexusAttachment(
+                name, normalizedMime,
+                textContent = analysis,
+                imageDataUrl = "data:" + normalizedMime + ";base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+            )
+        }
     }
 }
+
 internal class GatewayHttpException(
     val statusCode: Int,
     message: String
@@ -1168,21 +1190,23 @@ private fun NexusScreen(
         }
     }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
+        if (uri != null) scope.launch {
             try {
                 require(attachments.size < 4) { "You can attach up to four files per message." }
                 require(attachments.count { it.imageDataUrl != null } < 2) { "You can attach up to two images per message." }
-                attachments = attachments + readNexusAttachment(context, uri)
-            } catch (error: Exception) { answer = "Photo attachment failed: ${error.message}" }
+                val attachment = withContext(Dispatchers.IO) { readNexusAttachment(context, uri) }
+                attachments = attachments + attachment
+                answer = "Attached " + attachment.name + ". On-device OCR and visual labels are ready."
+            } catch (error: Exception) { answer = "Photo attachment failed: " + error.message }
         }
     }
     val attachmentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) {
+        if (uri != null) scope.launch {
             try {
                 require(attachments.size < 4) { "You can attach up to four files per message." }
-                val attachment = readNexusAttachment(context, uri)
+                val attachment = withContext(Dispatchers.IO) { readNexusAttachment(context, uri) }
                 if (attachment.imageDataUrl != null) {
                     require(attachments.count { it.imageDataUrl != null } < 2) { "You can attach up to two images per message." }
                 }
