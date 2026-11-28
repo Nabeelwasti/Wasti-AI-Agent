@@ -103,6 +103,23 @@ internal object NexusFileSearch {
                     excerpt = text.substring(start, (start + 900).coerceAtMost(text.length))
                 }
             }
+            if (extension in setOf("pdf", "docx", "xlsx", "pptx", "odt", "ods", "odp", "jpg", "jpeg", "png", "webp") &&
+                file.length() in 1..NexusDocumentExtractor.MAX_INPUT_BYTES.toLong()
+            ) {
+                val extracted = NexusDocumentExtractor.extractFileForSearch(context, file)
+                if (!extracted.isNullOrBlank()) {
+                    val lower = extracted.lowercase(Locale.ROOT)
+                    val extractedScore = terms.sumOf { term ->
+                        (lower.windowed(term.length, 1).count { it == term }).coerceAtMost(8) * 2
+                    }
+                    contentScore += extractedScore
+                    if (extractedScore > 0 && excerpt.isBlank()) {
+                        val matchAt = terms.asSequence().map { lower.indexOf(it) }.filter { it >= 0 }.minOrNull() ?: 0
+                        val start = (matchAt - 240).coerceAtLeast(0)
+                        excerpt = extracted.substring(start, (start + 900).coerceAtMost(extracted.length))
+                    }
+                }
+            }
             val score = nameScore + contentScore
             if (score <= 0) return@forEach
             val canonical = file.canonicalFile
