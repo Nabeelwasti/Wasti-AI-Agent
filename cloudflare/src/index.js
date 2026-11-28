@@ -150,6 +150,80 @@ async function parseJson(request, maxChars = MAX_REQUEST_CHARS) {
   }
 }
 
+const NEXUS_TOOL_NAMES = new Set([
+  "nexus_read_screen",
+  "nexus_read_notifications",
+  "nexus_dismiss_notifications",
+  "nexus_search_contacts",
+  "nexus_search_shared_files",
+  "nexus_get_location",
+  "nexus_health_summary",
+  "nexus_create_reminder",
+  "nexus_click_visible_control",
+  "nexus_scroll",
+  "nexus_navigate",
+]);
+
+function validateTools(body) {
+  if (body.tools === undefined) return undefined;
+  if (!Array.isArray(body.tools) || body.tools.length < 1 || body.tools.length > NEXUS_TOOL_NAMES.size) {
+    throw new GatewayError("tools must contain between 1 and 11 supported NEXUS functions", 400);
+  }
+  const names = new Set();
+  return body.tools.map(tool => {
+    if (!tool || tool.type !== "function" || !tool.function || typeof tool.function !== "object") {
+      throw new GatewayError("Only OpenAI-compatible function tools are supported", 400);
+    }
+    const name = tool.function.name;
+    if (typeof name !== "string" || !NEXUS_TOOL_NAMES.has(name) || names.has(name)) {
+      throw new GatewayError("A tool name is unsupported or duplicated", 400);
+    }
+    names.add(name);
+    const parameters = tool.function.parameters;
+    if (!parameters || typeof parameters !== "object" || Array.isArray(parameters) ||
+        parameters.type !== "object" || !parameters.properties || typeof parameters.properties !== "object" ||
+        Array.isArray(parameters.properties)) {
+      throw new GatewayError("Each NEXUS tool requires an object JSON schema", 400);
+    }
+    const encoded = JSON.stringify(parameters);
+    if (encoded.length > 4000) throw new GatewayError("A tool parameter schema is too large", 413);
+    return {
+      type: "function",
+      function: {
+        name,
+        description: String(tool.function.description || "").slice(0, 500),
+        parameters,
+      },
+    };
+  });
+}
+
+function validateToolCalls(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 4) {
+    throw new GatewayError("Assistant tool_calls must contain between 1 and 4 calls", 400);
+  }
+  return value.map(call => {
+    if (!call || call.type !== "function" || typeof call.id !== "string" ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(call.id) || !call.function ||
+        !NEXUS_TOOL_NAMES.has(call.function.name) || typeof call.function.arguments !== "string" ||
+        call.function.arguments.length > 4096) {
+      throw new GatewayError("Assistant returned an invalid or unsupported tool call", 502);
+    }
+    let args;
+    try { args = JSON.parse(call.function.arguments); } catch {
+      throw new GatewayError("Assistant returned malformed tool arguments", 502);
+    }
+    if (!args || typeof args !== "object" || Array.isArray(args)) {
+      throw new GatewayError("Tool arguments must be a JSON object", 502);
+    }
+    return {
+      id: call.id,
+      type: "function",
+      function: { name: call.function.name, arguments: JSON.stringify(args) },
+    };
+  });
+}
+
 function validateMessages(body) {
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > MAX_MESSAGES) {
     throw new GatewayError("messages must contain between 1 and 40 entries", 400);
@@ -158,19 +232,34 @@ function validateMessages(body) {
   let textTotal = 0;
   let imageTotal = 0;
   const messages = body.messages.map(message => {
-    if (!message || !["system", "user", "assistant"].includes(message.role)) {
+    if (!message || !["system", "user", "assistant", "tool"].includes(message.role)) {
       throw new GatewayError("Each message requires a supported role", 400);
+    }
+    if (message.role === "tool") {
+      if (typeof message.tool_call_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(message.tool_call_id) ||
+          typeof message.content !== "string" || message.content.length > 6000) {
+        throw new GatewayError("Tool result messages require a valid tool_call_id and bounded text content", 400);
+      }
+      total += message.content.length;
+      textTotal += message.content.length;
+      return { role: "tool", tool_call_id: message.tool_call_id, content: message.content };
+    }
+    let toolCalls;
+    if (message.role === "assistant" && message.tool_calls !== undefined) {
+      toolCalls = validateToolCalls(message.tool_calls);
     }
     if (typeof message.content === "string") {
       if (message.content.length > 24000) throw new GatewayError("Message text is too large", 413);
       total += message.content.length;
       textTotal += message.content.length;
-      return { role: message.role, content: message.content };
+      return { role: message.role, content: message.content, ...(toolCalls ? { tool_calls: toolCalls } : {}) };
+    }
+    if (message.role === "assistant" && message.content == null && toolCalls) {
+      return { role: "assistant", content: null, tool_calls: toolCalls };
     }
     if (message.role !== "user" || !Array.isArray(message.content) || message.content.length < 1 || message.content.length > 5) {
       throw new GatewayError("Structured content is supported only for user messages with up to five parts", 400);
     }
-    let imageCount = 0;
     const parts = message.content.map(part => {
       if (!part || typeof part !== "object") throw new GatewayError("Invalid message content part", 400);
       if (part.type === "text" && typeof part.text === "string" && part.text.length <= 24000) {
@@ -188,7 +277,6 @@ function validateMessages(body) {
         const paddingBytes = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
         const estimatedBytes = Math.floor(encoded.length * 3 / 4) - paddingBytes;
         if (estimatedBytes > MAX_IMAGE_BYTES) throw new GatewayError("Each image must be 1 MB or smaller", 413);
-        imageCount += 1;
         imageTotal += 1;
         if (imageTotal > MAX_IMAGES_PER_REQUEST) throw new GatewayError("A request may contain at most two images", 400);
         total += part.image_url.url.length;
@@ -196,7 +284,7 @@ function validateMessages(body) {
       }
       throw new GatewayError("Unsupported content part. Use text or an inline JPEG, PNG or WebP image.", 400);
     });
-    return { role: message.role, content: parts };
+    return { role: "user", content: parts };
   });
   if (textTotal > MAX_TEXT_CHARS) throw new GatewayError("Combined text content is too large", 413);
   if (total > MAX_REQUEST_CHARS) throw new GatewayError("Combined message content is too large", 413);
@@ -284,6 +372,7 @@ async function invoke(env, modelId, messages, options = {}) {
         messages,
         temperature: options.temperature ?? 0.3,
         max_tokens: Math.min(Number(options.max_tokens || 1200), 4096),
+        ...(Array.isArray(options.tools) ? { tools: options.tools, tool_choice: "auto" } : {}),
         stream: false,
       }),
       signal: controller.signal,
@@ -292,14 +381,24 @@ async function invoke(env, modelId, messages, options = {}) {
       throw new GatewayError(`Provider request failed with HTTP ${response.status}`, 502);
     }
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) {
-      throw new GatewayError(`Provider '${provider.id}' returned no text answer`, 502);
+    const message = data?.choices?.[0]?.message;
+    const content = typeof message?.content === "string" ? message.content.trim() : "";
+    const toolCalls = message?.tool_calls === undefined ? undefined : validateToolCalls(message.tool_calls);
+    if (!content && !toolCalls) {
+      throw new GatewayError(`Provider '${provider.id}' returned neither text nor supported tool calls`, 502);
+    }
+    if (toolCalls && !Array.isArray(options.tools)) {
+      throw new GatewayError("Provider attempted a tool call when no NEXUS tools were enabled", 502);
+    }
+    const allowedNames = new Set((options.tools || []).map(tool => tool.function.name));
+    if (toolCalls?.some(call => !allowedNames.has(call.function.name))) {
+      throw new GatewayError("Provider attempted to call a tool that was not offered by NEXUS", 502);
     }
     return {
       id: model.id,
       provider: provider.id,
-      content: content.trim(),
+      content,
+      ...(toolCalls ? { tool_calls: toolCalls } : {}),
       usage: data.usage || null,
     };
   } catch (error) {
@@ -414,6 +513,8 @@ async function streamSingle(request, env, headers, body) {
     throw new GatewayError("Streaming currently requires one explicitly selected model. Use stream=false for Auto or Hybrid orchestration.", 400);
   }
   if (typeof body.model !== "string" || !body.model.trim()) throw new GatewayError("A configured model ID is required", 400);
+  const tools = validateTools(body);
+  if (tools && body.stream === true) throw new GatewayError("NEXUS tool calls require stream=false so every action can be reviewed before execution.", 400);
   const messages = validateMessages(body);
   if (containsImages(messages)) {
     const selected = findModel(env, body.model);
@@ -533,7 +634,7 @@ async function single(request, env, headers) {
       throw new GatewayError("The selected model is not verified as vision-capable. Choose a configured model with the vision capability.", 400);
     }
   }
-  const result = await invoke(env, body.model, messages, { ...body, signal: request.signal });
+  const result = await invoke(env, body.model, messages, { ...body, tools, signal: request.signal });
   return json({
     id: crypto.randomUUID(),
     object: "chat.completion",
@@ -541,8 +642,12 @@ async function single(request, env, headers) {
     model: body.model,
     choices: [{
       index: 0,
-      message: { role: "assistant", content: result.content },
-      finish_reason: "stop",
+      message: {
+        role: "assistant",
+        content: result.content || null,
+        ...(result.tool_calls ? { tool_calls: result.tool_calls } : {}),
+      },
+      finish_reason: result.tool_calls ? "tool_calls" : "stop",
     }],
     usage: result.usage,
     nexus: { mode: "single", provider: result.provider, participating_agents: [result.id] },
