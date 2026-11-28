@@ -61,7 +61,8 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
             var healthAccess by remember { mutableStateOf(false) }
             var summary by remember { mutableStateOf("Health data is not read until you grant the requested Health Connect permissions.") }
             var loading by remember { mutableStateOf(false) }
-            var sensorSteps by remember { mutableStateOf<Long?>(null) }
+            val sensorStepsState = remember { mutableStateOf<Long?>(null) }
+            stepCounterState = sensorStepsState
             val scope = rememberCoroutineScope()
             val requiredHealthPermissions = remember {
                 setOf(
@@ -69,9 +70,8 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
                     HealthPermission.getReadPermission(HeartRateRecord::class)
                 )
             }
-            stepCounterState = remember { mutableStateOf<Long?>(null) }
             val activityPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                if (granted) startStepCounter() else sensorSteps = null
+                if (granted) startStepCounter() else stepCounterState?.value = null
             }
             val healthPermissionLauncher = rememberLauncherForActivityResult(
                 PermissionController.createRequestPermissionResultContract()
@@ -99,7 +99,6 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
                     loading = false
                 }
             }
-            LaunchedEffect(sensorSteps) { stepCounterState?.value = sensorSteps }
             MaterialTheme {
                 Scaffold(topBar = { TopAppBar(title = { Text("Health & sensors") }) }) { padding ->
                     Column(
@@ -152,7 +151,7 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
                                         startStepCounter()
                                     } else activityPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                                 }) { Text("Enable live step sensor") }
-                                Text(sensorSteps?.let { "Steps since reboot: $it" } ?: "Step sensor is not active.")
+                                Text(sensorStepsState.value?.let { "Steps since reboot: $it" } ?: "Step sensor is not active.")
                             }
                         }
                     }
