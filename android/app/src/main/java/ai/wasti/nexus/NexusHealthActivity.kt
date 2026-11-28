@@ -98,7 +98,7 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
                         Modifier.fillMaxSize().padding(padding).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("Health information is sensitive. NEXUS reads it locally only after you choose the specific permissions. It does not upload health records or run background health tracking.")
+                        Text("Health information is sensitive. NEXUS reads it locally only after you choose the specific permissions. It does not run background health tracking. A seven-day summary is shared with an online model only if you separately enable AI tools and approve the Health summary tool call.")
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("Health Connect · last 7 days", style = MaterialTheme.typography.titleMedium)
