@@ -644,6 +644,16 @@ async function single(request, env, headers) {
   const tools = validateTools(body);
   if (tools && body.stream === true) throw new GatewayError("NEXUS tool calls require stream=false so every action can be reviewed before execution.", 400);
   const messages = validateMessages(body);
+  const carriesToolProtocol = Boolean(tools) || messages.some(message =>
+    message.role === "tool" || (message.role === "assistant" && Array.isArray(message.tool_calls) && message.tool_calls.length > 0)
+  );
+  if (carriesToolProtocol) {
+    const selected = findModel(env, body.model);
+    const supportsTools = selected?.model?.capabilities?.some(value => String(value).toLowerCase() === "tools");
+    if (!supportsTools) {
+      throw new GatewayError("The selected model is not verified as supporting NEXUS function calling. Choose a configured model with the tools capability.", 400);
+    }
+  }
   if (containsImages(messages)) {
     const selected = findModel(env, body.model);
     if (!selected || !selected.model.capabilities?.some(value => String(value).toLowerCase() === "vision")) {
