@@ -157,8 +157,13 @@ internal object NexusAgentToolRuntime {
                 require(problem == null) { problem ?: "Invalid reminder." }
                 val existing = NexusReminderStore.load(context)
                 val reminder = NexusReminder(NexusReminderParser.nextId(existing, now), title, at)
-                NexusReminderStore.save(context, existing + reminder)
                 check(NexusReminderStore.schedule(context, reminder)) { "Android could not schedule the reminder." }
+                try {
+                    NexusReminderStore.save(context, existing + reminder)
+                } catch (error: Exception) {
+                    NexusReminderStore.cancel(context, reminder)
+                    throw error
+                }
                 if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                     "Reminder saved and scheduled locally, but Android notifications are disabled. Enable them in App permissions."
                 else "Reminder saved on this phone. Android may delay its inexact alarm."
