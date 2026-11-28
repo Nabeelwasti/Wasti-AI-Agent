@@ -156,8 +156,6 @@ const NEXUS_TOOL_NAMES = new Set([
   "nexus_dismiss_notifications",
   "nexus_search_contacts",
   "nexus_search_shared_files",
-  "nexus_get_location",
-  "nexus_health_summary",
   "nexus_create_reminder",
   "nexus_click_visible_control",
   "nexus_scroll",
