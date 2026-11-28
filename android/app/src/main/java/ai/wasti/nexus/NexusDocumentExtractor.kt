@@ -33,8 +33,10 @@ internal object NexusDocumentExtractor {
         return when {
             extension == "pdf" || mimeType.equals("application/pdf", true) -> extractPdf(context, readBounded(context, uri))
             extension in officeExtensions -> extractOffice(readBounded(context, uri), extension)
-            extension in setOf("jpg", "jpeg", "png", "webp", "heic", "heif") || mimeType.startsWith("image/") ->
-                analyzeImage(context, readBounded(context, uri))
+            extension in setOf("jpg", "jpeg", "png", "webp", "heic", "heif") || mimeType.startsWith("image/") -> {
+                readBounded(context, uri) // Enforce the same bounded input policy before handing the URI to ML Kit.
+                analyzeImage(context, uri)
+            }
             else -> throw IllegalArgumentException("Supported rich documents: PDF, DOCX, XLSX, PPTX, ODT, ODS and ODP. Images: JPEG, PNG, WebP, HEIC.")
         }
     }
@@ -86,8 +88,7 @@ internal object NexusDocumentExtractor {
                 val path = entry.name
                 val wanted = path.endsWith(".xml", true) && (
                     path.startsWith("word/", true) || path.startsWith("xl/", true) ||
-                    path.startsWith("ppt/", true) || path.equals("content.xml", true) ||
-                    path.startsWith("META-INF/", true).not()
+                    path.startsWith("ppt/", true) || path.equals("content.xml", true)
                 )
                 if (!entry.isDirectory && wanted) {
                     val data = ByteArrayOutputStream()
@@ -130,10 +131,7 @@ internal object NexusDocumentExtractor {
         for (i in 0 until all.length) {
             val node = all.item(i)
             val tag = (node.localName ?: node.nodeName.substringAfter(':')).lowercase()
-            val hasTextChild = node.childNodes.let { children ->
-                (0 until children.length).any { children.item(it).nodeType == org.w3c.dom.Node.ELEMENT_NODE }
-            }
-            if ((tag == "t" || tag == "v" || tag == "p") && (!hasTextChild || tag != "p")) {
+            if (tag == "t" || tag == "v" || (tag == "p" && node.namespaceURI?.contains("opendocument") == true)) {
                 val value = node.textContent?.trim().orEmpty()
                 if (value.isNotBlank()) parts += value
             }
@@ -141,8 +139,8 @@ internal object NexusDocumentExtractor {
         return parts.joinToString("\n").take(MAX_OUTPUT_CHARS)
     }
 
-    private suspend fun analyzeImage(context: Context, bytes: ByteArray): String {
-        val image = InputImage.fromByteArray(bytes, 0, 0, 0, InputImage.IMAGE_FORMAT_UNKNOWN)
+    private suspend fun analyzeImage(context: Context, uri: Uri): String {
+        val image = InputImage.fromFilePath(context, uri)
         val sections = mutableListOf<String>()
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         try {
