@@ -5,6 +5,11 @@ import android.net.Uri
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.rendering.PDFRenderer
+import com.tom_roush.pdfbox.rendering.ImageType
+import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -26,15 +31,19 @@ internal object NexusDocumentExtractor {
     const val MAX_OUTPUT_CHARS = 200_000
     private const val MAX_ARCHIVE_ENTRIES = 500
     private const val MAX_EXPANDED_BYTES = 32 * 1024 * 1024
+    private const val MAX_PDF_OCR_PAGES = 20
+    private const val MAX_PDF_OCR_PIXELS = 4_000_000.0
     private val officeExtensions = setOf("docx", "xlsx", "pptx", "odt", "ods", "odp")
 
     suspend fun extract(context: Context, uri: Uri, name: String, mimeType: String): String {
         val extension = name.substringAfterLast('.', "").lowercase()
         return when {
-            extension == "pdf" || mimeType.equals("application/pdf", true) -> extractPdf(context, readBounded(context, uri))
-            extension in officeExtensions -> extractOffice(readBounded(context, uri), extension)
+            extension == "pdf" || mimeType.equals("application/pdf", true) ->
+                withContext(Dispatchers.IO) { extractPdf(context, readBounded(context, uri)) }
+            extension in officeExtensions ->
+                withContext(Dispatchers.IO) { extractOffice(readBounded(context, uri), extension) }
             extension in setOf("jpg", "jpeg", "png", "webp", "heic", "heif") || mimeType.lowercase() in setOf("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif") -> {
-                readBounded(context, uri) // Enforce the same bounded input policy before handing the URI to ML Kit.
+                withContext(Dispatchers.IO) { readBounded(context, uri) }
                 analyzeImage(context, uri)
             }
             else -> throw IllegalArgumentException("Supported rich documents: PDF, DOCX, XLSX, PPTX, ODT, ODS and ODP. Images: JPEG, PNG, WebP, HEIC.")
@@ -77,7 +86,7 @@ internal object NexusDocumentExtractor {
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         try {
             val text = Tasks.await(recognizer.process(image)).text.trim()
-            if (text.isNotBlank()) sections += "Text detected on-device:\\n$text"
+            if (text.isNotBlank()) sections += "Text detected on-device:\n$text"
         } finally {
             recognizer.close()
         }
@@ -85,7 +94,7 @@ internal object NexusDocumentExtractor {
         try {
             val labels = Tasks.await(labeler.process(image)).sortedByDescending { it.confidence }.take(12)
                 .map { "${it.text} (${"%.2f".format(java.util.Locale.ROOT, it.confidence)})" }
-            if (labels.isNotEmpty()) sections += "On-device visual labels:\\n" + labels.joinToString(", ")
+            if (labels.isNotEmpty()) sections += "On-device visual labels:\n" + labels.joinToString(", ")
         } finally {
             labeler.close()
         }
@@ -114,16 +123,52 @@ internal object NexusDocumentExtractor {
         PDDocument.load(ByteArrayInputStream(bytes)).use { document ->
             require(!document.isEncrypted) { "This PDF is password-protected. Unlock it locally before importing." }
             require(document.numberOfPages <= 500) { "This PDF has more than 500 pages; split it into smaller files." }
-            val stripper = PDFTextStripper().apply {
-                sortByPosition = true
-                startPage = 1
-                endPage = minOf(document.numberOfPages, 100)
+            val pageLimit = minOf(document.numberOfPages, 100)
+            val stripper = PDFTextStripper().apply { sortByPosition = true }
+            val renderer = PDFRenderer(document)
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val output = StringBuilder()
+            var ocrPages = 0
+            try {
+                for (pageIndex in 0 until pageLimit) {
+                    stripper.startPage = pageIndex + 1
+                    stripper.endPage = pageIndex + 1
+                    val selectable = stripper.getText(document).trim()
+                    val pageText = if (selectable.length >= 24 || ocrPages >= MAX_PDF_OCR_PAGES) {
+                        selectable
+                    } else {
+                        val page = document.getPage(pageIndex)
+                        val box = page.mediaBox
+                        val pagePixels = (box.width.toDouble() * box.height.toDouble()).coerceAtLeast(1.0)
+                        val scale = minOf(1.0, sqrt(MAX_PDF_OCR_PIXELS / pagePixels)).toFloat().coerceAtLeast(0.2f)
+                        val bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
+                        ocrPages++
+                        try {
+                            val recognized = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text.trim()
+                            if (recognized.isNotBlank()) recognized else selectable
+                        } finally {
+                            bitmap.recycle()
+                        }
+                    }
+                    if (pageText.isNotBlank()) {
+                        output.append("[Page ").append(pageIndex + 1).append("]\n")
+                            .append(pageText).append("\n\n")
+                        if (output.length >= MAX_OUTPUT_CHARS) break
+                    }
+                }
+            } finally {
+                recognizer.close()
             }
-            val text = stripper.getText(document).trim()
-            require(text.isNotBlank()) {
-                "No selectable text was found in this PDF. It may be a scanned document; use the image/OCR flow on individual pages."
+            val result = output.toString().trim().take(MAX_OUTPUT_CHARS)
+            require(result.isNotBlank()) {
+                "No selectable text or OCR text was found in the first $pageLimit PDF pages. The PDF may contain protected or unusually low-quality scans."
             }
-            return text.take(MAX_OUTPUT_CHARS)
+            val note = when {
+                document.numberOfPages > pageLimit -> "\n\n[Extraction limited to the first $pageLimit of ${document.numberOfPages} pages.]"
+                ocrPages >= MAX_PDF_OCR_PAGES -> "\n\n[Scanned-page OCR is limited to $MAX_PDF_OCR_PAGES pages per import.]"
+                else -> ""
+            }
+            return (result + note).take(MAX_OUTPUT_CHARS)
         }
     }
 
