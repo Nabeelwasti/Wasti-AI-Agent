@@ -234,3 +234,10 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Enabled NEXUS activity resizeability and Android picture-in-picture support. A PiP control appears only when Android reports the feature and API level are supported; the user must tap it. Split-screen placement remains controlled by Android Recents/system UI.
 - Added the Health Connect permission rationale activity and Android 14+ permission-usage alias. It explains the exact read-only Steps/Heart Rate data use, local processing and lack of background health reads/uploads.
 - PiP sizing/interaction and Health Connect rationale launch paths still need device verification.
+
+
+## 2026-11-28: notification dismissal and one-shot reminder cleanup
+
+- Added a separate exact chat command, "dismiss active notifications", which requires the existing per-action confirmation and Notification access. It requests dismissal of up to 25 active notifications while excluding NEXUS, group summaries, ongoing and FLAG_NO_CLEAR entries. Android/system apps may retain protected notifications.
+- Reminder receiver now removes a fired reminder from persistent storage even when notification permission is denied. On boot/time restoration, overdue reminders are rescheduled once for prompt delivery instead of remaining stale.
+- Notification reply/snooze/channel controls, reminder history and exact-alarm guarantees remain unimplemented.
