@@ -183,3 +183,13 @@ This is not the requested general autonomous agent. Typing, arbitrary taps, send
 ### Follow-up: on-demand notification reading
 
 Added a user-enabled Android NotificationListenerService that does not cache notification events or store notification content in the background. The chat command `read my notifications` requires a separate confirmation and returns a bounded snapshot of active notifications locally. Notification access is independent of AccessibilityService access. Content may be saved in the encrypted chat history because the user explicitly requested the snapshot; it is not sent to a model by this command. The feature requires physical-device verification, including permission revocation and OEM behavior.
+
+
+## 2026-11-28: bounded on-device document and image analysis foundation
+
+- App source version advanced to 0.5.12 / versionCode 17.
+- Added an on-device extraction service for text PDFs (up to 100 pages), modern OOXML formats (DOCX/XLSX/PPTX), and OpenDocument formats (ODT/ODS/ODP).
+- Added bundled ML Kit text recognition and image labeling for local image OCR and coarse visual labels. These labels are not a natural-language visual caption and are not equivalent to a multimodal reasoning model.
+- Enforced 20 MB input, 32 MB expanded archive, 500-entry archive and 200,000-character output limits. XML parsing disables DTD/external entities.
+- This is an extraction foundation only. It is not yet connected to attachment import or shared-storage search in the UI; legacy binary DOC/XLS/PPT, scanned-PDF page OCR, and semantic image description remain unsupported until separate integration and tests are complete.
+- CI and signed release verification for 0.5.12 must pass before installation. No physical Redmi test is claimed.

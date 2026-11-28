@@ -30,7 +30,8 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Local persistent reminder manager with notification permission, inexact alarms, reboot/time-change restoration and delete/cancel.
 - [x] Deterministic, strict natural-language reminder intents (relative minutes/hours/days; today/tomorrow with AM/PM) with an explicit confirmation dialog and local persistence.
 - [ ] General model tool executor for other phone actions; reminder parsing is a narrow first tool, not general autonomy.
-- [ ] PDF parsing, audio, offline vision, image generation and training runtimes (only when a verified implementation and licence exists).
+- [ ] Integrate bounded PDF/OOXML/ODF extraction and bundled on-device OCR/visual labels into attachment and shared-storage search flows; scanned-PDF page OCR remains separate.
+- [ ] Audio/video transcription, image generation and training runtimes (only when a verified implementation and licence exists).
 
 ## Gateway and orchestration
 
