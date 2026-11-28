@@ -64,6 +64,8 @@ internal object NexusFileSearch {
         val hits = ArrayList<Pair<Int, NexusFileHit>>()
         var textFilesScanned = 0
         var totalTextBytes = 0L
+        var richFilesScanned = 0
+        var totalRichBytes = 0L
         root.walkTopDown().onEnter { directory ->
             if (!isWithinRoot(root, directory)) return@onEnter false
             val relative = directory.canonicalFile.path.removePrefix(root.path).trimStart(File.separatorChar)
@@ -104,8 +106,11 @@ internal object NexusFileSearch {
                 }
             }
             if (extension in setOf("pdf", "docx", "xlsx", "pptx", "odt", "ods", "odp", "jpg", "jpeg", "png", "webp") &&
-                file.length() in 1..NexusDocumentExtractor.MAX_INPUT_BYTES.toLong()
+                file.length() in 1..NexusDocumentExtractor.MAX_INPUT_BYTES.toLong() &&
+                richFilesScanned < 16 && totalRichBytes + file.length() <= 40L * 1024 * 1024
             ) {
+                richFilesScanned++
+                totalRichBytes += file.length()
                 val extracted = NexusDocumentExtractor.extractFileForSearch(context, file)
                 if (!extracted.isNullOrBlank()) {
                     val lower = extracted.lowercase(Locale.ROOT)
