@@ -219,3 +219,11 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Added optional Android TYPE_STEP_COUNTER access with ACTIVITY_RECOGNITION permission. Sensor listener is active only while the Health & sensors screen is foregrounded and is unregistered in onStop. The counter is cumulative since reboot, not daily steps.
 - No health write, background health read, background sensor collection, or health-data upload is implemented.
 - Device availability, HyperOS sensor behavior and Health Connect permission/revocation tests remain pending.
+
+
+## 2026-11-28: Android PackageInstaller handoff
+
+- Added an explicit Install APK screen. The user selects an APK through Android's Storage Access Framework; NEXUS streams it into a PackageInstaller session with a 512 MB cap.
+- If needed, NEXUS opens Android's per-source Install unknown apps setting. The user can revoke this setting after installation.
+- The system PackageInstaller remains responsible for package/signature verification and the final install/upgrade confirmation. NEXUS does not use root, hidden APIs, silent install, downgrade bypass or package replacement tricks.
+- Installer status is reported through a private receiver and locally stored status text. Physical install/upgrade/rejection tests remain required.

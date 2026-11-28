@@ -35,7 +35,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 - SMS and call-log permissions: no SMS or dialer core feature exists. Android and distribution channels apply additional restrictions; do not declare these permissions without a complete role/installer strategy and working product flow.
 - Premium SMS: not a normal permission for a general AI assistant; never attempt to enable it.
 - Device administrator / device owner: not needed for personal device automation. Device-owner provisioning is for managed devices and is not a general runtime permission.
-- REQUEST_INSTALL_PACKAGES: no app-installer feature exists. NEXUS does not silently install APKs.
+- APK installation: a user-selected APK is staged through PackageInstaller with a 512 MB cap; Android's package/signature validation and user confirmation remain mandatory. REQUEST_INSTALL_PACKAGES special access is opened only when the user starts this workflow; no silent install or downgrade bypass.
 - SYSTEM_ALERT_WINDOW: no floating overlay feature is implemented.
 - WRITE_SETTINGS: no system-setting mutation feature is implemented.
 - Notification listener: supported for explicit on-demand reading only; the service does not persist notification events or forward content to online models.
