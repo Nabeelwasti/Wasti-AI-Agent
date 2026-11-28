@@ -1046,6 +1046,9 @@ private fun NexusScreen(
     var showDeviceControlDisclosure by remember { mutableStateOf(false) }
     var pendingReminderDraft by remember { mutableStateOf<NexusReminderDraft?>(null) }
     var pendingDeviceAction by remember { mutableStateOf<NexusDeviceActionDraft?>(null) }
+    var showPermissionDashboard by remember { mutableStateOf(false) }
+    var showActionAudit by remember { mutableStateOf(false) }
+    var actionAuditRecords by remember { mutableStateOf(emptyList<NexusActionAuditRecord>()) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         answer = if (granted) "Reminder notification permission enabled." else "Reminder saved, but notifications are disabled. Enable them in Android App permissions to receive alerts."
     }
@@ -1694,7 +1697,7 @@ private fun NexusScreen(
                         text = {
                             SelectionContainer {
                                 Text(
-                                    "If you enable this optional Android Accessibility Service, WASTI NEXUS can read interface labels and controls exposed by the active app and perform requested taps, text entry, scrolling and navigation. Password fields are redacted. Android may restrict sensitive screens and some apps may not expose their controls. The service does not continuously record the screen or send screen content to a server by itself. Chat commands support only a narrow approved set: exact visible-label clicks, scrolling, Back, Home, opening notifications, and local screen-text reading. Every action requires a separate confirmation. Sending, deleting, payments, installation, permission changes, and credential entry are not supported. You can disable the service at any time in Android Accessibility settings."
+                                    "If you enable this optional Android Accessibility Service, WASTI NEXUS can read interface labels and controls exposed by the active app and perform exact visible-label clicks, scrolling and navigation. It does not enter text or credentials. Password fields are redacted. Android may restrict sensitive screens and some apps may not expose their controls. The service does not continuously record the screen or send screen content to a server by itself. Chat commands support only a narrow approved set: exact visible-label clicks, scrolling, Back, Home, opening notifications, and local screen-text reading. Every action requires a separate confirmation. Sending, deleting, payments, installation, permission changes, and credential entry are not supported. You can disable the service at any time in Android Accessibility settings."
                                 )
                             }
                         },
@@ -1724,6 +1727,14 @@ private fun NexusScreen(
                     answer = if (NexusSystemAccess.openAppDetails(context)) "Opened NEXUS app permissions. Enable only the access you need."
                     else "Android app settings are unavailable on this device."
                 }, modifier = Modifier.fillMaxWidth()) { Text("App permissions & notifications") }
+                OutlinedButton(onClick = { showPermissionDashboard = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Permission dashboard · current Android status")
+                }
+                OutlinedButton(onClick = {
+                    actionAuditRecords = runCatching { NexusActionAuditStore.read(context) }
+                        .getOrElse { historyNotice = "Security audit could not be read."; emptyList() }
+                    showActionAudit = true
+                }, modifier = Modifier.fillMaxWidth()) { Text("Security action audit · encrypted on this phone") }
                 OutlinedButton(onClick = {
                     answer = if (NexusSystemAccess.hasAllFilesAccess()) {
                         "All files access is enabled. NEXUS can now search user-visible shared storage when you ask it to find files."
@@ -1792,7 +1803,7 @@ private fun NexusScreen(
                     else "Location settings are unavailable."
                 }, modifier = Modifier.fillMaxWidth()) { Text("Location settings") }
                 Text(
-                    "SMS/call logs, device-admin privileges, install-unknown-apps, body sensors, Health Connect, unrestricted data, system-setting writes and background location remain separate features and are not silently granted. Shared-storage search excludes Android/data, Android/obb and other apps' private sandboxes. Text search reads bounded local excerpts; PDF/Office/media files currently return metadata only. Remote file-context sharing is off until you enable it above.",
+                    "SMS inbox and call-log history are not accessed; Android restricts these permissions and NEXUS uses system app handoffs instead. Device-owner privileges and background location are not requested. Shared-storage search excludes Android/data, Android/obb and other apps' private sandboxes. PDF and modern Office/OpenDocument files are extracted locally within size/page limits; scanned PDF pages use bounded OCR. Images receive local OCR and coarse labels, not full semantic captioning. Audio/video transcription is not implemented. Remote file-context sharing is off until you enable it above.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
