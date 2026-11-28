@@ -13,6 +13,35 @@ import android.provider.Settings
  * permissions or silently change device settings.
  */
 object NexusSystemAccess {
+    fun permissionSnapshot(context: Context): List<Pair<String, String>> {
+        fun granted(permission: String): Boolean =
+            context.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val notificationListeners = android.provider.Settings.Secure.getString(
+            context.contentResolver, "enabled_notification_listeners"
+        ).orEmpty()
+        val notificationEnabled = notificationListeners.split(':').any {
+            android.content.ComponentName.unflattenFromString(it)?.packageName == context.packageName
+        }
+        val notificationPermission = android.os.Build.VERSION.SDK_INT < 33 ||
+            granted(android.Manifest.permission.POST_NOTIFICATIONS)
+        val installPermission = android.os.Build.VERSION.SDK_INT < 26 ||
+            context.packageManager.canRequestPackageInstalls()
+        return listOf(
+            "Contacts" to if (granted(android.Manifest.permission.READ_CONTACTS)) "Granted" else "Not granted",
+            "Approximate location" to if (granted(android.Manifest.permission.ACCESS_COARSE_LOCATION)) "Granted" else "Not granted",
+            "Activity recognition" to if (android.os.Build.VERSION.SDK_INT < 29 || granted(android.Manifest.permission.ACTIVITY_RECOGNITION)) "Granted / not required" else "Not granted",
+            "Shared storage search" to if (hasAllFilesAccess()) "Granted" else "Not granted",
+            "Accessibility actions" to if (NexusAccessibilityService.isEnabled(context)) "Enabled" else "Disabled",
+            "Notification access" to if (notificationEnabled) "Enabled" else "Disabled",
+            "Post notifications" to if (notificationPermission) "Allowed" else "Denied",
+            "Install unknown apps" to if (installPermission) "Allowed" else "Not allowed",
+            "Health Connect" to "Manage separately in Health & sensors",
+            "Background location" to "Not requested",
+            "SMS and call logs" to "Not requested; Android restricted access applies",
+            "Device administrator / owner" to "Not requested"
+        )
+    }
+
     fun openAccessibilitySettings(context: Context) =
         launch(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
 
