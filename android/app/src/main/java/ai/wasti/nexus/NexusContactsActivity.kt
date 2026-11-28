@@ -135,7 +135,7 @@ class NexusContactsActivity : ComponentActivity() {
                                         runCatching { startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)) }
                                     }) { Text("Open SMS app") }
                                     OutlinedButton(onClick = {
-                                        runCatching { startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_PHONE)) }
+                                        runCatching { startActivity(Intent(Intent.ACTION_DIAL)) }
                                     }) { Text("Open Phone app") }
                                 }
                             }
