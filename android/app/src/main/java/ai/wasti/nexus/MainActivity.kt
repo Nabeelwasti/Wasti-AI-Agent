@@ -1851,6 +1851,20 @@ private fun NexusScreen(
                         Text("Off by default. When off, file-search requests must use an on-device model.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = agentToolsEnabled,
+                        onCheckedChange = {
+                            agentToolsEnabled = it
+                            context.getSharedPreferences("nexus-agent-tools", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("enabled", it).apply()
+                        }
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Enable AI-requested phone tools", style = MaterialTheme.typography.bodyMedium)
+                        Text("Optional, off by default. Works with one selected online brain only. Every tool call needs your approval; results are shared with that online model.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 OutlinedButton(onClick = {
                     answer = if (NexusSystemAccess.openOverlayAccess(context)) "Opened Display over other apps settings. Allow only if you later enable a floating assistant."
                     else "Overlay settings are unavailable."
@@ -2589,6 +2603,36 @@ private fun NexusScreen(
                                     historyNotice = "Encrypted action audit cleared on this phone."
                                 }.onFailure { historyNotice = "Could not clear audit." }
                             }) { Text("Clear audit") }
+                        }
+                    )
+                }
+                val agentApproval = pendingAgentToolApproval
+                if (agentApproval != null) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            agentApproval.completion.complete(false)
+                            pendingAgentToolApproval = null
+                        },
+                        title = { Text("Approve AI tool action?") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(agentApproval.draft.description, style = MaterialTheme.typography.titleMedium)
+                                Text("The connected online model requested this tool. NEXUS will run only this one approved action. Its result will be sent back to that model so it can continue the task.")
+                                Text("Review carefully: screen text, notification content and selected file excerpts can contain private information. File excerpts also require the separate online file-sharing switch.")
+                                Text("NEXUS blocks arbitrary shell commands, password entry, SMS sending, calls, payments, purchases, app installation and permission changes. You can decline any step.")
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                agentApproval.completion.complete(true)
+                                pendingAgentToolApproval = null
+                            }) { Text("Approve this step") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                agentApproval.completion.complete(false)
+                                pendingAgentToolApproval = null
+                            }) { Text("Decline") }
                         }
                     )
                 }
