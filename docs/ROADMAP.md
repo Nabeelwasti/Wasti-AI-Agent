@@ -19,14 +19,18 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Gateway collaboration metadata panel using real provider outputs and orchestration metadata.
 - [x] Bounded text/code attachments for local and remote prompts.
 - [x] Bounded JPEG/PNG/WebP attachments for remote vision-capable providers.
-- [x] Enable user-invoked picture-in-picture on supported devices and resizeable activity for OS-managed split screen.\n- [ ] Real-device regression suite: install/upgrade, PiP/split screen, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN, mobile data and encrypted history recovery.
+- [x] Enable user-invoked picture-in-picture on supported devices and resizeable activity for OS-managed split screen.
+- [ ] Real-device regression suite: install/upgrade, PiP/split screen, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN, mobile data and encrypted history recovery.
 - [x] Encrypted local conversation history, search, open, rename, delete and Markdown export (AES-256-GCM / Android Keystore; local-only; no cross-device restore).
 - [x] SSE remote token streaming for explicitly selected single models with upstream cancellation.
 - [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.
 - [x] Narrow deterministic device actions with per-action confirmation and conservative destructive-label rejection.
-- [x] On-demand active notification reading with explicit Notification access; no background event storage or model forwarding.
+- [x] On-demand active notification reading and per-action-approved dismissal of up to 25 non-ongoing notifications; no background event storage or model forwarding.
 - [ ] General permission-scoped tool registry, sandboxing, durable action audit, and revocation.
-- [x] On-demand read-only contacts lookup and explicit system dialer/SMS composer handoff; no in-app SMS inbox or call-log access.\n- [x] One-shot foreground approximate location with explicit permission, timeout/cancellation and Maps handoff; no background tracking.\n- [x] Read-only Health Connect steps/heart-rate summaries and foreground-only TYPE_STEP_COUNTER integration with explicit permissions.\n- [x] User-selected APK staging through Android PackageInstaller with install-source permission handoff and mandatory system confirmation.
+- [x] On-demand read-only contacts lookup and explicit system dialer/SMS composer handoff; no in-app SMS inbox or call-log access.
+- [x] One-shot foreground approximate location with explicit permission, timeout/cancellation and Maps handoff; no background tracking.
+- [x] Read-only Health Connect steps/heart-rate summaries and foreground-only TYPE_STEP_COUNTER integration with explicit permissions.
+- [x] User-selected APK staging through Android PackageInstaller with install-source permission handoff and mandatory system confirmation.
 - [ ] General model-generated tool plans, multi-step execution, cancellation and postcondition verification.
 - [x] Local persistent reminder manager with notification permission, inexact alarms, reboot/time-change restoration and delete/cancel.
 - [x] Deterministic, strict natural-language reminder intents (relative minutes/hours/days; today/tomorrow with AM/PM) with an explicit confirmation dialog and local persistence.
