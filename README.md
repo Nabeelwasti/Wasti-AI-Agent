@@ -42,6 +42,10 @@ The 50-entry registry is not a claim that 50 weights are already downloaded or r
 
 Apache-2.0 and MIT weights can generally be used commercially with their required notices, but the model licence does not make hosted API inference free or unlimited. Usage policies, voice-pack licences, community licences, trademarks and third-party rights still matter. See [models/extended-model-registry.json](models/extended-model-registry.json) and [docs/MODEL_LICENSING_AND_HOSTING.md](docs/MODEL_LICENSING_AND_HOSTING.md).
 
+## Production handoff
+
+See [the owner-facing production handoff checklist](docs/PRODUCTION_HANDOFF.md) for the exact remaining hosting, provider, physical-device, security and release steps.
+
 ## Current release and remaining gates
 
 - Current source candidate: **0.5.17 / versionCode 22**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
