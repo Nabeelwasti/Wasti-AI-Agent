@@ -52,6 +52,7 @@ import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
 import com.arm.aichat.gguf.GgufMetadataReader
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -81,6 +82,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 internal data class NexusAttachment(val name: String, val mimeType: String, val textContent: String? = null, val imageDataUrl: String? = null)
+private data class PendingNexusAgentApproval(val draft: NexusAgentToolDraft, val completion: CompletableDeferred<Boolean>)
 
 private suspend fun readNexusAttachment(context: Context, uri: Uri): NexusAttachment {
     val resolver = context.contentResolver
@@ -259,8 +261,8 @@ class MainActivity : ComponentActivity() {
                     onRestoreRemoteMemory = { url, key, passphrase -> restoreLatestRemoteMemorySnapshot(url, key, passphrase) },
                     onFetchModels = { url, key -> fetchRemoteModels(url, key) },
                     onSyncMemory = { url, key, turns, passphrase -> syncMemorySnapshot(url, key, turns, passphrase) },
-                    onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken ->
-                        sendRemote(url, key, history, prompt, hybrid, agentId, attachments, onCollaboration, onToken)
+                    onSendRemote = { url, key, history, prompt, hybrid, agentId, attachments, allowAgentTools, allowFileContextOnline, approveTool, onCollaboration, onToken ->
+                        sendRemote(url, key, history, prompt, hybrid, agentId, attachments, allowAgentTools, allowFileContextOnline, approveTool, onCollaboration, onToken)
                     }
                     )
                 }
@@ -1057,7 +1059,7 @@ private fun NexusScreen(
     onRestoreRemoteMemory: suspend (String, String, String) -> List<Pair<String, String>>,
     onFetchModels: suspend (String, String) -> List<String>,
     onSyncMemory: suspend (String, String, List<Pair<String, String>>, String) -> String,
-    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, List<NexusAttachment>, (String) -> Unit, (String) -> Unit) -> String
+    onSendRemote: suspend (String, String, List<Pair<String, String>>, String, Boolean, String, List<NexusAttachment>, Boolean, Boolean, suspend (NexusAgentToolDraft) -> Boolean, (String) -> Unit, (String) -> Unit) -> String
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf(initialKey) }
@@ -1100,6 +1102,9 @@ private fun NexusScreen(
     var hybrid by remember { mutableStateOf(false) }
     var autoMode by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(true) }
+    var agentToolsEnabled by remember {
+        mutableStateOf(context.getSharedPreferences("nexus-agent-tools", android.content.Context.MODE_PRIVATE).getBoolean("enabled", false))
+    }
     var localReady by remember { mutableStateOf(false) }
     var loadedModelPath by remember { mutableStateOf("") }
     var autoLoadAttemptedPath by remember { mutableStateOf("") }
@@ -1120,6 +1125,7 @@ private fun NexusScreen(
     var pendingDeviceAction by remember { mutableStateOf<NexusDeviceActionDraft?>(null) }
     var showPermissionDashboard by remember { mutableStateOf(false) }
     var showActionAudit by remember { mutableStateOf(false) }
+    var pendingAgentToolApproval by remember { mutableStateOf<PendingNexusAgentApproval?>(null) }
     var actionAuditRecords by remember { mutableStateOf(emptyList<NexusActionAuditRecord>()) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         answer = if (granted) "Reminder notification permission enabled." else "Reminder saved, but notifications are disabled. Enable them in Android App permissions to receive alerts."
@@ -1199,6 +1205,19 @@ private fun NexusScreen(
             .sortedByDescending { it.updatedAt }
         withContext(Dispatchers.IO) { onPersistChatSessions(updatedSessions) }
         chatSessions = updatedSessions
+    }
+    suspend fun requestAgentToolApproval(draft: NexusAgentToolDraft): Boolean {
+        val completion = CompletableDeferred<Boolean>()
+        withContext(Dispatchers.Main.immediate) {
+            pendingAgentToolApproval = PendingNexusAgentApproval(draft, completion)
+        }
+        return try {
+            completion.await()
+        } finally {
+            withContext(Dispatchers.Main.immediate) {
+                if (pendingAgentToolApproval?.completion === completion) pendingAgentToolApproval = null
+            }
+        }
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
         if (uri != null) {
@@ -1539,7 +1558,7 @@ private fun NexusScreen(
                                             }
                                         }
                                         val appAwarePrompt = NexusAppKnowledge.enrich(context, imageAnalysisContext)
-                                        val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, { collaborationTrace = it }, { token -> queueStreamToken(token) })
+                                        val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, false, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
                                             val updatedConversation = conversation + (displayPrompt to result)
@@ -1640,12 +1659,12 @@ private fun NexusScreen(
                                                     when {
                                                         localServerAvailable -> {
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), false, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                                         }
                                                         snapshot.internetValidated && remoteConfigured -> {
                                                             onSave(url, key)
                                                             usedRemote = true
-                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, "nexus-auto", emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
+                                                            onSendRemote(url, key, remoteConversation, appAwarePrompt, false, "nexus-auto", emptyList(), false, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                                         }
                                                         else -> throw localError
                                                     }
@@ -1665,7 +1684,7 @@ private fun NexusScreen(
                                                 onSave(url, key)
                                                 usedRemote = true
                                                 val remoteAgent = if (mode == NexusMode.AUTO) "nexus-auto" else agentId
-                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, hybrid && mode != NexusMode.AUTO, remoteAgent, emptyList(), agentToolsEnabled && mode == NexusMode.ONLINE && !hybrid && !autoMode, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             }
                                             NexusRoute.BLOCKED -> throw IllegalStateException(decision.reason)
                                         }
