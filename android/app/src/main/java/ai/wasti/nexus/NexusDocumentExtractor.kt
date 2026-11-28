@@ -140,14 +140,18 @@ internal object NexusDocumentExtractor {
                         val page = document.getPage(pageIndex)
                         val box = page.mediaBox
                         val pagePixels = (box.width.toDouble() * box.height.toDouble()).coerceAtLeast(1.0)
-                        val scale = minOf(1.0, sqrt(MAX_PDF_OCR_PIXELS / pagePixels)).toFloat().coerceAtLeast(0.2f)
-                        val bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
-                        ocrPages++
-                        try {
-                            val recognized = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text.trim()
-                            if (recognized.isNotBlank()) recognized else selectable
-                        } finally {
-                            bitmap.recycle()
+                        val scale = minOf(1.0, sqrt(MAX_PDF_OCR_PIXELS / pagePixels)).toFloat()
+                        if (scale < 0.05f) {
+                            selectable
+                        } else {
+                            val bitmap = renderer.renderImage(pageIndex, scale, ImageType.RGB)
+                            ocrPages++
+                            try {
+                                val recognized = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text.trim()
+                                if (recognized.isNotBlank()) recognized else selectable
+                            } finally {
+                                bitmap.recycle()
+                            }
                         }
                     }
                     if (pageText.isNotBlank()) {
