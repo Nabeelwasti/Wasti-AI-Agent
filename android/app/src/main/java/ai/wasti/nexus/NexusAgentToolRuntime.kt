@@ -5,13 +5,27 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.os.CancellationSignal
 import android.provider.ContactsContract
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.OffsetDateTime
+import java.time.Duration
+import java.time.Instant
+import kotlin.coroutines.resume
 
 internal data class NexusAgentToolDraft(
     val id: String,
@@ -25,7 +39,8 @@ internal object NexusAgentToolRuntime {
         "nexus_read_screen", "nexus_read_notifications", "nexus_dismiss_notifications",
         "nexus_search_contacts", "nexus_search_shared_files", "nexus_create_reminder",
         "nexus_click_visible_control", "nexus_scroll", "nexus_navigate",
-        "nexus_dial_contact", "nexus_compose_sms", "nexus_open_sms_inbox", "nexus_open_call_history"
+        "nexus_dial_contact", "nexus_compose_sms", "nexus_open_sms_inbox", "nexus_open_call_history",
+        "nexus_get_location", "nexus_health_summary"
     )
 
     fun definitions(): JSONArray {
@@ -42,7 +57,9 @@ internal object NexusAgentToolRuntime {
             Triple("nexus_dial_contact", "Find one unambiguous contact and open the Android dialer with that number. The user must press Call manually.", schema("contact_name" to "string")),
             Triple("nexus_compose_sms", "Find one unambiguous contact and open the Android SMS composer with a draft. The user must review and press Send manually.", schema("contact_name" to "string", "message" to "string")),
             Triple("nexus_open_sms_inbox", "Open the system messaging app so the user can read their SMS inbox. NEXUS does not read SMS history.", emptySchema()),
-            Triple("nexus_open_call_history", "Open the system dialer so the user can review Recents. NEXUS does not read call-log history.", emptySchema())
+            Triple("nexus_open_call_history", "Open the system dialer so the user can review Recents. NEXUS does not read call-log history.", emptySchema()),
+            Triple("nexus_get_location", "Request one approximate foreground location fix. Coordinates are shared with the online model only after the user's approval.", emptySchema()),
+            Triple("nexus_health_summary", "Read seven-day aggregate steps and average heart rate from Health Connect. Only a summary is shared with the online model after approval.", emptySchema())
         )
         return JSONArray().apply {
             specs.forEach { (name, description, parameters) ->
@@ -87,6 +104,8 @@ internal object NexusAgentToolRuntime {
             "nexus_compose_sms" -> "Open an SMS draft for “${args.getString("contact_name").take(80)}” with this message: “${args.getString("message").take(160)}”. You must review and tap Send manually."
             "nexus_open_sms_inbox" -> "Open the system Messages app. NEXUS will not read your SMS inbox."
             "nexus_open_call_history" -> "Open the system dialer. NEXUS will not read your call history."
+            "nexus_get_location" -> "Request one approximate location fix and share coordinates with the selected online model."
+            "nexus_health_summary" -> "Read the last seven days of steps and heart-rate summary from Health Connect and share that summary with the selected online model."
             else -> error("Unsupported tool.")
         }
         return NexusAgentToolDraft(id, name, description, args)
@@ -210,8 +229,59 @@ internal object NexusAgentToolRuntime {
                 if (intent.resolveActivity(context.packageManager) == null) "No compatible dialer app was found."
                 else { context.startActivity(intent); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
             }
+            "nexus_get_location" -> readOneShotLocation(context)
+            "nexus_health_summary" -> readHealthSummary(context)
             else -> error("Unsupported NEXUS tool.")
         }.take(6000)
+
+    @Suppress("MissingPermission")
+    private suspend fun readOneShotLocation(context: Context): String = withContext(Dispatchers.IO) {
+        if (context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            return@withContext "Approximate location permission is not granted. No location was accessed."
+        val manager = context.getSystemService(LocationManager::class.java)
+            ?: return@withContext "Android location service is unavailable."
+        val provider = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+            .firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+            ?: return@withContext "Android Location services are disabled. No location was accessed."
+        val cancellation = CancellationSignal()
+        val fix = try {
+            withTimeoutOrNull(25_000L) {
+                suspendCancellableCoroutine { continuation ->
+                    continuation.invokeOnCancellation { cancellation.cancel() }
+                    manager.getCurrentLocation(provider, cancellation, context.mainExecutor) { location ->
+                        if (continuation.isActive) continuation.resume(location)
+                    }
+                }
+            }
+        } finally {
+            cancellation.cancel()
+        } ?: return@withContext "No location fix was returned within 25 seconds."
+        "One-time approximate location fix: latitude ${fix.latitude}, longitude ${fix.longitude}, accuracy about ${fix.accuracy.toInt()} metres. This is a single foreground fix, not background tracking."
+    }
+
+    private suspend fun readHealthSummary(context: Context): String = withContext(Dispatchers.IO) {
+        if (HealthConnectClient.getSdkStatus(context) != HealthConnectClient.SDK_AVAILABLE)
+            return@withContext "Health Connect is unavailable or needs an update. No health data was read."
+        val client = HealthConnectClient.getOrCreate(context)
+        val required = setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(HeartRateRecord::class)
+        )
+        val granted = client.permissionController.getGrantedPermissions()
+        if (!granted.containsAll(required))
+            return@withContext "Health Connect read permissions are not granted. Open Health & sensors and grant Steps and Heart Rate access before asking again."
+        val end = Instant.now()
+        val start = end.minus(Duration.ofDays(7))
+        val range = TimeRangeFilter.between(start, end)
+        val steps = client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), range))[StepsRecord.COUNT_TOTAL] ?: 0L
+        val records = client.readRecords(
+            ReadRecordsRequest(recordType = HeartRateRecord::class, timeRangeFilter = range, pageSize = 100)
+        ).records
+        val readings = records.flatMap { it.samples }.map { it.beatsPerMinute }
+        val heart = if (readings.isEmpty()) "No heart-rate samples were recorded in the selected period."
+        else "Average recorded heart rate: ${readings.average().toInt()} bpm from ${readings.size} samples."
+        "Health Connect summary for the last 7 days: $steps steps. $heart Only this summary was read; no background health tracking was started."
+    }
 
     private suspend fun launchContactHandoff(context: Context, draft: NexusAgentToolDraft, composeSms: Boolean): String =
         withContext(Dispatchers.IO) {
