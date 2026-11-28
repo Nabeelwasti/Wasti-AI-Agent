@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
@@ -1267,6 +1268,10 @@ private fun NexusScreen(
                 })
                 NavigationDrawerItem(label = { Text("My location") }, selected = false, icon = { Icon(Icons.Default.Place, contentDescription = null) }, onClick = {
                     context.startActivity(Intent(context, NexusLocationActivity::class.java))
+                    scope.launch { drawerState.close() }
+                })
+                NavigationDrawerItem(label = { Text("Health & sensors") }, selected = false, icon = { Icon(Icons.Default.Favorite, contentDescription = null) }, onClick = {
+                    context.startActivity(Intent(context, NexusHealthActivity::class.java))
                     scope.launch { drawerState.close() }
                 })
                 NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {

@@ -33,8 +33,8 @@ android {
         applicationId = "ai.wasti.nexus"
         minSdk = 33
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.5.12"
+        versionCode = 18
+        versionName = "0.5.13"
     }
     buildTypes {
         getByName("release") {
@@ -69,6 +69,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.documentfile:documentfile:1.1.0")
+    implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:image-labeling:17.0.9")

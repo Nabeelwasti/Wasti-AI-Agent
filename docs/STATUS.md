@@ -210,3 +210,12 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Uses Android's one-shot foreground LocationManager API, a 25-second timeout and cancellation. No background-location permission, continuous updates, location history or automatic remote upload.
 - Shows coordinates, reported accuracy and fix time; opening Maps is a separate user action.
 - Permission denial/revocation is handled without retry loops. Physical Redmi/HyperOS location-provider testing remains required.
+
+
+## 2026-11-28: Health Connect and foreground step sensor
+
+- Added a Health & sensors screen using the stable Health Connect client (1.1.0).
+- Health Connect requests read-only access to Steps and HeartRate records only, and displays a seven-day aggregate/summary locally. Permissions are checked again before reading so revocation is handled.
+- Added optional Android TYPE_STEP_COUNTER access with ACTIVITY_RECOGNITION permission. Sensor listener is active only while the Health & sensors screen is foregrounded and is unregistered in onStop. The counter is cumulative since reboot, not daily steps.
+- No health write, background health read, background sensor collection, or health-data upload is implemented.
+- Device availability, HyperOS sensor behavior and Health Connect permission/revocation tests remain pending.

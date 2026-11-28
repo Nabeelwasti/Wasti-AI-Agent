@@ -26,7 +26,7 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Narrow deterministic device actions with per-action confirmation and conservative destructive-label rejection.
 - [x] On-demand active notification reading with explicit Notification access; no background event storage or model forwarding.
 - [ ] General permission-scoped tool registry, sandboxing, durable action audit, and revocation.
-- [x] On-demand read-only contacts lookup and explicit system dialer/SMS composer handoff; no in-app SMS inbox or call-log access.\n- [x] One-shot foreground approximate location with explicit permission, timeout/cancellation and Maps handoff; no background tracking.
+- [x] On-demand read-only contacts lookup and explicit system dialer/SMS composer handoff; no in-app SMS inbox or call-log access.\n- [x] One-shot foreground approximate location with explicit permission, timeout/cancellation and Maps handoff; no background tracking.\n- [x] Read-only Health Connect steps/heart-rate summaries and foreground-only TYPE_STEP_COUNTER integration with explicit permissions.
 - [ ] General model-generated tool plans, multi-step execution, cancellation and postcondition verification.
 - [x] Local persistent reminder manager with notification permission, inexact alarms, reboot/time-change restoration and delete/cancel.
 - [x] Deterministic, strict natural-language reminder intents (relative minutes/hours/days; today/tomorrow with AM/PM) with an explicit confirmation dialog and local persistence.
