@@ -2448,10 +2448,66 @@ private fun NexusScreen(
                 if (historyNotice.isNotBlank()) {
                     Text(historyNotice, color = if (initialChatError.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
+                if (showPermissionDashboard) {
+                    val statuses = NexusSystemAccess.permissionSnapshot(context)
+                    AlertDialog(
+                        onDismissRequest = { showPermissionDashboard = false },
+                        title = { Text("Android permission dashboard") },
+                        text = {
+                            SelectionContainer {
+                                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    statuses.forEach { (name, status) ->
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                            Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    Text("This is a status snapshot, not a permission grant. Android remains in control of all access.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { showPermissionDashboard = false }) { Text("Close") } }
+                    )
+                }
+                if (showActionAudit) {
+                    AlertDialog(
+                        onDismissRequest = { showActionAudit = false },
+                        title = { Text("Security action audit") },
+                        text = {
+                            SelectionContainer {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("Encrypted local log · last 200 approvals and outcomes. Sensitive screen, notification, contact and file contents are never stored in this audit.", style = MaterialTheme.typography.bodySmall)
+                                    if (actionAuditRecords.isEmpty()) Text("No recorded device actions yet.")
+                                    actionAuditRecords.asReversed().take(40).forEach { record ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(record.action + " · " + record.outcome, style = MaterialTheme.typography.titleSmall)
+                                            Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(record.atMillis)), style = MaterialTheme.typography.labelSmall)
+                                            Text(record.summary, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Divider()
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { showActionAudit = false }) { Text("Close") } },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                runCatching {
+                                    NexusActionAuditStore.clear(context)
+                                    actionAuditRecords = emptyList()
+                                    historyNotice = "Encrypted action audit cleared on this phone."
+                                }.onFailure { historyNotice = "Could not clear audit." }
+                            }) { Text("Clear audit") }
+                        }
+                    )
+                }
                 val deviceActionToConfirm = pendingDeviceAction
                 if (deviceActionToConfirm != null) {
                     AlertDialog(
-                        onDismissRequest = { pendingDeviceAction = null },
+                        onDismissRequest = {
+                            runCatching { NexusActionAuditStore.append(context, "Device action", "DENIED", "Approval dialog dismissed; action was not run.") }
+                            pendingDeviceAction = null
+                        },
                         title = { Text("Approve phone action?") },
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2464,8 +2520,29 @@ private fun NexusScreen(
                             TextButton(enabled = !busy, onClick = {
                                 val approved = deviceActionToConfirm
                                 pendingDeviceAction = null
+                                val auditAction = when (approved.action) {
+                                    is NexusDeviceAction.ClickLabel -> "Click visible control"
+                                    else -> approved.action::class.simpleName ?: "Device action"
+                                }
+                                val approvalRecorded = runCatching {
+                                    NexusActionAuditStore.append(context, auditAction, "APPROVED", "User explicitly approved this action.")
+                                }
+                                if (approvalRecorded.isFailure) {
+                                    answer = "Action was not executed because the encrypted security audit could not record approval."
+                                    activityStatus = "Action blocked · audit unavailable"
+                                    return@TextButton
+                                }
                                 val originalPrompt = prompt.trim()
-                                val result = NexusDeviceActionExecutor.execute(approved.action)
+                                val execution = runCatching { NexusDeviceActionExecutor.execute(approved.action) }
+                                val result = execution.getOrElse { error ->
+                                    runCatching { NexusActionAuditStore.append(context, auditAction, "FAILED", "Execution failed; sensitive details were not stored.") }
+                                    "Device action failed: ${error.message ?: "unknown error"}"
+                                }
+                                if (execution.isSuccess) {
+                                    runCatching { NexusActionAuditStore.append(context, auditAction, "COMPLETED", "Action returned; sensitive result content was not stored.") }
+                                        .onFailure { historyNotice = "Action returned, but its completion could not be written to the audit log." }
+                                }
+                                actionAuditRecords = runCatching { NexusActionAuditStore.read(context) }.getOrDefault(actionAuditRecords)
                                 val reply = result
                                 val updatedTurns = conversation + (originalPrompt to reply)
                                 conversation = updatedTurns
@@ -2478,7 +2555,12 @@ private fun NexusScreen(
                                 }
                             }) { Text("Approve & execute") }
                         },
-                        dismissButton = { TextButton(onClick = { pendingDeviceAction = null }) { Text("Cancel") } }
+                        dismissButton = {
+                            TextButton(onClick = {
+                                runCatching { NexusActionAuditStore.append(context, "Device action", "DENIED", "User declined the requested action; nothing was run.") }
+                                pendingDeviceAction = null
+                            }) { Text("Cancel") }
+                        }
                     )
                 }
                 val reminderDraftToConfirm = pendingReminderDraft
