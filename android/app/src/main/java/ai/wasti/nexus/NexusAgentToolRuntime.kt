@@ -246,7 +246,7 @@ internal object NexusAgentToolRuntime {
         val cancellation = CancellationSignal()
         val fix = try {
             withTimeoutOrNull(25_000L) {
-                suspendCancellableCoroutine { continuation ->
+                suspendCancellableCoroutine<android.location.Location?> { continuation ->
                     continuation.invokeOnCancellation { cancellation.cancel() }
                     manager.getCurrentLocation(provider, cancellation, context.mainExecutor) { location ->
                         if (continuation.isActive) continuation.resume(location)
