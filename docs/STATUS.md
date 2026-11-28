@@ -254,3 +254,12 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Added a read-only permission dashboard. It reports current runtime/special-access status and explicitly leaves grant/revocation to Android Settings.
 - Added bounded scanned-PDF OCR using PDFBox page rendering plus ML Kit text recognition. It processes at most 100 pages for extraction, attempts OCR on up to 20 low-text pages, and skips oversized page renderings. Modern DOCX/XLSX/PPTX and ODT/ODS/ODP remain supported; legacy binary DOC/XLS/PPT remain unsupported. Images still receive OCR and coarse labels, not full semantic vision.
 - The 0.5.16 source candidate is under CI, signing and CodeQL validation. No exact-commit release claim is made until those workflows finish. Real Redmi/HyperOS tests, provider configuration and physical security/recovery acceptance remain outstanding.
+
+
+## 2026-11-28: explicit personal memory and sensitive-data agent tools
+
+- Added a user-managed personal memory screen. Notes are encrypted with AES-GCM using an Android Keystore key, limited to 100 notes and 2,000 characters each, and can be individually deleted or cleared. The store is app-private and is not automatically synced.
+- Added relevance retrieval of up to four saved notes. Relevant notes are included in local prompts. A separate, off-by-default setting is required before any relevant personal-memory note is included in an online-model prompt. This is retrieval memory, not autonomous model training.
+- Extended the approved remote agent registry to 15 tools with one-shot approximate location and seven-day Health Connect summary. Both require a separate per-call approval. Location returns a single foreground fix; health returns only the seven-day steps total and average heart-rate summary after Health Connect permissions have already been granted. No background location or health tracking is started.
+- Updated health/location rationale screens to explain that sensitive summaries/coordinates can be sent to the online model only after the specific approval. Raw health records and contact phone numbers are not returned to the model.
+- Version advanced to 0.5.17 / versionCode 22. Exact-commit CI, signed release and CodeQL validation are pending.
