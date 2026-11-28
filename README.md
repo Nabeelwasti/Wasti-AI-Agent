@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Current source version: 0.5.4 (`versionCode 9`).** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The signed 0.5.4 APK and current CI have passed. Physical Redmi testing and live provider inference remain release gates.
+> **Current source version: 0.5.12 (`versionCode 17`); the 0.5.12 release candidate is awaiting CI/signature verification.** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The signed 0.5.4 APK and current CI have passed. Physical Redmi testing and live provider inference remain release gates.
 
 ## Runtime hierarchy
 
@@ -13,7 +13,7 @@ WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an op
 3. **Owner-controlled inference host:** optional direct HTTPS connection to a workstation/server/cluster you operate. Use this for models too large for the phone.
 4. **Optional Cloudflare relay:** edge authentication and request relay only. Cloudflare Workers AI inference is disabled; the relay is never required for offline or critical work.
 
-Auto mode checks validated internet, Wi-Fi/mobile-data transport, metered status, available RAM, thermal state and battery before choosing a route. Offline mode never falls through to internet. Unsupported tasks such as image generation, speech or training are blocked unless an installed specialist runtime actually supports them. Image understanding is available only through a configured online vision-capable provider; it is not an offline capability.
+Auto mode checks validated internet, Wi-Fi/mobile-data transport, metered status, available RAM, thermal state and battery before choosing a route. Offline mode never falls through to internet. Unsupported tasks such as image generation, speech or training are blocked unless an installed specialist runtime actually supports them. Local images support on-device OCR and coarse ML Kit labels; natural-language visual reasoning still requires a configured online vision-capable provider.
 
 ## Storage policy
 
@@ -23,7 +23,7 @@ Google Drive via Android Storage Access Framework is the sole user-controlled ar
 
 - Native Kotlin/Jetpack Compose Android app with local GGUF model management, automatic selected-model loading, per-model health state and offline chat.
 - Chat workspace with encrypted local history (Android Keystore AES-256-GCM), conversation search/rename/delete/Markdown export, safe Markdown rendering, selectable/copyable responses, prompt editing, Stop/cancellation and streaming for local plus explicitly selected remote models. Auto/Hybrid remote responses remain non-streaming.
-- Bounded text/code attachments for local or remote context; JPEG/PNG/WebP attachments are sent only to a configured online vision-capable self-hosted model. Local native inference remains text-only.
+- Bounded text/code, PDF (first 100 pages), DOCX/XLSX/PPTX and ODT/ODS/ODP attachments are extracted on-device. Images receive local OCR and coarse visual labels; image pixels are sent only to a configured online vision-capable self-hosted model. Local native inference remains text-only.
 - Google Drive SAF workspace with persistent folder permission, size/SHA-256 checks and atomic installation.
 - Twelve original pinned model entries preserved in `nexus-model-catalog.json`.
 - Task-aware Python orchestrator with `nexus-auto`, provider capability matching, explicit licence gates, task-specific priorities, circuit breakers and sequential fallback.
@@ -41,7 +41,7 @@ Apache-2.0 and MIT weights can generally be used commercially with their require
 
 ## Current release and remaining gates
 
-- Current signed Android release: **0.5.4 / versionCode 9**. See [Release signing and artifacts](docs/RELEASE.md).
+- Current source candidate: **0.5.12 / versionCode 17**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
 - The deployed Worker is a relay, not an inference host. At this snapshot, no `NEXUS_PROVIDERS_JSON` provider catalogue is configured, so online model inference is not yet available.
 - Do not label the whole product production-certified until the provider round-trip, Redmi device regression, CodeQL alert triage, operational controls and remaining roadmap items are evidenced.
 
