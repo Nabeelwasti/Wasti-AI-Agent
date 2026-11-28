@@ -26,16 +26,19 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.
 - [x] Narrow deterministic device actions with per-action confirmation and conservative destructive-label rejection.
 - [x] On-demand active notification reading and per-action-approved dismissal of up to 25 non-ongoing notifications; no background event storage or model forwarding.
-- [ ] General permission-scoped tool registry, sandboxing, durable action audit, and revocation.
+- [x] Fixed allowlisted Android tool registry, per-call approval, bounded execution, encrypted local audit and Android permission-status dashboard. Arbitrary code/shell execution is not exposed.
+- [ ] Full permission revocation UI, audit export/retention controls, and comprehensive audit coverage for every system-app handoff.
 - [x] On-demand read-only contacts lookup and explicit system dialer/SMS composer handoff; no in-app SMS inbox or call-log access.
 - [x] One-shot foreground approximate location with explicit permission, timeout/cancellation and Maps handoff; no background tracking.
 - [x] Read-only Health Connect steps/heart-rate summaries and foreground-only TYPE_STEP_COUNTER integration with explicit permissions.
 - [x] User-selected APK staging through Android PackageInstaller with install-source permission handoff and mandatory system confirmation.
-- [ ] General model-generated tool plans, multi-step execution, cancellation and postcondition verification.
+- [x] Bounded model-generated tool calls for one explicitly selected online model: sequential approval, four rounds, eight calls per turn, cancellation and tool-result feedback.
+- [ ] Formal postcondition verification for each action and tool support for local/offline, Auto and Hybrid modes.
 - [x] Local persistent reminder manager with notification permission, inexact alarms, reboot/time-change restoration and delete/cancel.
 - [x] Deterministic, strict natural-language reminder intents (relative minutes/hours/days; today/tomorrow with AM/PM) with an explicit confirmation dialog and local persistence.
-- [ ] General model tool executor for other phone actions; reminder parsing is a narrow first tool, not general autonomy.
-- [x] Integrate bounded PDF/OOXML/ODF text extraction and bundled on-device OCR/coarse visual labels into attachments and shared-storage search; scanned-PDF page OCR remains separate.
+- [x] Fixed remote agent tool executor for screen/notification access, contacts, shared files, reminders, safe accessibility actions, and user-confirmed system dialer/SMS handoffs.
+- [ ] Broader permission-scoped capabilities, formal verification and full offline model tool calling.
+- [x] Integrate bounded PDF/OOXML/ODF text extraction and bundled on-device OCR/coarse visual labels into attachments and shared-storage search, including scanned-PDF OCR for up to 20 pages per import. Legacy binary Office formats and semantic visual reasoning remain unsupported.
 - [ ] Audio/video transcription, image generation and training runtimes (only when a verified implementation and licence exists).
 
 ## Gateway and orchestration
