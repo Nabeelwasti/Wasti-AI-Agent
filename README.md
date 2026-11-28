@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Current source version: 0.5.16 (`versionCode 21`); this candidate is awaiting CI/signature verification.** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The 0.5.13 signed APK passed signature verification; the 0.5.16 candidate is awaiting its own exact-commit CI and signing checks. Physical Redmi testing and live provider inference remain release gates.
+> **Current source version: 0.5.17 (`versionCode 22`); this candidate is awaiting CI/signature verification.** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The 0.5.16 signed APK passed CI, JVM tests, signature verification and CodeQL; the 0.5.17 candidate is awaiting its own exact-commit checks. Physical Redmi testing and live provider inference remain release gates.
 
 ## Runtime hierarchy
 
@@ -32,8 +32,9 @@ Google Drive via Android Storage Access Framework is the sole user-controlled ar
 - In-app 50-entry model governance catalogue with creator, capability, licence, hosting, commercial status and source links.
 - In-app third-party notices and full Apache-2.0/MIT licence texts.
 - Optional Cloudflare Worker relay with Workers AI inference disabled, HTTPS-only self-hosted provider routing, licence/capability gates, request limits, customer-mode rate limiting, personal-memory isolation, provider-address SSRF checks, cancellable single-model SSE and validated OpenAI-compatible NEXUS function-call transport.
-- Optional remote single-model agent loop with a fixed allowlist of 13 Android tools, explicit per-call approval, a four-round/eight-call cap, cancellation and encrypted local action audit. Offline models and Auto/Hybrid do not execute model-generated tools; arbitrary shell, password entry, direct SMS sending, direct calling, payments and permission changes are blocked.
+- Optional remote single-model agent loop with a fixed allowlist of 15 Android tools, explicit per-call approval, a four-round/eight-call cap, cancellation and encrypted local action audit. It includes one-time approximate location and seven-day Health Connect summary tools, both requiring per-call approval. Offline models and Auto/Hybrid do not execute model-generated tools; arbitrary shell, password entry, direct SMS sending, direct calling, payments and permission changes are blocked.
 - Contact-based calling and SMS use Android dialer/composer handoffs. SMS inbox and call history open their system apps but are not read by NEXUS.
+- User-managed personal memory notes are AES-GCM encrypted with Android Keystore, explicitly saved/deleted by the user and retrieved by relevance. They are added to local prompts; online sharing is separately opt-in. This is retrieval memory, not autonomous model training.
 
 ## Model activation is deliberately gated
 
@@ -43,7 +44,7 @@ Apache-2.0 and MIT weights can generally be used commercially with their require
 
 ## Current release and remaining gates
 
-- Current source candidate: **0.5.16 / versionCode 21**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
+- Current source candidate: **0.5.17 / versionCode 22**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
 - The deployed Worker is a relay, not an inference host. At this snapshot, no `NEXUS_PROVIDERS_JSON` provider catalogue is configured, so online model inference is not yet available.
 - Do not label the whole product production-certified until the provider round-trip, Redmi device regression, CodeQL alert triage, operational controls and remaining roadmap items are evidenced.
 
