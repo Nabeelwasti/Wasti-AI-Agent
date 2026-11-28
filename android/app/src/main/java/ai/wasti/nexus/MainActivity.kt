@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
@@ -1258,6 +1259,10 @@ private fun NexusScreen(
                 })
                 NavigationDrawerItem(label = { Text("Models & settings") }, selected = drawerDestination == "Settings", icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {
                     drawerDestination = "Settings"; settingsExpanded = true; scope.launch { drawerState.close() }
+                })
+                NavigationDrawerItem(label = { Text("Contacts & calling") }, selected = false, icon = { Icon(Icons.Default.Person, contentDescription = null) }, onClick = {
+                    context.startActivity(Intent(context, NexusContactsActivity::class.java))
+                    scope.launch { drawerState.close() }
                 })
                 NavigationDrawerItem(label = { Text(if (hybrid) "Hybrid Team · On" else "Hybrid Team") }, selected = hybrid, icon = { Icon(Icons.Default.Tune, contentDescription = null) }, onClick = {
                     if (!offlineMode && configuredRemoteModelCount >= 2) hybrid = !hybrid

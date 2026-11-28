@@ -20,7 +20,11 @@ This document is the source of truth for Android access requests. NEXUS must req
 | Alarm | Android Clock ACTION_SET_ALARM | User reviews and saves in Clock |
 | NEXUS reminders | Local reminder manager; strict natural-language parser with confirmation; SharedPreferences persistence; AlarmManager inexact alarms; notification channel; boot/time-change rescheduling; delete/cancel | User creates and deletes reminders in NEXUS; Android notification permission controls visible alerts; alarms may be delayed by Doze/battery policy |
 | Calendar event | Calendar ACTION_INSERT | User reviews and saves in Calendar |
-| Contacts | Opens Contacts app | User selects/shares manually; no contacts database permission |
+| Contacts | Read-only on-demand address-book search (up to 1,000 phone entries); contact actions open system dialer or SMS composer | Runtime READ_CONTACTS permission requested only when user opens Contacts & calling; NEXUS does not upload or persist the address book |
+| SMS compose | Opens system SMS composer with selected contact number | ACTION_SENDTO handoff; user reviews and sends in the messaging app; no SEND_SMS permission |
+| SMS inbox/history | Not read inside NEXUS | Android restricts READ_SMS/RECEIVE_SMS; NEXUS does not request default SMS role or installer allowlisting |
+| Call history | Not read inside NEXUS; Phone app can be opened | READ_CALL_LOG is restricted; NEXUS does not request default dialer role or installer allowlisting |
+| Contact-based calling | Opens system dialer with selected number | ACTION_DIAL handoff; user places the call; no CALL_PHONE permission |
 | Notification content | On-demand snapshot of up to 25 active notifications through NotificationListenerService; no event cache or background persistence | User manually enables Notification access and approves the chat command; content is shown locally and saved only in the user-requested encrypted chat history |
 | Wi-Fi / location / overlay / usage / battery settings | Settings shortcuts only | Android Settings remains the authority; no settings are silently changed |
 
@@ -34,7 +38,7 @@ This document is the source of truth for Android access requests. NEXUS must req
 - WRITE_SETTINGS: no system-setting mutation feature is implemented.
 - Notification listener: supported for explicit on-demand reading only; the service does not persist notification events or forward content to online models.
 - Usage access: a settings shortcut exists, but NEXUS does not collect app-usage history.
-- Background location, contacts/calendar database, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
+- Background location, health/body sensors, physical activity, nearby devices, microphone recording, phone state and unrestricted data: no shipped feature currently requires these broad data permissions. Use narrower intents, pickers, or future feature-specific consent flows.
 - Exact alarm scheduling is not enabled. NEXUS reminders use inexact AlarmManager scheduling and can be delayed by Android power management; they are not a replacement for safety-critical alarms.
 
 ## Approved device action boundaries

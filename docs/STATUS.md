@@ -193,3 +193,12 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - Enforced 20 MB input, 32 MB expanded archive, 500-entry archive and 200,000-character output limits. XML parsing disables DTD/external entities.
 - Integrated into the attachment picker and bounded shared-storage content search. Local extraction results are added to the current prompt as untrusted document context; remote file-context sharing remains subject to the existing explicit opt-in.\n- Supported images retain the original image for optional online vision and also add local OCR/visual-label context. In Offline mode, only OCR/labels are used; no visual reasoning or image pixels are sent to a server.\n- Legacy binary DOC/XLS/PPT, scanned-PDF page OCR, HEIC/HEIF, semantic image description, and video/audio extraction remain unsupported. Office extraction is limited to text-bearing XML parts and is not a full fidelity layout/table reconstruction.
 - CI, signed release verification and CodeQL for the exact final commit must pass before installation. No physical Redmi test is claimed.
+
+
+## 2026-11-28: contacts and safe phone handoff
+
+- Added a Contacts & calling screen reachable from the navigation drawer.
+- READ_CONTACTS is requested only when the user opens that screen. The address book is queried on demand, capped at 1,000 phone entries, kept in memory and not uploaded or persisted by NEXUS.
+- Contact actions launch Android's dialer (ACTION_DIAL) or SMS composer (ACTION_SENDTO). The user reviews and initiates the call/message in the system app; NEXUS does not silently place calls or send SMS.
+- SMS inbox/history and call-log reading remain unavailable in this build. READ_SMS/RECEIVE_SMS and READ_CALL_LOG are restricted by Android role/installer policy. NEXUS does not request default SMS/dialer takeover or attempt to bypass the restriction.
+- CI and physical-device permission-revocation tests remain pending for this feature.
