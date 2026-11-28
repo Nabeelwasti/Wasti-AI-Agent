@@ -165,7 +165,7 @@ const NEXUS_TOOL_NAMES = new Set([
 function validateTools(body) {
   if (body.tools === undefined) return undefined;
   if (!Array.isArray(body.tools) || body.tools.length < 1 || body.tools.length > NEXUS_TOOL_NAMES.size) {
-    throw new GatewayError("tools must contain between 1 and 11 supported NEXUS functions", 400);
+    throw new GatewayError("tools must contain between 1 and 9 supported NEXUS functions", 400);
   }
   const names = new Set();
   return body.tools.map(tool => {
@@ -625,6 +625,8 @@ async function single(request, env, headers) {
   if (typeof body.model !== "string" || !body.model.trim()) {
     throw new GatewayError("A configured model ID is required", 400);
   }
+  const tools = validateTools(body);
+  if (tools && body.stream === true) throw new GatewayError("NEXUS tool calls require stream=false so every action can be reviewed before execution.", 400);
   const messages = validateMessages(body);
   if (containsImages(messages)) {
     const selected = findModel(env, body.model);
