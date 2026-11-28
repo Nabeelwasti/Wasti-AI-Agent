@@ -815,6 +815,9 @@ class MainActivity : ComponentActivity() {
         hybrid: Boolean,
         agentId: String,
         attachments: List<NexusAttachment>,
+        allowAgentTools: Boolean,
+        allowFileContextOnline: Boolean,
+        approveTool: suspend (NexusAgentToolDraft) -> Boolean,
         onCollaboration: (String) -> Unit,
         onToken: (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
@@ -822,14 +825,13 @@ class MainActivity : ComponentActivity() {
         val local = NexusRuntimePolicy.isLoopbackHttp(root)
         require(root.startsWith("https://") || local) { "Use HTTPS for remote servers; HTTP is permitted only for loopback Termux." }
         require(key.length >= 32) { "Enter the Termux pairing token or a strong remote server bearer key." }
+        val automatic = agentId == "nexus-auto"
+        require(!allowAgentTools || (!hybrid && !automatic)) {
+            "Approved agent tools currently require one explicitly selected online model. Choose a single brain or turn agent tools off."
+        }
 
-        // Bound the remote context so a long chat cannot exceed gateway request limits.
-        // Only the online conversation is supplied; local-only turns never leave the device.
-        // Preserve the complete remote conversation. The model/provider's actual context
-        // window is the only remaining bound; NEXUS no longer silently drops older turns.
-        val selectedHistory = history.toList()
         val messages = JSONArray()
-        selectedHistory.asReversed().forEach { (user, assistant) ->
+        history.asReversed().forEach { (user, assistant) ->
             messages.put(JSONObject().put("role", "user").put("content", user))
             messages.put(JSONObject().put("role", "assistant").put("content", assistant))
         }
@@ -847,65 +849,135 @@ class MainActivity : ComponentActivity() {
             images.forEach { dataUrl -> put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", dataUrl))) }
         }
         messages.put(JSONObject().put("role", "user").put("content", currentContent))
-        val automatic = agentId == "nexus-auto"
-        val stream = !hybrid && !automatic
-        val payload = JSONObject()
-            .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
-            .put("messages", messages)
-            .put("stream", stream)
-        if (automatic) payload.put("nexus", JSONObject().put("mode", "auto"))
-        if (hybrid) {
-            payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
-        }
+        val stream = !hybrid && !automatic && !allowAgentTools
         val apiRoot = NexusRuntimePolicy.normalizeApiRoot(root)
-        val requestBuilder = Request.Builder()
-            .url("$apiRoot/chat/completions")
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-        if (key.isNotBlank()) requestBuilder.header("Authorization", "Bearer $key")
-        val request = requestBuilder.build()
-        executeCancellable(request).use { response ->
-            val responseBody = response.body ?: throw IllegalStateException("Gateway returned an empty response body.")
-            if (!response.isSuccessful) {
-                val errorText = responseBody.string()
-                throw GatewayHttpException(response.code, "Gateway HTTP ${response.code}: $errorText")
-            }
-            if (stream) {
-                val output = StringBuilder()
-                responseBody.charStream().buffered().use { reader ->
-                    while (true) {
-                        val line = reader.readLine() ?: break
-                        if (!line.startsWith("data:")) continue
-                        val data = line.removePrefix("data:").trim()
-                        if (data == "[DONE]") break
-                        if (data.isBlank()) continue
-                        val delta = runCatching {
-                            JSONObject(data).optJSONArray("choices")?.optJSONObject(0)
-                                ?.optJSONObject("delta")?.optString("content").orEmpty()
-                        }.getOrDefault("")
-                        if (delta.isNotEmpty()) {
-                            output.append(delta)
-                            withContext(Dispatchers.Main.immediate) { onToken(delta) }
+        val tools = if (allowAgentTools) NexusAgentToolRuntime.definitions() else null
+        var totalToolCalls = 0
+        var toolRounds = 0
+        val traceLines = mutableListOf<String>()
+
+        suspend fun sendPayload(): okhttp3.Response {
+            val payload = JSONObject()
+                .put("model", when { hybrid -> "nexus-hybrid"; automatic -> "nexus-auto"; else -> agentId })
+                .put("messages", messages)
+                .put("stream", stream)
+            if (automatic) payload.put("nexus", JSONObject().put("mode", "auto"))
+            if (hybrid) payload.put("nexus", JSONObject().put("mode", "hybrid").put("review_rounds", 1))
+            if (tools != null) payload.put("tools", tools)
+            val request = Request.Builder()
+                .url("$apiRoot/chat/completions")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .header("Authorization", "Bearer $key")
+                .build()
+            return executeCancellable(request)
+        }
+
+        while (true) {
+            val response = sendPayload()
+            response.use { current ->
+                val responseBody = current.body ?: throw IllegalStateException("Gateway returned an empty response body.")
+                if (!current.isSuccessful) {
+                    val errorText = responseBody.string()
+                    throw GatewayHttpException(current.code, "Gateway HTTP ${current.code}: $errorText")
+                }
+                if (stream) {
+                    val output = StringBuilder()
+                    responseBody.charStream().buffered().use { reader ->
+                        while (true) {
+                            val line = reader.readLine() ?: break
+                            if (!line.startsWith("data:")) continue
+                            val data = line.removePrefix("data:").trim()
+                            if (data == "[DONE]" || data.isBlank()) continue
+                            val delta = runCatching {
+                                JSONObject(data).optJSONArray("choices")?.optJSONObject(0)
+                                    ?.optJSONObject("delta")?.optString("content").orEmpty()
+                            }.getOrDefault("")
+                            if (delta.isNotEmpty()) {
+                                output.append(delta)
+                                withContext(Dispatchers.Main.immediate) { onToken(delta) }
+                            }
                         }
                     }
+                    val streamedAnswer = output.toString()
+                    if (streamedAnswer.isBlank()) throw IllegalStateException("The streaming provider returned no text tokens.")
+                    val provider = current.header("x-nexus-provider").orEmpty()
+                    val model = current.header("x-nexus-model").orEmpty()
+                    withContext(Dispatchers.Main.immediate) {
+                        onCollaboration("Mode: single-model stream\nSelected brain: ${model.ifBlank { agentId }}\nProvider: ${provider.ifBlank { "configured inference host" }}")
+                    }
+                    return@withContext streamedAnswer
                 }
-                val streamedAnswer = output.toString()
-                if (streamedAnswer.isBlank()) throw IllegalStateException("The streaming provider returned no text tokens.")
-                val provider = response.header("x-nexus-provider").orEmpty()
-                val model = response.header("x-nexus-model").orEmpty()
-                withContext(Dispatchers.Main.immediate) {
-                    onCollaboration("Mode: single-model stream\nSelected brain: ${model.ifBlank { agentId }}\nProvider: ${provider.ifBlank { "configured inference host" }}")
-                }
-                streamedAnswer
-            } else {
+
                 val responseJson = JSONObject(responseBody.string())
-                val answer = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
-                    ?.optString("content")?.takeIf { it.isNotBlank() }
-                    ?: throw IllegalStateException("Gateway response did not contain an answer.")
-                responseJson.optJSONObject("nexus")?.let { metadata ->
-                    val trace = formatCollaborationTrace(metadata)
-                    withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+                val message = responseJson.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                    ?: throw IllegalStateException("Gateway response did not contain an assistant message.")
+                val calls = message.optJSONArray("tool_calls")
+                if (calls == null || calls.length() == 0) {
+                    val answer = message.optString("content").takeIf { it.isNotBlank() }
+                        ?: throw IllegalStateException("Gateway response did not contain an answer.")
+                    responseJson.optJSONObject("nexus")?.let { metadata ->
+                        val trace = formatCollaborationTrace(metadata)
+                        withContext(Dispatchers.Main.immediate) { onCollaboration(trace) }
+                    }
+                    if (traceLines.isNotEmpty()) {
+                        withContext(Dispatchers.Main.immediate) {
+                            onCollaboration((traceLines + listOf("", "Final response returned by the selected brain.")).joinToString("\n"))
+                        }
+                    }
+                    return@withContext answer
                 }
-                answer
+                require(allowAgentTools && tools != null) {
+                    "The model attempted a tool call, but approved agent tools are disabled."
+                }
+                require(calls.length() <= 4 && totalToolCalls + calls.length() <= 8) {
+                    "The agent reached the per-turn tool-call limit. Review the results and start a new request if needed."
+                }
+                require(toolRounds < 4) {
+                    "The agent reached the four-round limit. The last tool results were not followed by another model request."
+                }
+                val assistantMessage = JSONObject()
+                    .put("role", "assistant")
+                    .put("content", message.opt("content") ?: JSONObject.NULL)
+                    .put("tool_calls", calls)
+                messages.put(assistantMessage)
+                toolRounds++
+                for (index in 0 until calls.length()) {
+                    val call = calls.getJSONObject(index)
+                    val draft = NexusAgentToolRuntime.parse(call)
+                    val approved = approveTool(draft)
+                    val toolResult = if (!approved) {
+                        runCatching {
+                            NexusActionAuditStore.append(applicationContext, draft.name, "DENIED", "User declined this tool call; it was not executed.")
+                        }
+                        "The user declined this action. Do not retry it or attempt an equivalent action."
+                    } else {
+                        val recorded = runCatching {
+                            NexusActionAuditStore.append(applicationContext, draft.name, "APPROVED", "User approved this tool call. Sensitive content is not stored in the audit.")
+                        }
+                        if (recorded.isFailure) {
+                            "The action was blocked because the encrypted security audit could not record approval."
+                        } else {
+                            try {
+                                val result = NexusAgentToolRuntime.execute(applicationContext, draft, allowFileContextOnline)
+                                runCatching {
+                                    NexusActionAuditStore.append(applicationContext, draft.name, "COMPLETED", "Tool returned a bounded result; sensitive result content was not stored.")
+                                }
+                                result
+                            } catch (error: Exception) {
+                                runCatching {
+                                    NexusActionAuditStore.append(applicationContext, draft.name, "FAILED", "Tool execution failed; sensitive details were not stored.")
+                                }
+                                "Tool execution failed: ${error.message ?: "unknown error"}. Do not claim it succeeded."
+                            }
+                        }
+                    }
+                    messages.put(JSONObject()
+                        .put("role", "tool")
+                        .put("tool_call_id", draft.id)
+                        .put("content", toolResult.take(6000)))
+                    traceLines += "Tool ${totalToolCalls + 1}: ${draft.name} · ${if (approved) "approved" else "declined"}"
+                    totalToolCalls++
+                }
             }
         }
     }
