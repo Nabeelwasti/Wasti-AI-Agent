@@ -1,3 +1,18 @@
+# Latest verified snapshot — 2026-11-28
+
+**Current application:** 0.5.17 (versionCode 22); application source commit `a45869de00b57b9c2291c5d54f4287e8b295deb2`.  
+**Current main code head:** `a0bb3578352dad7a6c3add6021f8c2902e272c57` (Worker hardening).  
+**Latest CI for that code head:** [run 46129720529](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46129720529), completed successfully. Python/source validation, Cloudflare Worker syntax and tests, Android debug build/JVM tests, ephemeral release-signing validation and deployed relay-policy smoke test passed. Worker suite: **33 passed, 0 failed**.  
+**Latest CodeQL:** [run 46129720548](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46129720548); Python and JavaScript/TypeScript passed; Java/Kotlin was still running at the time of this snapshot.  
+**Signed APK:** [release run 46123389034](https://github.com/Nabeelwasti/Wasti-AI-Agent/actions/runs/46123389034), signed 0.5.17 artifact, signature verification passed for the application source commit above. The Worker-only changes do not change the APK contents or version.  
+**Live Worker:** deployed latest Worker source from `a0bb3578352dad7a6c3add6021f8c2902e272c57` on 2026-11-28; Cloudflare deployment ID `47c347f205324b54843516cc461b35be`. This was a content-only update. Read-back confirmed the existing master-key secret binding, GitHub-memory secret binding, customer-mode setting, memory variables and 60-per-minute rate-limit binding remain present. Secret values were not read.  
+**Still blocked:** no `NEXUS_PROVIDERS_JSON` binding/provider is configured. Therefore online inference is unavailable until an owner-controlled HTTPS OpenAI-compatible inference server and provider secret are configured. Physical Redmi Note 14 Pro acceptance tests and CodeQL alert triage remain owner-side gates.  
+**New hardening:** Worker rejects tool/function-call requests unless the selected model explicitly declares the `tools` capability. This is covered by a regression test.
+
+> This snapshot supersedes older release numbers and deployment statements in the historical log below. Earlier entries are retained as history, not as the current state.
+
+---
+
 # WASTI NEXUS — verified implementation status
 
 **Snapshot:** 2026-11-27  
