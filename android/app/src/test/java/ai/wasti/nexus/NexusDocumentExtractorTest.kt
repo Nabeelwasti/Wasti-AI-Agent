@@ -12,6 +12,12 @@ class NexusDocumentExtractorTest {
         assertTrue(text.contains("42"))
     }
 
+    @Test fun rejectsDoctypeAndExternalEntityDeclarations() {
+        val xml = """<!DOCTYPE root [<!ENTITY x SYSTEM "file:///etc/passwd">]><root>&x;</root>"""
+        val result = runCatching { NexusDocumentExtractor.extractOfficeXmlText(xml.toByteArray()) }
+        assertTrue(result.isFailure)
+    }
+
     @Test fun outputIsBounded() {
         val xml = "<root><t>" + "x".repeat(250_000) + "</t></root>"
         assertEquals(NexusDocumentExtractor.MAX_OUTPUT_CHARS, NexusDocumentExtractor.extractOfficeXmlText(xml.toByteArray()).length)
