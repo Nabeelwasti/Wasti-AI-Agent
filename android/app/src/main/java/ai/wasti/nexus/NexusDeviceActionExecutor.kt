@@ -9,6 +9,7 @@ internal sealed class NexusDeviceAction {
     data object Notifications : NexusDeviceAction()
     data object ReadScreen : NexusDeviceAction()
     data object ReadNotifications : NexusDeviceAction()
+    data object DismissNotifications : NexusDeviceAction()
 }
 
 internal data class NexusDeviceActionDraft(val action: NexusDeviceAction, val description: String)
@@ -30,6 +31,7 @@ internal object NexusDeviceActionParser {
         if (value.equals("open notifications", true) || value.equals("show notifications", true)) return NexusDeviceActionDraft(NexusDeviceAction.Notifications, "Open the Android notification shade")
         if (value.equals("read current screen", true) || value.equals("show current screen text", true)) return NexusDeviceActionDraft(NexusDeviceAction.ReadScreen, "Read visible screen labels locally")
         if (value.equals("list notifications", true) || value.equals("read my notifications", true) || value.equals("show my notifications", true)) return NexusDeviceActionDraft(NexusDeviceAction.ReadNotifications, "Read currently active notification content locally")
+        if (value.equals("dismiss active notifications", true) || value.equals("dismiss my notifications", true)) return NexusDeviceActionDraft(NexusDeviceAction.DismissNotifications, "Dismiss up to 25 active, non-ongoing notifications. Android may preserve ongoing or protected notifications.")
         val match = click.matchEntire(value) ?: return null
         val label = match.groupValues[1].trim().trim('"', '\'')
         if (label.isBlank() || label.length > 60 || prohibited.any { term ->
@@ -41,6 +43,14 @@ internal object NexusDeviceActionParser {
 
 internal object NexusDeviceActionExecutor {
     fun execute(action: NexusDeviceAction): String {
+        if (action == NexusDeviceAction.DismissNotifications) {
+            val listener = NexusNotificationListenerService.current()
+                ?: return "Notification dismissal is unavailable. Enable WASTI NEXUS under Android Settings → Notification access, then try again."
+            val count = runCatching { listener.dismissActiveNotifications(25) }.getOrElse {
+                return "Could not request notification dismissal."
+            }
+            return "Android received dismissal requests for $count active notifications. Ongoing, protected or system notifications may remain."
+        }
         if (action == NexusDeviceAction.ReadNotifications) {
             val listener = NexusNotificationListenerService.current()
                 ?: return "Notification content is unavailable. Enable WASTI NEXUS under Android Settings → Notification access, then try again."
@@ -84,6 +94,7 @@ internal object NexusDeviceActionExecutor {
                 }.take(7_000)
             }
             NexusDeviceAction.ReadNotifications -> error("Notification branch is handled before accessibility lookup.")
+            NexusDeviceAction.DismissNotifications -> error("Notification dismissal is handled before accessibility lookup.")
         }
     }
 }
