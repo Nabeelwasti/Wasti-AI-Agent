@@ -19,7 +19,7 @@ A checkbox is complete only when the implementation exists and evidence is recor
 - [x] Gateway collaboration metadata panel using real provider outputs and orchestration metadata.
 - [x] Bounded text/code attachments for local and remote prompts.
 - [x] Bounded JPEG/PNG/WebP attachments for remote vision-capable providers.
-- [ ] Real-device regression suite: install/upgrade, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN, mobile data and encrypted history recovery.
+- [x] Enable user-invoked picture-in-picture on supported devices and resizeable activity for OS-managed split screen.\n- [ ] Real-device regression suite: install/upgrade, PiP/split screen, all model states, RAM, thermal, battery, airplane mode, Wi-Fi/LAN, mobile data and encrypted history recovery.
 - [x] Encrypted local conversation history, search, open, rename, delete and Markdown export (AES-256-GCM / Android Keystore; local-only; no cross-device restore).
 - [x] SSE remote token streaming for explicitly selected single models with upstream cancellation.
 - [ ] Auto/Hybrid SSE progress, provider fallback and real-time inter-agent progress events.

@@ -2,7 +2,12 @@ package ai.wasti.nexus
 
 import android.app.ActivityManager
 import android.content.Context
+import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.util.Rational
 import android.speech.RecognizerIntent
 import android.net.Uri
 import android.os.Bundle
@@ -1309,6 +1314,23 @@ private fun NexusScreen(
                     }
                 },
                 actions = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                    ) {
+                        TextButton(onClick = {
+                            val activity = context as? Activity
+                            if (activity != null) {
+                                runCatching {
+                                    val params = PictureInPictureParams.Builder()
+                                        .setAspectRatio(Rational(16, 9))
+                                        .build()
+                                    if (!activity.enterPictureInPictureMode(params)) {
+                                        answer = "Android could not enter picture-in-picture mode on this device."
+                                    }
+                                }.onFailure { answer = "Picture-in-picture is unavailable: " + (it.message ?: "unsupported by Android") }
+                            }
+                        }) { Text("PiP") }
+                    }
                     IconButton(onClick = { startNewChat() }) { Icon(Icons.Default.Add, contentDescription = "New chat") }
                 }
             )

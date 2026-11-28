@@ -57,11 +57,29 @@
         <activity android:name=".NexusContactsActivity" android:exported="false" />
         <activity android:name=".NexusLocationActivity" android:exported="false" />
         <activity android:name=".NexusHealthActivity" android:exported="false" />
+        <activity android:name=".NexusHealthRationaleActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name=".NexusHealthPermissionUsage"
+            android:exported="true"
+            android:targetActivity=".NexusHealthRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
         <activity android:name=".NexusApkInstallerActivity" android:exported="false" />
         <receiver android:name=".NexusInstallStatusReceiver" android:exported="false" />
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -187,7 +187,7 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 
 ## 2026-11-28: bounded on-device document and image analysis foundation
 
-- App source version advanced to 0.5.12 / versionCode 17.
+- App source version advanced to 0.5.13 / versionCode 18.
 - Added an on-device extraction service for text PDFs (up to 100 pages), modern OOXML formats (DOCX/XLSX/PPTX), and OpenDocument formats (ODT/ODS/ODP).
 - Added bundled ML Kit text recognition and image labeling for local image OCR and coarse visual labels. These labels are not a natural-language visual caption and are not equivalent to a multimodal reasoning model.
 - Enforced 20 MB input, 32 MB expanded archive, 500-entry archive and 200,000-character output limits. XML parsing disables DTD/external entities.
@@ -227,3 +227,10 @@ Added a user-enabled Android NotificationListenerService that does not cache not
 - If needed, NEXUS opens Android's per-source Install unknown apps setting. The user can revoke this setting after installation.
 - The system PackageInstaller remains responsible for package/signature verification and the final install/upgrade confirmation. NEXUS does not use root, hidden APIs, silent install, downgrade bypass or package replacement tricks.
 - Installer status is reported through a private receiver and locally stored status text. Physical install/upgrade/rejection tests remain required.
+
+
+## 2026-11-28: picture-in-picture and Health Connect privacy rationale
+
+- Enabled NEXUS activity resizeability and Android picture-in-picture support. A PiP control appears only when Android reports the feature and API level are supported; the user must tap it. Split-screen placement remains controlled by Android Recents/system UI.
+- Added the Health Connect permission rationale activity and Android 14+ permission-usage alias. It explains the exact read-only Steps/Heart Rate data use, local processing and lack of background health reads/uploads.
+- PiP sizing/interaction and Health Connect rationale launch paths still need device verification.
