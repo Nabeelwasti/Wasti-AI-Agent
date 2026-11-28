@@ -164,12 +164,14 @@ const NEXUS_TOOL_NAMES = new Set([
   "nexus_compose_sms",
   "nexus_open_sms_inbox",
   "nexus_open_call_history",
+  "nexus_get_location",
+  "nexus_health_summary",
 ]);
 
 function validateTools(body) {
   if (body.tools === undefined) return undefined;
   if (!Array.isArray(body.tools) || body.tools.length < 1 || body.tools.length > NEXUS_TOOL_NAMES.size) {
-    throw new GatewayError("tools must contain between 1 and 13 supported NEXUS functions", 400);
+    throw new GatewayError("tools must contain between 1 and 15 supported NEXUS functions", 400);
   }
   const names = new Set();
   return body.tools.map(tool => {
