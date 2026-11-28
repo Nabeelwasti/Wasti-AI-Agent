@@ -1136,6 +1136,10 @@ private fun NexusScreen(
         mutableStateOf(context.getSharedPreferences("nexus-accessibility", android.content.Context.MODE_PRIVATE)
             .getBoolean("allow_file_context_online", false))
     }
+    var allowPersonalMemoryOnline by remember {
+        mutableStateOf(context.getSharedPreferences("nexus-personal-memory", android.content.Context.MODE_PRIVATE)
+            .getBoolean("allow_online_memory", false))
+    }
     val clipboardManager = LocalClipboardManager.current
     val configuredRemoteModelCount = NexusRuntimePolicy.configuredRemoteBrainCount(remoteModels)
     val scope = rememberCoroutineScope()
@@ -1558,7 +1562,11 @@ private fun NexusScreen(
                                                 append(attachment.textContent.orEmpty())
                                             }
                                         }
-                                        val appAwarePrompt = NexusAppKnowledge.enrich(context, imageAnalysisContext)
+                                        val baseImagePrompt = NexusAppKnowledge.enrich(context, imageAnalysisContext)
+                                        val imageMemories = if (allowPersonalMemoryOnline) withContext(Dispatchers.IO) {
+                                            NexusPersonalMemoryStore.relevant(context, imageAnalysisContext)
+                                        } else emptyList()
+                                        val appAwarePrompt = NexusAppKnowledge.withPersonalMemory(baseImagePrompt, imageMemories)
                                         val result = onSendRemote(url, key, remoteConversation, appAwarePrompt, false, targetAgent, submittedAttachments, false, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             val displayPrompt = (submittedPrompt.ifBlank { "Analyze attached image(s)." }) +
                                                 submittedAttachments.joinToString(prefix = "\n\n[Attached: ", postfix = "]") { it.name }
@@ -1593,7 +1601,12 @@ private fun NexusScreen(
                                             }
                                             textContextPrompt += "\n\n" + NexusFileSearch.formatForModel(submittedPrompt, hits)
                                         }
-                                        val appAwarePrompt = NexusAppKnowledge.enrich(context, textContextPrompt)
+                                        val baseAppAwarePrompt = NexusAppKnowledge.enrich(context, textContextPrompt)
+                                        val relevantPersonalMemories = withContext(Dispatchers.IO) {
+                                            NexusPersonalMemoryStore.relevant(context, textContextPrompt)
+                                        }
+                                        val localAppAwarePrompt = NexusAppKnowledge.withPersonalMemory(baseAppAwarePrompt, relevantPersonalMemories)
+                                        val appAwarePrompt = if (allowPersonalMemoryOnline) localAppAwarePrompt else baseAppAwarePrompt
                                         val task = NexusRuntimePolicy.classify(textContextPrompt)
                                         activityStatus = "Task: ${task.name.lowercase()} · selecting the best available route..."
                                         val loopback = NexusRuntimePolicy.isLoopbackHttp(url.trim().trimEnd('/'))
@@ -1645,7 +1658,7 @@ private fun NexusScreen(
                                                     }
                                                     streamingResponse = ""
                                                     attemptedLocalInference = true
-                                                    onSendLocal(appAwarePrompt) { token -> queueStreamToken(token) }
+                                                    onSendLocal(localAppAwarePrompt) { token -> queueStreamToken(token) }
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (localError: Exception) {
@@ -1823,6 +1836,9 @@ private fun NexusScreen(
                     Text("Permission dashboard · current Android status")
                 }
                 OutlinedButton(onClick = {
+                    context.startActivity(Intent(context, NexusPersonalMemoryActivity::class.java))
+                }, modifier = Modifier.fillMaxWidth()) { Text("Manage personal memory") }
+                OutlinedButton(onClick = {
                     actionAuditRecords = runCatching { NexusActionAuditStore.read(context) }
                         .getOrElse { historyNotice = "Security audit could not be read."; emptyList() }
                     showActionAudit = true
@@ -1864,6 +1880,20 @@ private fun NexusScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Enable AI-requested phone tools", style = MaterialTheme.typography.bodyMedium)
                         Text("Optional, off by default. Works with one selected online brain only. Every tool call needs your approval; results are shared with that online model.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = allowPersonalMemoryOnline,
+                        onCheckedChange = {
+                            allowPersonalMemoryOnline = it
+                            context.getSharedPreferences("nexus-personal-memory", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("allow_online_memory", it).apply()
+                        }
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Allow relevant personal memory to online AI", style = MaterialTheme.typography.bodyMedium)
+                        Text("Off by default. Only notes you explicitly save are retrieved; relevant notes are shared with an online model only while this is enabled.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 OutlinedButton(onClick = {
