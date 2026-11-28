@@ -1675,7 +1675,7 @@ private fun NexusScreen(
                                                 localReady = false
                                                 loadedModelPath = ""
                                                 usedRemote = true
-                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), { collaborationTrace = it }, { token -> queueStreamToken(token) })
+                                                onSendRemote(url, key, remoteConversation, appAwarePrompt, false, remoteModels.first(), emptyList(), agentToolsEnabled && mode == NexusMode.ONLINE && !hybrid && !autoMode, allowFileContextOnline, { draft -> requestAgentToolApproval(draft) }, { collaborationTrace = it }, { token -> queueStreamToken(token) })
                                             }
                                             NexusRoute.REMOTE -> {
                                                 if (localReady) onUnloadLocal()
