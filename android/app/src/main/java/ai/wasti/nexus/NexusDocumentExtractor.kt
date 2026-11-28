@@ -34,7 +34,7 @@ internal object NexusDocumentExtractor {
         return when {
             extension == "pdf" || mimeType.equals("application/pdf", true) -> extractPdf(context, readBounded(context, uri))
             extension in officeExtensions -> extractOffice(readBounded(context, uri), extension)
-            extension in setOf("jpg", "jpeg", "png", "webp", "heic", "heif") || mimeType.startsWith("image/") -> {
+            extension in setOf("jpg", "jpeg", "png", "webp", "heic", "heif") || mimeType.lowercase() in setOf("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif") -> {
                 readBounded(context, uri) // Enforce the same bounded input policy before handing the URI to ML Kit.
                 analyzeImage(context, uri)
             }
@@ -46,13 +46,30 @@ internal object NexusDocumentExtractor {
         if (!file.isFile || file.length() !in 1..MAX_INPUT_BYTES.toLong()) return null
         val extension = file.extension.lowercase()
         return runCatching {
+            val bytes = readFileBounded(file)
             when (extension) {
-                "pdf" -> extractPdf(context, file.readBytes())
-                "docx", "xlsx", "pptx", "odt", "ods", "odp" -> extractOffice(file.readBytes(), extension)
+                "pdf" -> extractPdf(context, bytes)
+                "docx", "xlsx", "pptx", "odt", "ods", "odp" -> extractOffice(bytes, extension)
                 "jpg", "jpeg", "png", "webp" -> analyzeImageBlocking(context, Uri.fromFile(file))
                 else -> null
             }
         }.getOrNull()
+    }
+
+    private fun readFileBounded(file: java.io.File): ByteArray {
+        val output = ByteArrayOutputStream()
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                require(total <= MAX_INPUT_BYTES) { "This file exceeds the 20 MB extraction limit." }
+                output.write(buffer, 0, count)
+            }
+        }
+        return output.toByteArray()
     }
 
     private fun analyzeImageBlocking(context: Context, uri: Uri): String {
@@ -73,7 +90,7 @@ internal object NexusDocumentExtractor {
         } finally {
             labeler.close()
         }
-        return sections.joinToString("\\n\\n").take(MAX_OUTPUT_CHARS)
+        return sections.joinToString("\n\n").take(MAX_OUTPUT_CHARS)
     }
 
     private fun readBounded(context: Context, uri: Uri): ByteArray {
@@ -125,7 +142,7 @@ internal object NexusDocumentExtractor {
                     path.startsWith("word/", true) || path.startsWith("xl/", true) ||
                     path.startsWith("ppt/", true) || path.equals("content.xml", true)
                 )
-                if (!entry.isDirectory && wanted) {
+                if (!entry.isDirectory) {
                     val data = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -133,12 +150,14 @@ internal object NexusDocumentExtractor {
                         if (count < 0) break
                         expanded += count
                         require(expanded <= MAX_EXPANDED_BYTES) { "The Office archive expands beyond the 32 MB safety limit." }
-                        data.write(buffer, 0, count)
+                        if (wanted) data.write(buffer, 0, count)
                     }
-                    val xmlText = extractOfficeXmlText(data.toByteArray())
-                    if (xmlText.isNotBlank()) {
-                        output.append(xmlText).append('\n')
-                        require(output.length <= MAX_OUTPUT_CHARS) { "Extracted document text exceeds the 200,000 character limit." }
+                    if (wanted) {
+                        val xmlText = extractOfficeXmlText(data.toByteArray())
+                        if (xmlText.isNotBlank()) {
+                            output.append(xmlText).append('\n')
+                            require(output.length <= MAX_OUTPUT_CHARS) { "Extracted document text exceeds the 200,000 character limit." }
+                        }
                     }
                 }
                 zip.closeEntry()
@@ -155,8 +174,8 @@ internal object NexusDocumentExtractor {
             setFeature("http://xml.org/sax/features/external-general-entities", false)
             setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "")
-            setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")
+            runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "") }
+            runCatching { setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") }
             isXIncludeAware = false
             isExpandEntityReferences = false
         }
