@@ -37,7 +37,7 @@ Start from [providers.example.json](../cloudflare/providers.example.json). Repla
           "license": "exact checkpoint licence",
           "license_status": "verified",
           "commercial_allowed": true,
-          "capabilities": ["chat", "coding", "reasoning"]
+          "capabilities": ["chat", "coding", "reasoning", "tools"]
         },
         {
           "id": "my-vision-model",
@@ -56,6 +56,8 @@ Start from [providers.example.json](../cloudflare/providers.example.json). Repla
 ```
 
 The example is a schema illustration, not a recommendation to claim commercial rights. Set `commercial_allowed: true` and `license_status: "verified"` only after reviewing the exact model checkpoint and any usage policy. If that review is incomplete, leave the model disabled and gated.
+
+For remote model tool calls, add the `tools` capability only when the actual upstream model and provider adapter support OpenAI-compatible function calling. The Worker accepts only the fixed NEXUS function-name allowlist. The Android app revalidates arguments and pauses for user approval before each call. Agent tools run only with one explicitly selected online model; Auto, Hybrid and offline local models do not run model-generated tools. A model catalogue entry is not proof of tool-call support; test each configured model with the app's approval flow.
 
 ## Configure Cloudflare
 
