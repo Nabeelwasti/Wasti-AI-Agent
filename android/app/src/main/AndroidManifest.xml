@@ -57,6 +57,7 @@
         <activity android:name=".NexusContactsActivity" android:exported="false" />
         <activity android:name=".NexusLocationActivity" android:exported="false" />
         <activity android:name=".NexusHealthActivity" android:exported="false" />
+        <activity android:name=".NexusPersonalMemoryActivity" android:exported="false" />
         <activity android:name=".NexusHealthRationaleActivity" android:exported="true">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
