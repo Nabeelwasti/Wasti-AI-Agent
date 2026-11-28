@@ -201,13 +201,9 @@ internal object NexusAgentToolRuntime {
                 else { context.startActivity(intent); "Opened the system messaging app. Review your inbox there; NEXUS did not read SMS history." }
             }
             "nexus_open_call_history" -> withContext(Dispatchers.Main.immediate) {
-                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_DIALER)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (intent.resolveActivity(context.packageManager) == null) {
-                    val fallback = Intent(Intent.ACTION_DIAL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    if (fallback.resolveActivity(context.packageManager) == null) "No compatible dialer app was found."
-                    else { context.startActivity(fallback); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
-                } else { context.startActivity(intent); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
+                val intent = Intent(Intent.ACTION_DIAL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (intent.resolveActivity(context.packageManager) == null) "No compatible dialer app was found."
+                else { context.startActivity(intent); "Opened the system dialer. Choose Recents to review call history; NEXUS did not read call logs." }
             }
             else -> error("Unsupported NEXUS tool.")
         }.take(6000)
