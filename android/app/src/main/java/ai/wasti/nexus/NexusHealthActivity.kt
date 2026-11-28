@@ -36,7 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.permission.PermissionController
+import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
@@ -77,14 +77,7 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
                 PermissionController.createRequestPermissionResultContract()
             ) { granted ->
                 healthAccess = granted.containsAll(requiredHealthPermissions)
-                if (healthAccess) {
-                    scope.launch {
-                        loading = true
-                        summary = runCatching { readHealthSummary(requiredHealthPermissions) }
-                            .getOrElse { "Health Connect could not return data: ${it.message}" }
-                        loading = false
-                    }
-                } else summary = "Health Connect permission was not granted. No health data was read."
+                if (!healthAccess) summary = "Health Connect permission was not granted. No health data was read."
             }
             LaunchedEffect(Unit) {
                 sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
@@ -198,6 +191,7 @@ class NexusHealthActivity : ComponentActivity(), SensorEventListener {
 
     override fun onStop() {
         sensorManager?.unregisterListener(this)
+        stepCounterState?.value = null
         super.onStop()
     }
 }
