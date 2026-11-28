@@ -4,7 +4,7 @@
 
 WASTI NEXUS is a personal AI workspace with native Android GGUF inference, an optional Termux llama.cpp server, a self-hosted model orchestration API and an extended model/licence registry. It does not depend on Cloudflare Workers AI or any paid model-provider API for local inference.
 
-> **Current source version: 0.5.14 (`versionCode 19`); this candidate is awaiting CI/signature verification.** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The 0.5.13 signed APK passed signature verification; 0.5.14 CI is still pending. Physical Redmi testing and live provider inference remain release gates.
+> **Current source version: 0.5.15 (`versionCode 20`); this candidate is awaiting CI/signature verification.** The app now includes encrypted local conversation history, search/rename/delete/Markdown export, safe Markdown rendering for assistant output, local streaming, cancellable remote SSE for explicitly selected single models, model health/auto-load, bounded attachments and real gateway collaboration traces. The 0.5.13 signed APK passed signature verification; 0.5.15 CI is still pending. Physical Redmi testing and live provider inference remain release gates.
 
 ## Runtime hierarchy
 
@@ -41,7 +41,7 @@ Apache-2.0 and MIT weights can generally be used commercially with their require
 
 ## Current release and remaining gates
 
-- Current source candidate: **0.5.14 / versionCode 19**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
+- Current source candidate: **0.5.15 / versionCode 20**. Previous signed release artifacts are not equivalent to this new source candidate; check [STATUS.md](docs/STATUS.md) for exact workflow evidence. See [Release signing and artifacts](docs/RELEASE.md).
 - The deployed Worker is a relay, not an inference host. At this snapshot, no `NEXUS_PROVIDERS_JSON` provider catalogue is configured, so online model inference is not yet available.
 - Do not label the whole product production-certified until the provider round-trip, Redmi device regression, CodeQL alert triage, operational controls and remaining roadmap items are evidenced.
 
