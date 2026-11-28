@@ -26,7 +26,7 @@ class NexusHealthRationaleActivity : ComponentActivity() {
                     ) {
                         Text("WASTI NEXUS · Health data privacy", style = MaterialTheme.typography.headlineSmall)
                         Text("NEXUS requests read-only access to Steps and Heart Rate records through Android Health Connect. It reads a seven-day summary only after you choose Connect & read.")
-                        Text("NEXUS does not write health records, request background health access, build a health history in its own storage, or send health records to online AI providers.")
+                        Text("NEXUS does not write health records, request background health access, or build a health history in its own storage. If you enable AI tools and approve the specific Health summary tool call, only the seven-day steps total and average heart-rate summary are sent to the selected online model; raw records are not sent.")
                         Text("The optional step-counter sensor uses ACTIVITY_RECOGNITION only while the Health & sensors screen is open. It reports the device counter since reboot and stops when the screen closes.")
                         Text("You can revoke Health Connect access at any time in Android Health Connect settings.")
                         Button(onClick = { finish() }) { Text("Close") }
