@@ -122,9 +122,19 @@ internal object NexusReminderStore {
         pending.cancel()
     }
 
+    fun remove(context: Context, reminderId: Int) {
+        val reminders = load(context)
+        reminders.firstOrNull { it.id == reminderId }?.let { cancel(context, it) }
+        save(context, reminders.filterNot { it.id == reminderId })
+    }
+
     fun restore(context: Context) {
         val now = System.currentTimeMillis()
-        load(context).filter { it.triggerAtMillis > now }.forEach { schedule(context, it) }
+        load(context).forEach { reminder ->
+            // Deliver reminders that elapsed while the device was powered off shortly after boot/time restoration.
+            val target = if (reminder.triggerAtMillis <= now) reminder.copy(triggerAtMillis = now + 5_000L) else reminder
+            schedule(context, target)
+        }
     }
 
     fun createNotificationChannel(context: Context) {
@@ -148,6 +158,7 @@ class NexusReminderReceiver : BroadcastReceiver() {
         val id = intent.getIntExtra("reminder_id", 0)
         val title = intent.getStringExtra("reminder_title")?.take(120).orEmpty()
         if (id <= 0 || title.isBlank()) return
+        runCatching { NexusReminderStore.remove(context, id) }
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
         NexusReminderStore.createNotificationChannel(context)
         val openApp = PendingIntent.getActivity(
