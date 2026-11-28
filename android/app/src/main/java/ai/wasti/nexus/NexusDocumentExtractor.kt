@@ -10,6 +10,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
+import com.google.android.gms.tasks.Tasks
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -39,6 +40,40 @@ internal object NexusDocumentExtractor {
             }
             else -> throw IllegalArgumentException("Supported rich documents: PDF, DOCX, XLSX, PPTX, ODT, ODS and ODP. Images: JPEG, PNG, WebP, HEIC.")
         }
+    }
+
+    internal fun extractFileForSearch(context: Context, file: java.io.File): String? {
+        if (!file.isFile || file.length() !in 1..MAX_INPUT_BYTES.toLong()) return null
+        val extension = file.extension.lowercase()
+        return runCatching {
+            when (extension) {
+                "pdf" -> extractPdf(context, file.readBytes())
+                "docx", "xlsx", "pptx", "odt", "ods", "odp" -> extractOffice(file.readBytes(), extension)
+                "jpg", "jpeg", "png", "webp" -> analyzeImageBlocking(context, Uri.fromFile(file))
+                else -> null
+            }
+        }.getOrNull()
+    }
+
+    private fun analyzeImageBlocking(context: Context, uri: Uri): String {
+        val image = InputImage.fromFilePath(context, uri)
+        val sections = mutableListOf<String>()
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        try {
+            val text = Tasks.await(recognizer.process(image)).text.trim()
+            if (text.isNotBlank()) sections += "Text detected on-device:\\n$text"
+        } finally {
+            recognizer.close()
+        }
+        val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+        try {
+            val labels = Tasks.await(labeler.process(image)).sortedByDescending { it.confidence }.take(12)
+                .map { "${it.text} (${"%.2f".format(java.util.Locale.ROOT, it.confidence)})" }
+            if (labels.isNotEmpty()) sections += "On-device visual labels:\\n" + labels.joinToString(", ")
+        } finally {
+            labeler.close()
+        }
+        return sections.joinToString("\\n\\n").take(MAX_OUTPUT_CHARS)
     }
 
     private fun readBounded(context: Context, uri: Uri): ByteArray {
