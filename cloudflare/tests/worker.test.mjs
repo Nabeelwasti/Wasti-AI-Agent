@@ -863,3 +863,48 @@ test("gateway accepts the exact 1 MB base64 image size after padding adjustment"
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("function calling is denied unless the selected model explicitly declares tools capability", async () => {
+  const originalFetch = globalThis.fetch;
+  let upstreamCalls = 0;
+  globalThis.fetch = async () => {
+    upstreamCalls += 1;
+    return Response.json({ choices: [{ message: { content: "unexpected" } }] });
+  };
+  try {
+    const configured = {
+      ...env,
+      NEXUS_PROVIDERS_JSON: JSON.stringify({ providers: [{
+        id: "limited-host",
+        base_url: "https://limited.example/v1",
+        api_key_env: "LIMITED_HOST_KEY",
+        models: [{
+          id: "chat-only-model",
+          enabled: true,
+          commercial_allowed: true,
+          license_status: "verified",
+          capabilities: ["chat", "reasoning"],
+        }],
+      }] }),
+      LIMITED_HOST_KEY: "limited-provider-secret",
+    };
+    const response = await worker.fetch(authedRequest("/v1/chat/completions", "POST", {
+      model: "chat-only-model",
+      messages: [{ role: "user", content: "Read the screen." }],
+      tools: [{
+        type: "function",
+        function: {
+          name: "nexus_read_screen",
+          parameters: { type: "object", properties: {}, additionalProperties: false },
+        },
+      }],
+      stream: false,
+    }), configured);
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error.message, /not verified as supporting NEXUS function calling/);
+    assert.equal(upstreamCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
