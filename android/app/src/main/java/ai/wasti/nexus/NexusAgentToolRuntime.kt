@@ -24,7 +24,8 @@ internal object NexusAgentToolRuntime {
     private val names = setOf(
         "nexus_read_screen", "nexus_read_notifications", "nexus_dismiss_notifications",
         "nexus_search_contacts", "nexus_search_shared_files", "nexus_create_reminder",
-        "nexus_click_visible_control", "nexus_scroll", "nexus_navigate"
+        "nexus_click_visible_control", "nexus_scroll", "nexus_navigate",
+        "nexus_dial_contact", "nexus_compose_sms", "nexus_open_sms_inbox", "nexus_open_call_history"
     )
 
     fun definitions(): JSONArray {
